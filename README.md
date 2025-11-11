@@ -1,4 +1,4 @@
-# 🌀 RunTogether  
+# 🌀 MazeMates
 ### אחד רואה, השני עושה – אבל מנצחים רק ביחד!  
 
 ![alt text](images/logo.png)
