@@ -75,7 +75,7 @@
 - שבילים רחבים, מעט פניות.
 -2 מפתחות במיקומים גלויים וברורים.
 
-![Sample Map Layout](images/17x17_screen_sample.png)
+<img src="images/17x17_screen_sample.png" width="500" height="500" />
 
 
 ### חידה
@@ -179,5 +179,6 @@
 [Victory Screen]
 
 ```
+
 
 
