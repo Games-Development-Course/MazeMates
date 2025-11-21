@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/StartScene.unity
+    guid: 923359a4f28c34c49a21c20417fbde5a
+  - enabled: 1
+    path: Assets/Scenes/TravellerScene.unity
+    guid: f64517acd7f807e4ca1fc29decb34343
+  - enabled: 1
+    path: Assets/Scenes/NavigatorScene.unity
+    guid: e5562a20754f6af428f3d4ee6af4b2a8
+  - enabled: 1
+    path: Assets/Scenes/WinGame.unity
+    guid: a18571b0f175e71408703c8d90019351
+  - enabled: 1
+    path: Assets/Scenes/GameOver.unity
+    guid: a5d7454d40c13b44b91517c5886a9abc
+  m_configObjects:
+    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  m_UseUCBPForAssetBundles: 0
