@@ -6,6 +6,8 @@ public class GameManager : MonoBehaviour
 
     public int lives;
     public int keys;
+    public bool inPuzzle = false;
+
 
     public int totalKeysInLevel = 0;
 

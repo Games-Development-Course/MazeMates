@@ -7,7 +7,7 @@ public class PlayerCamera1P : MonoBehaviour
 
     float xRotation = 0f;
 
-    public float lockDuration = 0.5f; // כמה זמן שהמצלמה נעולה
+    public float lockDuration = 0.5f;
     private bool cameraLocked = true;
     private float timer = 0f;
 
@@ -15,6 +15,7 @@ public class PlayerCamera1P : MonoBehaviour
     {
         Cursor.lockState = CursorLockMode.Locked;
     }
+
     public void LockCameraForSeconds(float duration)
     {
         lockDuration = duration;
@@ -22,15 +23,17 @@ public class PlayerCamera1P : MonoBehaviour
         timer = 0f;
     }
 
-
     void Update()
     {
-        // שלב 1 — המצלמה נעולה בהתחלה
+        // בזמן חידה המצלמה לא זזה
+        if (GameManager.Instance.inPuzzle)
+            return;
+
+        // שלב נעילה הראשוני
         if (cameraLocked)
         {
             timer += Time.deltaTime;
 
-            // קיבוע מלא של הרוטציה
             xRotation = 0f;
             transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
             playerBody.rotation = Quaternion.Euler(0f, 0f, 0f);
@@ -41,7 +44,7 @@ public class PlayerCamera1P : MonoBehaviour
             return;
         }
 
-        //  שלב 2 — אחרי שהנעילה נגמרה, המצלמה עובדת רגיל
+        // מצב מצלמה רגיל
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
 

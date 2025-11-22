@@ -29,6 +29,7 @@ Transform:
   m_LocalScale: {x: 1.53, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 6341677669832608068}
   - {fileID: 800999792379466725}
   - {fileID: 4798211246781678178}
   m_Father: {fileID: 0}
@@ -156,7 +157,6 @@ GameObject:
   - component: {fileID: 4798211246781678178}
   - component: {fileID: 8499202851809232226}
   - component: {fileID: 9200665883185725082}
-  - component: {fileID: 5519035918901258632}
   - component: {fileID: 6716986820226044222}
   m_Layer: 0
   m_Name: DoorPad
@@ -236,19 +236,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &5519035918901258632
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3920196075225453959}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4016a256e038b9545a0306865e76fbe0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PadTrigger
-  door: {fileID: 0}
 --- !u!65 &6716986820226044222
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -388,7 +375,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6341677669832608068}
   - {fileID: 6405936184205513833}
   m_Father: {fileID: 7606555329944943859}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -452,12 +438,12 @@ Transform:
   m_GameObject: {fileID: 8785921787029292595}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.42063007, y: 0.60896003, z: -2.1482902}
+  m_LocalPosition: {x: 0.047000017, y: 0.806, z: -0.89800036}
   m_LocalScale: {x: 1, y: 2, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6640562126968318596}
-  m_Father: {fileID: 800999792379466725}
+  m_Father: {fileID: 7606555329944943859}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &2411120721930780934
 BoxCollider:

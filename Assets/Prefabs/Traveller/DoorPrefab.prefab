@@ -42,7 +42,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 319080968609344758}
-  - component: {fileID: 2881062737872834045}
   m_Layer: 0
   m_Name: Door
   m_TagString: Untagged
@@ -66,24 +65,6 @@ Transform:
   - {fileID: 1453563763073308247}
   m_Father: {fileID: 1149484009371313943}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2881062737872834045
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3380160988400784999}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6e5037f498ac0bd4ab617c27d4d38b50, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DoorController
-  pivot: {fileID: 1453563763073308247}
-  openAngle: -90
-  openSpeed: 3
-  pad: {fileID: 8673673595200104326}
-  isVictoryDoor: 0
-  victorySceneName: WinGame
 --- !u!1 &3887907340050729411
 GameObject:
   m_ObjectHideFlags: 0
@@ -95,7 +76,6 @@ GameObject:
   - component: {fileID: 2864172002634347043}
   - component: {fileID: 8736769460045985533}
   - component: {fileID: 993955120499439066}
-  - component: {fileID: 8673673595200104326}
   - component: {fileID: 6300016302720416288}
   m_Layer: 0
   m_Name: DoorPad
@@ -175,19 +155,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &8673673595200104326
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3887907340050729411}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4016a256e038b9545a0306865e76fbe0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PadTrigger
-  door: {fileID: 2881062737872834045}
 --- !u!65 &6300016302720416288
 BoxCollider:
   m_ObjectHideFlags: 0
