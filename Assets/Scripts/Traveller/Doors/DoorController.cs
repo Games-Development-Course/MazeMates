@@ -1,5 +1,6 @@
-using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 
 public interface IDoor
 {
@@ -55,75 +56,48 @@ public class DoorController : MonoBehaviour
     // --------------------------------------------------------
     private void FindOrCreatePivot()
     {
-        // אם כבר קיים Pivot ידני – משתמשים בו
-        Transform p = transform.Find("Pivot");
-        if (p != null)
+        // מוצאים MeshFilter כדי לקבל את גבולות הדלת
+        MeshFilter mf = GetComponentInChildren<MeshFilter>();
+        if (mf == null)
         {
-            pivot = p;
+            Debug.LogError("No MeshFilter found under door!", this);
             return;
         }
 
-        // מחפשים MeshRenderer שמתאים דווקא לדלת
-        MeshRenderer[] allMeshes = GetComponentsInChildren<MeshRenderer>();
-        MeshRenderer doorMesh = null;
-
-        foreach (var m in allMeshes)
-        {
-            if (m.gameObject.name.ToLower().Contains("door"))
-            {
-                doorMesh = m;
-                break;
-            }
-        }
-
-        if (doorMesh == null)
-        {
-            Debug.LogError("No door mesh found — name must contain 'Door'", this);
-            return;
-        }
-
-        // --------  Local bounds (המשמעותי ביותר) --------
-        MeshFilter mf = doorMesh.GetComponent<MeshFilter>();
-        Bounds localBounds = mf.sharedMesh.bounds;   //  LOCAL, לא WORLD
+        Transform doorModel = mf.transform;
+        Bounds localBounds = mf.sharedMesh.bounds;
 
         float width = localBounds.size.x;
 
-        // מיקום הצד השמאלי הלוקאלי
-        Vector3 localLeft = new Vector3(
+        // מחשבים את הצד שמאל של הדלת
+        Vector3 leftLocal = new Vector3(
             localBounds.center.x - width * 0.5f,
             localBounds.center.y,
             localBounds.center.z
         );
 
-        // יוצרים פיבוט חדש
+        Vector3 leftWorld = doorModel.TransformPoint(leftLocal);
+
+        // פיבוט חדש
         GameObject pivotObj = new GameObject("Pivot");
         pivotObj.transform.SetParent(transform);
-
-        // ממפים קואורדינטות local bounds  local position אמיתית בחלל של הדלת
-        Vector3 worldLeft = doorMesh.transform.TransformPoint(localLeft);
-        pivotObj.transform.position = worldLeft;
-
+        pivotObj.transform.position = leftWorld;
         pivotObj.transform.localRotation = Quaternion.identity;
 
-
-        // ------------------------------------------------
-        //  מעבירים רק את אובייקטי הדלת לפיבוט
-        //   (לא Portal, לא Quad, לא ExitTrigger)
-        // ------------------------------------------------
-        for (int i = transform.childCount - 1; i >= 0; i--)
+        // נזיז רק דברים ש*שייכים* לדלת
+        foreach (Transform child in transform)
         {
-            Transform child = transform.GetChild(i);
-
             if (child == pivotObj.transform)
                 continue;
 
-            if (child.GetComponent<PadTrigger>() != null)
-                continue;
+            string name = child.name.ToLower();
 
-            string lower = child.name.ToLower();
-            if (lower.Contains("portal") || lower.Contains("quad") || lower.Contains("poster"))
-                continue;
+            // לא מזיזים Portal, Trigger או Pad
+            if (name.Contains("portal")) continue;
+            if (name.Contains("trigger")) continue;
+            if (name.Contains("pad")) continue;
 
+            // כן מזיזים את מודל הדלת ותוספות שלה
             child.SetParent(pivotObj.transform, true);
         }
 

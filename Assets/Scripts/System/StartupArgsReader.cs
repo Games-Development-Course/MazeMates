@@ -1,26 +1,26 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class StartupArgsReader : MonoBehaviour
 {
-    void Start()
+    void Awake()
     {
         string[] args = System.Environment.GetCommandLineArgs();
 
+        // ברירת מחדל
+        RoleManager.Role = PlayerRole.Traveler;
+
         foreach (string arg in args)
         {
-            if (arg == "-role" || arg == "-role ")
-                continue;
-
-            if (arg.Contains("traveler"))
-            {
-                RoleManager.Role = PlayerRole.Traveler;
-                SceneManager.LoadScene("TravellerScene");
-            }
-            else if (arg.Contains("navigator"))
+            if (arg.ToLower().Contains("navigator"))
             {
                 RoleManager.Role = PlayerRole.Navigator;
-                SceneManager.LoadScene("NavigatorScene");
+                break;
+            }
+
+            if (arg.ToLower().Contains("traveler"))
+            {
+                RoleManager.Role = PlayerRole.Traveler;
+                break;
             }
         }
     }

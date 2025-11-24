@@ -7,10 +7,10 @@ public class GameManager : MonoBehaviour
     public int lives;
     public int keys;
     public bool inPuzzle = false;
+    public int lifebuoys = 0;   // כמה גלגלי הצלה יש להם
 
 
     public int totalKeysInLevel = 0;
-
 
     private void Awake()
     {
@@ -35,8 +35,7 @@ public class GameManager : MonoBehaviour
         if (!Application.isPlaying)
             return;
 
-        if (HUD.Instance != null)
-            HUD.Instance.UpdateHUD();
+        HUDManager.Instance?.UpdateHUDs();
     }
 #endif
 }

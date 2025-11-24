@@ -23,7 +23,6 @@ public class PlayerMovement1P : MonoBehaviour
         if (GameManager.Instance.inPuzzle && (h != 0 || v != 0))
         {
             GameManager.Instance.inPuzzle = false;
-            HUD.Instance.HidePuzzle();
 
             // סוגר את ה-Canvas של החידה בפועל
             DoorController[] allDoors =
@@ -39,6 +38,7 @@ public class PlayerMovement1P : MonoBehaviour
                     break;
                 }
             }
+
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
 

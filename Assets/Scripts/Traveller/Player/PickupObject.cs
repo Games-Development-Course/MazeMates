@@ -4,7 +4,8 @@ using TMPro;
 
 public class PickupObject : MonoBehaviour
 {
-    public enum PickupType { Heart, Key, Bomb }
+    public enum PickupType { Heart, Key, Bomb, Lifebuoy }
+
     public PickupType type;
 
     [Header("Custom Message Settings")]
@@ -19,66 +20,49 @@ public class PickupObject : MonoBehaviour
         if (!other.CompareTag("Player"))
             return;
 
-        // -----------------------------
-        // שלב 1 – עדכון צבע ופונט בפועל
-        // -----------------------------
-        if (HUD.Instance != null)
+        HUDManager hud = HUDManager.Instance;
+        GameManager gm = GameManager.Instance;
+
+        // הצגת הודעה מותאמת מראש
+        if (!string.IsNullOrEmpty(customMessage))
         {
-            // פונט
-            if (messageFont != null)
-                HUD.Instance.messageText.font = messageFont;
-
-            // צבע בסיס (Vertex color)
-            HUD.Instance.messageText.color = messageColor;
-
-            // שינוי צבע אמיתי בחומר (FaceColor)
-            var mat = HUD.Instance.messageText.fontMaterial;
-
-            if (mat.HasProperty("_FaceColor"))
-                mat.SetColor("_FaceColor", messageColor);
-
-            // אם לא רוצים outline
-            if (mat.HasProperty("_OutlineColor"))
-                mat.SetColor("_OutlineColor", Color.clear);
-
-            // הצגת הודעה
-            if (!string.IsNullOrEmpty(customMessage))
-                HUD.Instance.ShowMessage(customMessage);
+            hud.SetMessageAppearanceForBoth(messageColor, messageFont);
+            hud.ShowMessageForBoth(customMessage);
         }
 
-        // -----------------------------
-        // שלב 2 – לוגיקה לפי סוג האובייקט
-        // -----------------------------
         switch (type)
         {
             case PickupType.Heart:
-                GameManager.Instance.lives++;
-                HUD.Instance.UpdateHUD();
+                gm.lives++;
+                hud.ShowMessageForBoth("אספתם לב! החיים עלו ב־1.");
+                hud.UpdateHUDs();
                 break;
 
             case PickupType.Key:
-                GameManager.Instance.keys++;
-                HUD.Instance.UpdateHUD();
+                gm.keys++;
+                hud.ShowMessageForBoth("אספתם מפתח!");
+                hud.UpdateHUDs();
+                break;
+
+            case PickupType.Lifebuoy:
+                gm.lifebuoys++;
+                hud.ShowMessageForBoth("קיבלתם גלגל הצלה! הנווט יכול להשתמש בו אם החידה קשה מדי.");
+                hud.UpdateHUDs();
                 break;
 
             case PickupType.Bomb:
-                GameManager.Instance.lives--;
-                HUD.Instance.UpdateHUD();
-                HUD.Instance.FlashLifeIcon();
+                gm.lives--;
+                hud.FlashLifeIcons();
+                hud.UpdateHUDs();
 
-                if (GameManager.Instance.lives <= 0)
+                if (gm.lives <= 0)
                 {
                     SceneManager.LoadScene("GameOver");
                 }
                 else
                 {
-                    // נועל מצלמה
-                    other.GetComponentInChildren<PlayerCamera1P>()
-                        ?.LockCameraForSeconds(2f);
-
-                    // שולח לנקודת התחלה
-                    other.GetComponent<PlayerMovement1P>()
-                         ?.TeleportToStart(PlayerStartPoint.Instance.startPosition);
+                    other.GetComponentInChildren<PlayerCamera1P>()?.LockCameraForSeconds(0.5f);
+                    other.GetComponent<PlayerMovement1P>()?.TeleportToStart(PlayerStartPoint.Instance.startPosition);
                 }
                 break;
         }

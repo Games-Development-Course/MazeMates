@@ -7,37 +7,36 @@ public class PadTrigger : MonoBehaviour
 
     void Start()
     {
-        // הדלת יושבת תמיד בהורה
         door = GetComponentInParent<DoorController>();
-
-        if (door == null)
-            Debug.LogError("PadTrigger נמצא בלי DoorController בהורה!", this);
     }
 
     void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
-
         playerOnPad = true;
 
-        if (door.IsOpen()) return;
+        // לא מציגים הודעה אם הדלת פתוחה
+        if (door.IsOpen())
+            return;
 
-        // הצגת הודעה לפי סוג הדלת
+        var hud = HUDManager.Instance;
+        var gm = GameManager.Instance;
+
         switch (door.doorType)
         {
             case DoorType.Normal:
-                HUD.Instance.ShowMessage("לחץ על רווח לפתיחת הדלת");
+                hud.ShowMessageToTraveller("בקש מהנווט לפתוח לך את הדלת");
                 break;
 
             case DoorType.Puzzle:
-                HUD.Instance.ShowMessage("לחץ על רווח להתחלת החידה");
+                hud.ShowMessageToTraveller("בקש מהנווט להתחיל את החידה");
                 break;
 
             case DoorType.Exit:
-                if (GameManager.Instance.AllKeysCollected())
-                    HUD.Instance.ShowMessage("יש לך את כל המפתחות! לחץ רווח לפתיחת היציאה");
+                if (gm.AllKeysCollected())
+                    hud.ShowMessageToTraveller("יש לך את כל המפתחות! בקש מהנווט לפתוח את הדלת האחרונה ונצחו במשחק!");
                 else
-                    HUD.Instance.ShowMessage("עליך לאסוף את כל המפתחות כדי לפתוח את דלת היציאה");
+                    hud.ShowMessageToTraveller("עליך לאסוף את כל המפתחות כדי לפתוח את דלת היציאה");
                 break;
         }
     }

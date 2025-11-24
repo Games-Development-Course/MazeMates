@@ -21,7 +21,8 @@ public class ExitDoor : IDoor
         }
         else
         {
-            HUD.Instance.ShowMessage("חסר לך מפתח!");
+            // הודעה לשני המסכים
+            HUDManager.Instance.ShowMessageForBoth("חסר לך מפתח!");
         }
     }
 }

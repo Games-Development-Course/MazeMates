@@ -5,65 +5,59 @@ using UnityEngine.UI;
 
 public class HUD : MonoBehaviour
 {
-    public static HUD Instance;
-
     [Header("UI References")]
     public TMP_Text livesText;
     public TMP_Text keysText;
-
-    [Header("Default Values")]
-    public int defaultLives = 0;
-    public int defaultKeys = 0;
+    public TMP_Text messageText;
+    public TMP_Text lifebuoyText;
 
     [Header("Icons")]
     public Image lifeIcon;
+    public Image lifebuoyIcon;   //  הוסף כאן ספרייט של גלגל הצלה
 
-    [Header("Messages")]
-    public TMP_Text messageText;
-
-
-    private void Awake()
+    private void Start()
     {
-        Instance = this;
-    }
-
-    void Start()
-    {
-        messageText.gameObject.SetActive(false);
-
-        GameManager.Instance.lives = defaultLives;
-        GameManager.Instance.keys = defaultKeys;
+        if (messageText != null)
+            messageText.gameObject.SetActive(false);
 
         UpdateHUD();
     }
 
+    // ---------------------------------------------------------
+    // UPDATE HUD (LIVES + KEYS)
+    // ---------------------------------------------------------
     public void UpdateHUD()
     {
         livesText.text = "x " + GameManager.Instance.lives;
         keysText.text = "x " + GameManager.Instance.keys;
+        lifebuoyText.text = "x " + GameManager.Instance.lifebuoys;
+
+        if (lifebuoyIcon != null)
+            lifebuoyIcon.enabled =true;
     }
 
-    // ---- שלב 2: שינוי צבע ופונט ----
+    // ---------------------------------------------------------
+    // MESSAGE APPEARANCE
+    // ---------------------------------------------------------
     public void SetMessageAppearance(Color color, TMP_FontAsset font)
     {
         if (font != null)
             messageText.font = font;
 
-        // משנה את צבע הטקסט ברמה בסיסית
         messageText.color = color;
 
-        // משנה את החומר האמיתי של ה-TMP (החשוב!)
         var mat = messageText.fontMaterial;
 
         if (mat.HasProperty("_FaceColor"))
             mat.SetColor("_FaceColor", color);
 
         if (mat.HasProperty("_OutlineColor"))
-            mat.SetColor("_OutlineColor", Color.clear); // אם לא רוצה outline
+            mat.SetColor("_OutlineColor", Color.clear);
     }
 
-    // ---------------------------------
-
+    // ---------------------------------------------------------
+    // SHOW MESSAGE
+    // ---------------------------------------------------------
     public void ShowMessage(string msg, float duration = 3f)
     {
         StopAllCoroutines();
@@ -79,39 +73,29 @@ public class HUD : MonoBehaviour
 
         messageText.gameObject.SetActive(false);
     }
-    public void HidePuzzle()
-    {
-        if (GameManager.Instance.inPuzzle == false)
-        {
-            // כאן לא סוגרים Canvas כי הדלת עצמה מנהלת אותו
-        }
 
-        // אם תרצה להוסיף UI — זה המקום
+    // ---------------------------------------------------------
+    // FLASH LIFE ICON
+    // ---------------------------------------------------------
+    public void FlashLifeIcon()
+    {
+        StartCoroutine(FlashRoutine());
     }
 
-
-
-    // אפקט הבהוב
-    IEnumerator Flash()
+    IEnumerator FlashRoutine()
     {
-        // שומרים את מצב הלב (אלפא + צבע)
+        if (lifeIcon == null)
+            yield break;
+
         Color original = lifeIcon.color;
 
         for (int i = 0; i < 5; i++)
         {
-            // כיבוי מוחלט — הלב נעלם
             lifeIcon.color = new Color(original.r, original.g, original.b, 0f);
             yield return new WaitForSeconds(0.2f);
 
-            // חזרה מלאה לאוריג'ינל — הלב מופיע שוב
             lifeIcon.color = original;
             yield return new WaitForSeconds(0.2f);
         }
-    }
-
-
-    public void FlashLifeIcon()
-    {
-        StartCoroutine(Flash());
     }
 }
