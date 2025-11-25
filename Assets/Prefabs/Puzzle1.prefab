@@ -12,13 +12,13 @@ GameObject:
   - component: {fileID: 689613347123918784}
   - component: {fileID: 4567096530917570728}
   - component: {fileID: 7649449763672042234}
-  m_Layer: 5
+  m_Layer: 8
   m_Name: Puzzle1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1876826582392041861
 RectTransform:
   m_ObjectHideFlags: 0
@@ -50,7 +50,7 @@ Canvas:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 60711724646658583}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_RenderMode: 0
   m_Camera: {fileID: 0}
@@ -117,7 +117,7 @@ GameObject:
   - component: {fileID: 3686347549593386160}
   - component: {fileID: 3962154328943932953}
   - component: {fileID: 6803196035128932734}
-  m_Layer: 5
+  m_Layer: 8
   m_Name: PuzzleBackground
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -193,7 +193,7 @@ GameObject:
   - component: {fileID: 8432087559479425400}
   - component: {fileID: 308386419204399276}
   - component: {fileID: 2971142638619896602}
-  m_Layer: 5
+  m_Layer: 8
   m_Name: ChickenPiece
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -280,7 +280,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8120721950107034752}
-  m_Layer: 5
+  m_Layer: 8
   m_Name: TargetChicken
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -318,7 +318,7 @@ GameObject:
   - component: {fileID: 3575030088791673326}
   - component: {fileID: 2988298180764250073}
   - component: {fileID: 204263109255861306}
-  m_Layer: 5
+  m_Layer: 8
   m_Name: ChicksPiece
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -405,7 +405,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 9074153144128489964}
-  m_Layer: 5
+  m_Layer: 8
   m_Name: TargetChicks
   m_TagString: Untagged
   m_Icon: {fileID: 0}
