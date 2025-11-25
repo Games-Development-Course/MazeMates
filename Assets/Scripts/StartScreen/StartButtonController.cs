@@ -1,6 +1,6 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 public class StartButtonController : MonoBehaviour
 {
@@ -18,12 +18,11 @@ public class StartButtonController : MonoBehaviour
 
     void Update()
     {
-        bool difficultySelected =
-            easyToggle.isOn || mediumToggle.isOn || hardToggle.isOn;
+        bool difficultySelected = easyToggle.isOn || mediumToggle.isOn || hardToggle.isOn;
 
         bool namesFilled =
-            !string.IsNullOrWhiteSpace(travelerInput.text) &&
-            !string.IsNullOrWhiteSpace(navigatorInput.text);
+            !string.IsNullOrWhiteSpace(travelerInput.text)
+            && !string.IsNullOrWhiteSpace(navigatorInput.text);
 
         startButton.interactable = difficultySelected && namesFilled;
     }

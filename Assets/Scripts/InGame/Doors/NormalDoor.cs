@@ -12,7 +12,8 @@ public class NormalDoor : IDoor
 
     public void TryOpen()
     {
-        if (opened) return;
+        if (opened)
+            return;
 
         opened = true;
         controller.StartOpeningDoor(controller.openAngle);

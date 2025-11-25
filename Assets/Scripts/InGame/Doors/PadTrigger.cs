@@ -1,4 +1,4 @@
-using UnityEngine;
+ο»Ώusing UnityEngine;
 
 public class PadTrigger : MonoBehaviour
 {
@@ -12,7 +12,8 @@ public class PadTrigger : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (!other.CompareTag("Player")) return;
+        if (!other.CompareTag("Player"))
+            return;
         playerOnPad = true;
 
         if (door.IsOpen())
@@ -24,25 +25,28 @@ public class PadTrigger : MonoBehaviour
         switch (door.doorType)
         {
             case DoorType.Normal:
-                hud.ShowMessageToTraveller("αχω ξδπεεθ μτϊεη μκ ΰϊ δγμϊ");
+                hud.ShowMessageToTraveller("ΧΧ—Χ¥ Χ¨Χ•Χ•Χ— ΧΧ¤ΧªΧ•Χ— ΧΧª Χ”Χ“ΧΧª ");
                 break;
 
             case DoorType.Puzzle:
-                hud.ShowMessageToTraveller("αχω ξδπεεθ μδϊηιμ ΰϊ δηιγδ");
+                hud.ShowMessageToTraveller("ΧΧ—Χ¥ Χ¨Χ•Χ•Χ— ΧΧ”ΧªΧ—Χ™Χ ΧΧª Χ”Χ—Χ™Χ“Χ”");
                 break;
 
             case DoorType.Exit:
                 if (gm.AllKeysCollected())
-                    hud.ShowMessageToTraveller("ιω μκ ΰϊ λμ δξτϊηεϊ! αχω ξδπεεθ μτϊεη!");
+                    hud.ShowMessageToTraveller(
+                        "Χ™Χ© ΧΧ ΧΧª Χ›Χ Χ”ΧΧ¤ΧªΧ—Χ•Χª! Χ”Χ§Χ© Χ¨Χ•Χ•Χ— ΧΧ¤ΧªΧ•Χ— ΧΧª Χ”Χ“ΧΧª Χ•ΧΧ Χ¦Χ—!!"
+                    );
                 else
-                    hud.ShowMessageToTraveller("ςμικ μΰρεσ ΰϊ λμ δξτϊηεϊ!");
+                    hud.ShowMessageToTraveller("ΧΆΧΧ™Χ ΧΧΧ΅Χ•Χ£ ΧΧª Χ›Χ Χ”ΧΧ¤ΧªΧ—Χ•Χª!");
                 break;
         }
     }
 
     void OnTriggerExit(Collider other)
     {
-        if (!other.CompareTag("Player")) return;
+        if (!other.CompareTag("Player"))
+            return;
         playerOnPad = false;
 
         if (!door.IsOpen())
@@ -56,4 +60,14 @@ public class PadTrigger : MonoBehaviour
     }
 
     public bool IsPlayerOnPad() => playerOnPad;
+
+    // π”¥ Χ¤Χ•Χ Χ§Χ¦Χ™Χ” Χ—Χ“Χ©Χ”: Χ”ΧΧ ΧΧ•ΧªΧ¨ ΧΧ©Χ—Χ§Χ ΧΧΧ—Χ•Χ¥ Χ¨Χ•Χ•Χ— Χ•ΧΧ”Χ¤ΧΆΧ™Χ Χ“ΧΧª?
+    public bool CanActivateDoorWithSpace()
+    {
+        // ΧΧ ΧΧ™Χ ΧΧ Χ”Χ β€“ Χ Χ Χ™Χ— Χ©ΧΧ•ΧªΧ¨
+        if (DoorPadToggle.Instance == null)
+            return true;
+
+        return DoorPadToggle.Instance.allowSpaceActivation;
+    }
 }

@@ -1,10 +1,16 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using TMPro;
 
 public class PickupObject : MonoBehaviour
 {
-    public enum PickupType { Heart, Key, Bomb, Lifebuoy }
+    public enum PickupType
+    {
+        Heart,
+        Key,
+        Bomb,
+        Lifebuoy,
+    }
 
     public PickupType type;
 
@@ -23,7 +29,7 @@ public class PickupObject : MonoBehaviour
         HUDManager hud = HUDManager.Instance;
         GameManager gm = GameManager.Instance;
 
-        // äöâú äåãòä îåúàîú îøàù
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         if (!string.IsNullOrEmpty(customMessage))
         {
             hud.SetMessageAppearanceForBoth(messageColor, messageFont);
@@ -34,19 +40,19 @@ public class PickupObject : MonoBehaviour
         {
             case PickupType.Heart:
                 gm.lives++;
-                hud.ShowMessageForBoth("àñôúí ìá! äçééí òìå áÎ1.");
+                hud.ShowMessageForBoth("ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½! ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½1.");
                 hud.UpdateHUDs();
                 break;
 
             case PickupType.Key:
                 gm.keys++;
-                hud.ShowMessageForBoth("àñôúí îôúç!");
+                hud.ShowMessageForBoth("ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½!");
                 hud.UpdateHUDs();
                 break;
 
             case PickupType.Lifebuoy:
                 gm.lifebuoys++;
-                hud.ShowMessageForBoth("÷éáìúí âìâì äöìä! äğååè éëåì ìäùúîù áå àí äçéãä ÷ùä îãé.");
+                hud.ShowMessageForBoth("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½! ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½.");
                 hud.UpdateHUDs();
                 break;
 
@@ -62,7 +68,9 @@ public class PickupObject : MonoBehaviour
                 else
                 {
                     other.GetComponentInChildren<PlayerCamera1P>()?.LockCameraForSeconds(0.5f);
-                    other.GetComponent<PlayerMovement1P>()?.TeleportToStart(PlayerStartPoint.Instance.startPosition);
+                    other
+                        .GetComponent<PlayerMovement1P>()
+                        ?.TeleportToStart(PlayerStartPoint.Instance.startPosition);
                 }
                 break;
         }

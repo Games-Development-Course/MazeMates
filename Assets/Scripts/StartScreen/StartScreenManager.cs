@@ -18,24 +18,24 @@ public class StartScreenManager : MonoBehaviour
     void Update()
     {
         startButton.interactable =
-            selectedDifficulty != Difficulty.None &&
-            !string.IsNullOrEmpty(travelerName.text) &&
-            !string.IsNullOrEmpty(navigatorName.text);
+            selectedDifficulty != Difficulty.None
+            && !string.IsNullOrEmpty(travelerName.text)
+            && !string.IsNullOrEmpty(navigatorName.text);
     }
 
     public void SetDifficulty(int diff)
     {
         selectedDifficulty = (Difficulty)diff;
 
-        // тйцеб лфъешйн
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         for (int i = 0; i < difficultyButtons.Length; i++)
         {
             var colors = difficultyButtons[i].colors;
 
             if (i + 1 == diff)
-                colors.normalColor = new Color(0.7f, 0.9f, 1f);  // рбзш
+                colors.normalColor = new Color(0.7f, 0.9f, 1f); // пїЅпїЅпїЅпїЅ
             else
-                colors.normalColor = Color.white;                // ма рбзш
+                colors.normalColor = Color.white; // пїЅпїЅ пїЅпїЅпїЅпїЅ
 
             difficultyButtons[i].colors = colors;
         }
@@ -48,11 +48,10 @@ public class StartScreenManager : MonoBehaviour
         PlayerPrefs.SetInt("difficulty", (int)selectedDifficulty);
         PlayerPrefs.Save();
 
-        // офтйм щрй змереъ
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         BuildLauncher.LaunchBothWindows();
 
-        // севш аъ дзмеп дрелзй
+        // пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         Application.Quit();
     }
-
 }

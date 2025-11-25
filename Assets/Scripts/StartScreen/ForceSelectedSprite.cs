@@ -13,19 +13,19 @@ public class ForceSelectedSprite : MonoBehaviour
         t = GetComponent<Toggle>();
         img = t.targetGraphic as Image;
 
-        normalSprite = img.sprite;                 // הספרייט הרגיל
-        selectedSprite = t.spriteState.selectedSprite; // הספרייט הלחוץ
+        normalSprite = img.sprite; // ן¿½ן¿½ן¿½ן¿½ן¿½ן¿½ן¿½ ן¿½ן¿½ן¿½ן¿½ן¿½
+        selectedSprite = t.spriteState.selectedSprite; // ן¿½ן¿½ן¿½ן¿½ן¿½ן¿½ן¿½ ן¿½ן¿½ן¿½ן¿½ן¿½
     }
 
     void Update()
     {
         if (t.isOn)
         {
-            img.overrideSprite = selectedSprite;   // תמיד מציג לחוץ
+            img.overrideSprite = selectedSprite; // ן¿½ן¿½ן¿½ן¿½ ן¿½ן¿½ן¿½ן¿½ ן¿½ן¿½ן¿½ן¿½
         }
         else
         {
-            img.overrideSprite = normalSprite;     // חוזר לרגיל
+            img.overrideSprite = normalSprite; // ן¿½ן¿½ן¿½ן¿½ ן¿½ן¿½ן¿½ן¿½ן¿½
         }
     }
 }

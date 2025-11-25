@@ -4,11 +4,12 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
-    public int lives;
+    public int lives = 3;
     public int keys;
     public bool inPuzzle = false;
-    public int lifebuoys = 0;   // ëîä âìâìé äöìä éù ìäí
-
+    public int lifebuoys = 1; // ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½
+    public int HeartPlacements = 1;
+    public int BombRemovals = 1;
 
     public int totalKeysInLevel = 0;
 

@@ -14,9 +14,12 @@ public class ToggleDifficultyGroup : MonoBehaviour
 
     public string GetSelectedDifficulty()
     {
-        if (easy.isOn) return "easy";
-        if (medium.isOn) return "medium";
-        if (hard.isOn) return "hard";
+        if (easy.isOn)
+            return "easy";
+        if (medium.isOn)
+            return "medium";
+        if (hard.isOn)
+            return "hard";
         return "";
     }
 }

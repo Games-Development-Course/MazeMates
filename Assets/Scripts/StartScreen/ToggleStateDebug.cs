@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class ToggleStateDebug: MonoBehaviour
+public class ToggleStateDebug : MonoBehaviour
 {
     private Toggle t;
     private bool lastState;

@@ -1,8 +1,8 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using TMPro;
 
-public class StartMenuController: MonoBehaviour
+public class StartMenuController : MonoBehaviour
 {
     public TMP_InputField travelerInput;
     public TMP_InputField navigatorInput;
@@ -15,8 +15,10 @@ public class StartMenuController: MonoBehaviour
     public void OnStartButtonPressed()
     {
         // 1) Validate names
-        if (string.IsNullOrWhiteSpace(travelerInput.text) ||
-            string.IsNullOrWhiteSpace(navigatorInput.text))
+        if (
+            string.IsNullOrWhiteSpace(travelerInput.text)
+            || string.IsNullOrWhiteSpace(navigatorInput.text)
+        )
         {
             Debug.Log("Names missing");
             return;
@@ -36,12 +38,16 @@ public class StartMenuController: MonoBehaviour
 
         // 4) Load windows:
         // Load Traveler
-        System.Diagnostics.Process.Start(Application.dataPath.Replace("_Data", ".exe"),
-            "-role traveler");
+        System.Diagnostics.Process.Start(
+            Application.dataPath.Replace("_Data", ".exe"),
+            "-role traveler"
+        );
 
         // Load Navigator
-        System.Diagnostics.Process.Start(Application.dataPath.Replace("_Data", ".exe"),
-            "-role navigator");
+        System.Diagnostics.Process.Start(
+            Application.dataPath.Replace("_Data", ".exe"),
+            "-role navigator"
+        );
 
         // 5) Close this window
         Application.Quit();

@@ -1,31 +1,38 @@
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
 [CustomEditor(typeof(DoorController))]
 public class DoorControllerEditor : Editor
 {
     SerializedProperty piecesProp;
     SerializedProperty targetsProp;
+    SerializedProperty canvasProp;
+    SerializedProperty originalImageProp;
+    SerializedProperty doorTypeProp;
+    SerializedProperty openAngleProp;
+    SerializedProperty openSpeedProp;
 
     void OnEnable()
     {
+        doorTypeProp = serializedObject.FindProperty("doorType");
+        openAngleProp = serializedObject.FindProperty("openAngle");
+        openSpeedProp = serializedObject.FindProperty("openSpeed");
+
+        canvasProp = serializedObject.FindProperty("puzzleCanvas");
         piecesProp = serializedObject.FindProperty("pieces");
         targetsProp = serializedObject.FindProperty("targets");
+        originalImageProp = serializedObject.FindProperty("puzzleOriginalImage");
     }
 
     public override void OnInspectorGUI()
     {
         serializedObject.Update();
+
+        EditorGUILayout.PropertyField(doorTypeProp);
+        EditorGUILayout.PropertyField(openAngleProp);
+        EditorGUILayout.PropertyField(openSpeedProp);
+
         DoorController door = (DoorController)target;
-
-        EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Door Configuration", EditorStyles.boldLabel);
-
-        door.doorType = (DoorType)EditorGUILayout.EnumPopup("Door Type", door.doorType);
-
-        EditorGUILayout.Space();
-        door.openAngle = EditorGUILayout.FloatField("Open Angle", door.openAngle);
-        door.openSpeed = EditorGUILayout.FloatField("Open Speed", door.openSpeed);
 
         EditorGUILayout.Space();
 
@@ -33,20 +40,11 @@ public class DoorControllerEditor : Editor
         {
             EditorGUILayout.LabelField("Puzzle Settings", EditorStyles.boldLabel);
 
-            door.puzzleCanvas = (Canvas)EditorGUILayout.ObjectField(
-                "Puzzle Canvas",
-                door.puzzleCanvas,
-                typeof(Canvas),
-                true
+            EditorGUILayout.PropertyField(canvasProp, new GUIContent("Puzzle Canvas"));
+            EditorGUILayout.PropertyField(
+                originalImageProp,
+                new GUIContent("Original Puzzle Image (GameObject)")
             );
-
-            door.puzzleSprite = (Sprite)EditorGUILayout.ObjectField(
-          "Puzzle Sprite",
-          door.puzzleSprite,
-          typeof(Sprite),
-          false
-      );
-
 
             EditorGUILayout.PropertyField(piecesProp, true);
             EditorGUILayout.PropertyField(targetsProp, true);

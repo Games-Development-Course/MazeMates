@@ -2,31 +2,35 @@ using UnityEngine;
 
 public class CameraCollision : MonoBehaviour
 {
-    public Transform cameraTransform;   // MainCamera
-    public float headHeight = 0.7f;     // вебд тйрййн
+    public Transform cameraTransform; // MainCamera
+    public float headHeight = 0.7f; // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     public float minDistance = 0.1f;
-    public float maxDistance = 0.1f;    // FPS ? доцмод ма баоъ жжд чгйод/азешд
+    public float maxDistance = 0.1f; // FPS ? пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅ
     public float smooth = 10f;
 
     private void LateUpdate()
     {
-        // оцйбйн аъ дшащ бвебд дрлеп ъойг
+        // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         transform.localPosition = new Vector3(0f, headHeight, 0f);
 
-        // йецшйн Ray чгйод лгй мбгеч ан шащ ревт бчйш
+        // пїЅпїЅпїЅпїЅпїЅпїЅ Ray пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         RaycastHit hit;
         Vector3 origin = transform.position;
         Vector3 direction = cameraTransform.forward;
 
         if (Physics.Raycast(origin, direction, out hit, 0.15f))
         {
-            // ревтйн бчйш ? ма оафщшйн моцмод мдйлрс фрйод
-            float adjustY = Mathf.Lerp(cameraTransform.localPosition.y, -0.05f, Time.deltaTime * smooth);
+            // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ ? пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+            float adjustY = Mathf.Lerp(
+                cameraTransform.localPosition.y,
+                -0.05f,
+                Time.deltaTime * smooth
+            );
             cameraTransform.localPosition = new Vector3(0f, adjustY, 0f);
         }
         else
         {
-            // теог швйм
+            // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
             cameraTransform.localPosition = Vector3.Lerp(
                 cameraTransform.localPosition,
                 Vector3.zero,

@@ -1,4 +1,4 @@
-using UnityEngine;
+ο»Ώusing UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement1P : MonoBehaviour
@@ -16,17 +16,58 @@ public class PlayerMovement1P : MonoBehaviour
 
     void Update()
     {
+        // ΧΧ Χ™ΧΆΧª NRE ΧΧ GameManager ΧΆΧ“Χ™Χ™Χ ΧΧ Χ§Χ™Χ™Χ
+        if (GameManager.Instance == null)
+            return;
+
+        // ΧΧ Χ™ΧΆΧª NRE ΧΧ ΧΧ¨Χ Χ Χ§ΧΧ CharacterController
+        if (controller == null)
+            return;
+
+        // ============================
+        //   SPACE β†’ Try open door
+        // ============================
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            Debug.Log("Traveller pressed SPACE");
+
+            if (RoleManager.Role == PlayerRole.Traveler)
+            {
+                DoorController[] allDoors = FindObjectsByType<DoorController>(
+                    FindObjectsSortMode.None
+                );
+
+                foreach (var d in allDoors)
+                {
+                    if (d.TravellerIsOnPad())
+                    {
+                        Debug.Log("Traveller is on pad of: " + d.name);
+
+                        if (
+                            DoorPadToggle.Instance != null
+                            && !DoorPadToggle.Instance.allowSpaceActivation
+                        )
+                        {
+                            Debug.Log("SPACE BLOCKED by DoorPadToggle");
+                            break;
+                        }
+
+                        d.Interact();
+                        break;
+                    }
+                }
+            }
+        }
+
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
 
-        // ιφιΰδ ξδηιγδ ΰν δωηχο ζζ
+        // Χ™Χ¦Χ™ΧΧ” ΧΧ”Χ—Χ™Χ“Χ” ΧΧ Χ”Χ©Χ—Χ§Χ Χ–Χ–
         if (GameManager.Instance.inPuzzle && (h != 0 || v != 0))
         {
             GameManager.Instance.inPuzzle = false;
 
-            // ρεβψ ΰϊ δ-Canvas ωμ δηιγδ ατεςμ
-            DoorController[] allDoors =
-            FindObjectsByType<DoorController>(FindObjectsSortMode.None);
+            DoorController[] allDoors = FindObjectsByType<DoorController>(FindObjectsSortMode.None);
 
             foreach (var d in allDoors)
             {
@@ -45,7 +86,7 @@ public class PlayerMovement1P : MonoBehaviour
             return;
         }
 
-        // ϊπεςδ ψβιμδ
+        // ΧªΧ Χ•ΧΆΧ” Χ¨Χ’Χ™ΧΧ”
         Vector3 move = transform.right * h + transform.forward * v;
         controller.Move(move * speed * Time.deltaTime);
 

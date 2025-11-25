@@ -12,17 +12,18 @@ public class ExitDoor : IDoor
 
     public void TryOpen()
     {
-        if (opened) return;
+        if (opened)
+            return;
 
         if (!GameManager.Instance.AllKeysCollected())
         {
-            HUDManager.Instance.ShowMessageForBoth("зсш офъз мйцйад!");
+            HUDManager.Instance.ShowMessageForBoth("пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
         opened = true;
 
-        // чеша мфъйзд ойезгъ - дзмчд фрйод
+        // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
         controller.StartSlidingIntoWall();
     }
 }

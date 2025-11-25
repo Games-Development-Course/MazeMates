@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PreventDeselect: MonoBehaviour
+public class PreventDeselect : MonoBehaviour
 {
     private ToggleGroup group;
     private Toggle lastSelected;
@@ -10,7 +10,7 @@ public class PreventDeselect: MonoBehaviour
     {
         group = GetComponent<ToggleGroup>();
 
-        // оцйаъ диевм дшащеп щрбзш бшвт дфтмъ дсцрд
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
         foreach (var t in group.GetComponentsInChildren<Toggle>())
         {
             if (t.isOn)
@@ -20,25 +20,27 @@ public class PreventDeselect: MonoBehaviour
             }
         }
 
-        // шйщен майшетйн щм лм диевмйн
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         foreach (var t in group.GetComponentsInChildren<Toggle>())
         {
-            t.onValueChanged.AddListener((isOn) =>
-            {
-                // ан диевм джд ргмч — цшйк мтглп
-                if (isOn)
+            t.onValueChanged.AddListener(
+                (isOn) =>
                 {
-                    lastSelected = t;
-                }
-                else
-                {
-                    // орйтъ лйбей диевм дрбзш ма т"й иевм азш
-                    if (lastSelected == t)
+                    // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+                    if (isOn)
                     {
-                        t.isOn = true;
+                        lastSelected = t;
+                    }
+                    else
+                    {
+                        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ"пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
+                        if (lastSelected == t)
+                        {
+                            t.isOn = true;
+                        }
                     }
                 }
-            });
+            );
         }
     }
 }

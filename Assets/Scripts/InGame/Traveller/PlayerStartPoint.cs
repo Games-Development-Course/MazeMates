@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class PlayerStartPoint: MonoBehaviour
+public class PlayerStartPoint : MonoBehaviour
 {
     public static PlayerStartPoint Instance;
     public Vector3 startPosition;

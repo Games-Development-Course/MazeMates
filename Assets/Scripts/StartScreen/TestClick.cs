@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class TestClick: MonoBehaviour
+public class TestClick : MonoBehaviour
 {
     public void Clicked()
     {

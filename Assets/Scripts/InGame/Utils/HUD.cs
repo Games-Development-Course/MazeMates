@@ -1,6 +1,6 @@
 using System.Collections;
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 using UnityEngine.UI;
 
 public class HUD : MonoBehaviour
@@ -10,10 +10,14 @@ public class HUD : MonoBehaviour
     public TMP_Text keysText;
     public TMP_Text messageText;
     public TMP_Text lifebuoyText;
+    public TMP_Text GiftIconText;
+    public TMP_Text BombRemovalIconText;
 
     [Header("Icons")]
     public Image lifeIcon;
-    public Image lifebuoyIcon;   //  äåñó ëàï ñôøééè ùì âìâì äöìä
+    public Image lifebuoyIcon; //  ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+    public Image BombRemovalIcon;
+    public Image GiftIcon;
 
     private void Start()
     {
@@ -33,7 +37,7 @@ public class HUD : MonoBehaviour
         lifebuoyText.text = "x " + GameManager.Instance.lifebuoys;
 
         if (lifebuoyIcon != null)
-            lifebuoyIcon.enabled =true;
+            lifebuoyIcon.enabled = true;
     }
 
     // ---------------------------------------------------------

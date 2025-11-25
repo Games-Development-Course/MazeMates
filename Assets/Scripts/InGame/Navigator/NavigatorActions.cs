@@ -9,30 +9,13 @@ public class NavigatorActions : MonoBehaviour
         world = GameWorldController.Instance;
     }
 
-    public void OpenDoor()
-    {
-        world.OpenNormalDoor();
-    }
+    public void OpenDoor() => world.OpenNormalDoor();
 
-    public void PlaceHeart()
-    {
-        world.PlaceHeart();
-    }
-    public Sprite debugImage;   // התמונה שתרצה להציג לבדיקה
+    public void ShowPuzzle() => world.ShowPuzzle();
 
+    public void RemoveBomb() => world.RemoveBomb();
 
-    public void RemoveBomb()
-    {
-        world.RemoveBomb();
-    }
+    public void PlaceHeart() => world.PlaceHeart();
 
-    public void ShowPuzzle()
-    {
-        world.ShowPuzzle();
-    }
-
-    public void UseLifebuoy()
-    {
-        world.UseLifebuoy();
-    }
+    public void UseLifebuoy() => world.UseLifebuoy();
 }

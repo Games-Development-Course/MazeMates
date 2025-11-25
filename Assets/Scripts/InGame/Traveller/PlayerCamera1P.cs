@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 public class PlayerCamera1P : MonoBehaviour
 {
@@ -25,11 +25,19 @@ public class PlayerCamera1P : MonoBehaviour
 
     void Update()
     {
-        // áæîï çéãä äîöìîä ìà ææä
-        if (GameManager.Instance.inPuzzle)  
+        // ×× ×™×¢×ª NRE ×× GameManager ×¢×“×™×™×Ÿ ×œ× ×§×™×™×
+        if (GameManager.Instance == null)
             return;
 
-        // ùìá ğòéìä äøàùåğé
+        // ×× ×–×” ××¡×š Navigator ×‘×œ×™ playerBody â†’ ×œ× ×œ×–×•×–
+        if (playerBody == null)
+            return;
+
+        // ×‘×–××Ÿ ×—×™×“×” ×”××¦×œ××” ×œ× ×–×–×”
+        if (GameManager.Instance.inPuzzle)
+            return;
+
+        // ×©×œ×‘ × ×¢×™×œ×” ×”×¨××©×•× ×™
         if (cameraLocked)
         {
             timer += Time.deltaTime;
@@ -44,7 +52,7 @@ public class PlayerCamera1P : MonoBehaviour
             return;
         }
 
-        // îöá îöìîä øâéì
+        // ××¦×‘ ××¦×œ××” ×¨×’×™×œ
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
 

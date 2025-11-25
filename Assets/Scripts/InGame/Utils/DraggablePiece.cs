@@ -24,14 +24,16 @@ public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (canvas == null) return;
+        if (canvas == null)
+            return;
 
         Vector2 localPos;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvas.transform as RectTransform,
             eventData.position,
             eventData.pressEventCamera,
-            out localPos);
+            out localPos
+        );
 
         rect.anchoredPosition = localPos;
     }
@@ -40,12 +42,12 @@ public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
     {
         float dist = Vector3.Distance(rect.position, target.position);
 
-        // диемшрс лфй щдйд фтн (йлем мщреъ аз"л)
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ (пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ"пїЅ)
         float snapDistance = 120f;
 
         if (dist < snapDistance)
         {
-            //  тещд сраф мошлж дОTarget
+            //  пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅTarget
             rect.position = target.position;
             isSnapped = true;
         }
@@ -58,5 +60,6 @@ public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
     }
 
     public bool IsSnapped() => isSnapped;
+
     public bool IsInCorrectPlace() => isSnapped;
 }

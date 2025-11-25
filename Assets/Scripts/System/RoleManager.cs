@@ -1,21 +1,21 @@
 using UnityEngine;
+
 public enum PlayerRole
 {
     Traveler,
-    Navigator
+    Navigator,
 }
-
 
 public class RoleManager : MonoBehaviour
 {
-    public static PlayerRole Role = PlayerRole.Traveler; // áøéøú îçãì
+    public static PlayerRole Role = PlayerRole.Traveler; // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
     public Camera travelerCam;
     public Camera navigatorCam;
 
     void Start()
     {
-        // îôòéì ø÷ àú äîöìîä äîúàéîä ìúô÷éã
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         travelerCam.gameObject.SetActive(Role == PlayerRole.Traveler);
         navigatorCam.gameObject.SetActive(Role == PlayerRole.Navigator);
     }

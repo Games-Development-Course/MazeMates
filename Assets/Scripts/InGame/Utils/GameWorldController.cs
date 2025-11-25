@@ -26,6 +26,9 @@ public class GameWorldController : MonoBehaviour
         return null;
     }
 
+    // ------------------------------------
+    // דלת רגילה
+    // ------------------------------------
     public void OpenNormalDoor()
     {
         var door = FindNearestDoorOnPad(DoorType.Normal);
@@ -39,6 +42,9 @@ public class GameWorldController : MonoBehaviour
         door.Interact();
     }
 
+    // ------------------------------------
+    // דלת יציאה
+    // ------------------------------------
     public void OpenExitDoor()
     {
         var door = FindNearestDoorOnPad(DoorType.Exit);
@@ -58,6 +64,9 @@ public class GameWorldController : MonoBehaviour
         door.Interact();
     }
 
+    // ------------------------------------
+    // הצגת חידה
+    // ------------------------------------
     public void ShowPuzzle()
     {
         var door = FindNearestDoorOnPad(DoorType.Puzzle);
@@ -76,34 +85,21 @@ public class GameWorldController : MonoBehaviour
             return;
         }
 
-
-        puzzle.TryOpen();   // פותח את החידה על הדלת, ומפעיל גם נווט/מטייל לפי ההגדרות החדשות
-
+        puzzle.TryOpen();
         HUDManager.Instance.ShowMessageToNavigator("החידה הוצגה למטייל");
     }
 
+    // ------------------------------------
+    // גלגל הצלה — פותר חידה בכוח
+    // ------------------------------------
     public void UseLifebuoy()
     {
-        var door = FindNearestDoorOnPad(DoorType.Puzzle);
-
-        if (door == null)
-        {
-            HUDManager.Instance.ShowMessageToNavigator("המטייל לא עומד על פד של דלת חידה");
-            return;
-        }
-
-        PuzzleDoor puzzle = door.GetPuzzle();
-
-        if (puzzle == null)
-        {
-            HUDManager.Instance.ShowMessageToNavigator("הדלת אינה דלת חידה");
-            return;
-        }
-
-        puzzle.ForceSolveAndOpen();
-        HUDManager.Instance.ShowMessageToNavigator("הדלת נפתחה באמצעות גלגל הצלה!");
+        LifeBuoyManager.Instance.TryUseLifeBuoy();
     }
 
+    // ------------------------------------
+    // לב
+    // ------------------------------------
     public void PlaceHeart()
     {
         Transform traveller = GameObject.FindWithTag("Player").transform;
@@ -114,6 +110,9 @@ public class GameWorldController : MonoBehaviour
         HUDManager.Instance.ShowMessageToNavigator("לב הונח!");
     }
 
+    // ------------------------------------
+    // פצצה
+    // ------------------------------------
     public void RemoveBomb()
     {
         Transform traveller = GameObject.FindWithTag("Player").transform;
