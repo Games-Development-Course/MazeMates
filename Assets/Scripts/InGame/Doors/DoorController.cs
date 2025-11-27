@@ -28,7 +28,7 @@ public class DoorController : MonoBehaviour
 
         if (doorType == DoorType.Puzzle)
         {
-            navigatorPreview = ExtractPreviewFromPrefab();   // ← HERE!!!
+            navigatorPreview = ExtractPreviewFromPrefab(); // ← HERE!!!
         }
 
         switch (doorType)
@@ -53,17 +53,18 @@ public class DoorController : MonoBehaviour
 
     private Sprite ExtractPreviewSprite()
     {
-        if (puzzlePrefab == null) return null;
+        if (puzzlePrefab == null)
+            return null;
 
         Transform original = puzzlePrefab.transform.Find("OriginalImage");
-        if (original == null) return null;
+        if (original == null)
+            return null;
 
         var img = original.GetComponentInChildren<UnityEngine.UI.Image>();
         return img != null ? img.sprite : null;
     }
 
-    public bool TravellerIsOnPad() =>
-        pad != null && pad.IsPlayerOnPad();
+    public bool TravellerIsOnPad() => pad != null && pad.IsPlayerOnPad();
 
     public void Interact()
     {
@@ -85,8 +86,6 @@ public class DoorController : MonoBehaviour
     {
         StartCoroutine(OpenRoutine(angle));
     }
-
-
 
     private IEnumerator OpenRoutine(float angle)
     {
@@ -123,11 +122,7 @@ public class DoorController : MonoBehaviour
 
         // נקודת הקצה השמאלית של הדלת — זה עבד אצלך פיקס
         float half = b.size.x * 0.5f;
-        Vector3 leftLocal = new Vector3(
-            b.center.x - half,
-            b.center.y,
-            b.center.z
-        );
+        Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
 
         // ממירים לוורלד — זה הציר הישן שעבד מצוין
         Vector3 leftWorld = doorModel.TransformPoint(leftLocal);
@@ -141,18 +136,23 @@ public class DoorController : MonoBehaviour
         // מעבירים את כל הילדים לפיווט — כמו שהיה קודם
         foreach (Transform child in transform)
         {
-            if (child == pivotObj.transform) continue;
+            if (child == pivotObj.transform)
+                continue;
 
             string n = child.name.ToLower();
-            if (n.Contains("trigger")) continue;
-            if (n.Contains("pad")) continue;
-            if (n.Contains("portal")) continue;
+            if (n.Contains("trigger"))
+                continue;
+            if (n.Contains("pad"))
+                continue;
+            if (n.Contains("portal"))
+                continue;
 
             child.SetParent(pivotObj.transform, true);
         }
 
         pivot = pivotObj.transform;
     }
+
     private Sprite ExtractPreviewFromPrefab()
     {
         if (puzzlePrefab == null)

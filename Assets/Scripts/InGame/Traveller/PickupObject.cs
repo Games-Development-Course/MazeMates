@@ -19,10 +19,10 @@ public class PickupObject : MonoBehaviour
     public string customMessage = "";
 
     public Color messageColor = Color.white;
-    public TMP_FontAsset messageFont;   // נשאר לשימוש עתידי אך לא חלק מהפונקציה החדשה
+    public TMP_FontAsset messageFont; // נשאר לשימוש עתידי אך לא חלק מהפונקציה החדשה
 
     [Header("Message Duration")]
-    public float messageDuration = 1.5f;   // כמה זמן הצבע המיוחד יישאר
+    public float messageDuration = 1.5f; // כמה זמן הצבע המיוחד יישאר
 
     private void OnTriggerEnter(Collider other)
     {
@@ -72,7 +72,9 @@ public class PickupObject : MonoBehaviour
                 else
                 {
                     other.GetComponentInChildren<PlayerCamera1P>()?.LockCameraForSeconds(0.5f);
-                    other.GetComponent<PlayerMovement1P>()?.TeleportToStart(PlayerStartPoint.Instance.startPosition);
+                    other
+                        .GetComponent<PlayerMovement1P>()
+                        ?.TeleportToStart(PlayerStartPoint.Instance.startPosition);
                 }
                 break;
         }

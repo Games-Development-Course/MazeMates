@@ -8,5 +8,5 @@ public enum DoorType
 {
     Normal,
     Puzzle,
-    Exit
+    Exit,
 }

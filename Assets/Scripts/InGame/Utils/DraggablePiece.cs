@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class DraggablePiece : MonoBehaviour,
-    IBeginDragHandler, IDragHandler, IEndDragHandler
+public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     public RectTransform rectTransform;
     public CanvasGroup canvasGroup;
@@ -29,7 +28,8 @@ public class DraggablePiece : MonoBehaviour,
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (placed) return;
+        if (placed)
+            return;
 
         canvasGroup.blocksRaycasts = false;
         canvasGroup.alpha = 0.7f;
@@ -37,24 +37,27 @@ public class DraggablePiece : MonoBehaviour,
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (placed) return;
+        if (placed)
+            return;
 
         Vector3 worldPos;
-        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
-            rectTransform,
-            eventData.position,
-            eventData.pressEventCamera,
-            out worldPos))
+        if (
+            RectTransformUtility.ScreenPointToWorldPointInRectangle(
+                rectTransform,
+                eventData.position,
+                eventData.pressEventCamera,
+                out worldPos
+            )
+        )
         {
             rectTransform.position = worldPos;
         }
     }
 
-
-
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (placed) return;
+        if (placed)
+            return;
 
         canvasGroup.blocksRaycasts = true;
         canvasGroup.alpha = 1f;
@@ -65,8 +68,7 @@ public class DraggablePiece : MonoBehaviour,
             return;
         }
 
-        float dist = Vector2.Distance(rectTransform.anchoredPosition,
-                                      target.anchoredPosition);
+        float dist = Vector2.Distance(rectTransform.anchoredPosition, target.anchoredPosition);
 
         if (dist < snapDistance)
         {

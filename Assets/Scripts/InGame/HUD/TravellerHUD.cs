@@ -59,7 +59,8 @@ public class TravellerHUD : MonoBehaviour
 
     public void FlashLives()
     {
-        if (!gameObject.activeInHierarchy || flashing) return;
+        if (!gameObject.activeInHierarchy || flashing)
+            return;
         StartCoroutine(FlashRoutine());
     }
 
@@ -70,13 +71,15 @@ public class TravellerHUD : MonoBehaviour
         for (int i = 0; i < 4; i++)
         {
             foreach (var icon in lifeFlashIcons)
-                if (icon) icon.enabled = !icon.enabled;
+                if (icon)
+                    icon.enabled = !icon.enabled;
 
             yield return new WaitForSeconds(0.15f);
         }
 
         foreach (var icon in lifeFlashIcons)
-            if (icon) icon.enabled = true;
+            if (icon)
+                icon.enabled = true;
 
         flashing = false;
     }

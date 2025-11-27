@@ -44,7 +44,8 @@ public class NavigatorHUD : MonoBehaviour
 
     public void ShowPuzzleImage(Sprite s)
     {
-        if (!puzzleImage) return;
+        if (!puzzleImage)
+            return;
 
         puzzleImage.sprite = s;
         puzzleImage.gameObject.SetActive(true);
@@ -55,6 +56,6 @@ public class NavigatorHUD : MonoBehaviour
         if (puzzleImage)
             puzzleImage.gameObject.SetActive(false);
     }
-    public Image PuzzleImage => puzzleImage;
 
+    public Image PuzzleImage => puzzleImage;
 }

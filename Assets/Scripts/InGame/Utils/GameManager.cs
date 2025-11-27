@@ -12,8 +12,6 @@ public class GameManager : MonoBehaviour
     public int BombRemovals = 1;
     public DoorController activePuzzleDoor;
 
-
-
     public int totalKeysInLevel = 0;
 
     private void Awake()

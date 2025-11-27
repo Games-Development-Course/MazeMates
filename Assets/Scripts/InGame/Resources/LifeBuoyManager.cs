@@ -31,7 +31,11 @@ public class LifeBuoyManager : MonoBehaviour
         gameManager.lifebuoys--;
 
         DoorController activeDoor = GameManager.Instance.activePuzzleDoor;
-        if (activeDoor == null || activeDoor.spawnedHints == null || activeDoor.spawnedHints.Count == 0)
+        if (
+            activeDoor == null
+            || activeDoor.spawnedHints == null
+            || activeDoor.spawnedHints.Count == 0
+        )
         {
             Debug.LogError("No hints found on active puzzle door!");
             return;

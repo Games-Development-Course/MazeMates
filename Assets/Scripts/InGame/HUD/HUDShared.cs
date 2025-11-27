@@ -12,10 +12,15 @@ public class HUDShared : MonoBehaviour
 
     public void UpdateValues(GameManager gm)
     {
-        if (livesText) livesText.text = "x " + gm.lives;
-        if (keysText) keysText.text = "x " + gm.keys;
-        if (lifebuoysText) lifebuoysText.text = "x " + gm.lifebuoys;
-        if (giftsText) giftsText.text = "x " + gm.HeartPlacements;
-        if (bombRemovalText) bombRemovalText.text = "x " + gm.BombRemovals;
+        if (livesText)
+            livesText.text = "x " + gm.lives;
+        if (keysText)
+            keysText.text = "x " + gm.keys;
+        if (lifebuoysText)
+            lifebuoysText.text = "x " + gm.lifebuoys;
+        if (giftsText)
+            giftsText.text = "x " + gm.HeartPlacements;
+        if (bombRemovalText)
+            bombRemovalText.text = "x " + gm.BombRemovals;
     }
 }

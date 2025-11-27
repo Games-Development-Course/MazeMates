@@ -1,6 +1,6 @@
-﻿using UnityEngine;
+﻿using System.Linq;
+using UnityEngine;
 using UnityEngine.UI;
-using System.Linq;
 
 public class PuzzleDoor : IDoor
 {
@@ -39,9 +39,10 @@ public class PuzzleDoor : IDoor
         pieces = piecesParent.GetComponentsInChildren<DraggablePiece>(true);
 
         // סינון החוצה את RectTransform של האבא עצמו
-        targetSlots = targetsParent.GetComponentsInChildren<RectTransform>(true)
-                                   .Where(t => t.gameObject != targetsParent.gameObject)
-                                   .ToArray();
+        targetSlots = targetsParent
+            .GetComponentsInChildren<RectTransform>(true)
+            .Where(t => t.gameObject != targetsParent.gameObject)
+            .ToArray();
 
         navigatorImage = HUDManager.Instance.NavigatorHUD.PuzzleImage;
 
@@ -54,14 +55,14 @@ public class PuzzleDoor : IDoor
 
     public void TryOpen()
     {
-        if (solved) return;
+        if (solved)
+            return;
 
         if (puzzleInstance == null || puzzleInstance.transform.parent == null)
             InstantiatePuzzle();
 
         HUDManager.Instance.TravellerHUD.ShowPuzzle();
         puzzleInstance.SetActive(true);
-
 
         if (navigatorImage)
         {
@@ -112,6 +113,5 @@ public class PuzzleDoor : IDoor
             navigatorImage.enabled = false;
             navigatorImage.gameObject.SetActive(true);
         }
-
     }
 }
