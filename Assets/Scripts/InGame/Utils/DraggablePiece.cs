@@ -1,65 +1,85 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+public class DraggablePiece : MonoBehaviour,
+    IBeginDragHandler, IDragHandler, IEndDragHandler
 {
-    public Transform target;
-    public DoorController puzzle;
+    public RectTransform rectTransform;
+    public CanvasGroup canvasGroup;
 
-    private RectTransform rect;
-    private Canvas canvas;
+    public RectTransform target;
+    public float snapDistance = 50f;
 
-    private bool isSnapped = false;
+    private bool placed = false;
+    private Canvas rootCanvas;
+    private Vector2 originalPos;
 
     void Awake()
     {
-        rect = GetComponent<RectTransform>();
-        canvas = GetComponentInParent<Canvas>();
+        if (rectTransform == null)
+            rectTransform = GetComponent<RectTransform>();
+
+        if (canvasGroup == null)
+            canvasGroup = GetComponent<CanvasGroup>();
+
+        rootCanvas = GetComponentInParent<Canvas>();
+
+        originalPos = rectTransform.anchoredPosition;
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        isSnapped = false;
+        if (placed) return;
+
+        canvasGroup.blocksRaycasts = false;
+        canvasGroup.alpha = 0.7f;
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (canvas == null)
-            return;
+        if (placed) return;
 
-        Vector2 localPos;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvas.transform as RectTransform,
+        Vector3 worldPos;
+        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
+            rectTransform,
             eventData.position,
             eventData.pressEventCamera,
-            out localPos
-        );
-
-        rect.anchoredPosition = localPos;
+            out worldPos))
+        {
+            rectTransform.position = worldPos;
+        }
     }
+
+
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        float dist = Vector3.Distance(rect.position, target.position);
+        if (placed) return;
 
-        // ������� ��� ���� ��� (���� ����� ��"�)
-        float snapDistance = 120f;
+        canvasGroup.blocksRaycasts = true;
+        canvasGroup.alpha = 1f;
+
+        if (target == null)
+        {
+            rectTransform.anchoredPosition = originalPos;
+            return;
+        }
+
+        float dist = Vector2.Distance(rectTransform.anchoredPosition,
+                                      target.anchoredPosition);
 
         if (dist < snapDistance)
         {
-            //  ���� ���� ����� ��Target
-            rect.position = target.position;
-            isSnapped = true;
+            rectTransform.anchoredPosition = target.anchoredPosition;
+            placed = true;
+
+            GameManager.Instance.activePuzzleDoor?.PuzzleSolved();
         }
         else
         {
-            isSnapped = false;
+            rectTransform.anchoredPosition = originalPos;
         }
-
-        puzzle.PuzzleSolved();
     }
 
-    public bool IsSnapped() => isSnapped;
-
-    public bool IsInCorrectPlace() => isSnapped;
+    public bool IsSnapped() => placed;
 }

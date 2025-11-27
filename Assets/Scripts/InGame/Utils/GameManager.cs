@@ -10,6 +10,9 @@ public class GameManager : MonoBehaviour
     public int lifebuoys = 1; // ��� ����� ���� �� ���
     public int HeartPlacements = 1;
     public int BombRemovals = 1;
+    public DoorController activePuzzleDoor;
+
+
 
     public int totalKeysInLevel = 0;
 

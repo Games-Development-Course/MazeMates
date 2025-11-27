@@ -19,7 +19,10 @@ public class PickupObject : MonoBehaviour
     public string customMessage = "";
 
     public Color messageColor = Color.white;
-    public TMP_FontAsset messageFont;
+    public TMP_FontAsset messageFont;   // נשאר לשימוש עתידי אך לא חלק מהפונקציה החדשה
+
+    [Header("Message Duration")]
+    public float messageDuration = 1.5f;   // כמה זמן הצבע המיוחד יישאר
 
     private void OnTriggerEnter(Collider other)
     {
@@ -29,30 +32,31 @@ public class PickupObject : MonoBehaviour
         HUDManager hud = HUDManager.Instance;
         GameManager gm = GameManager.Instance;
 
-        // ���� ����� ������ ����
+        // --- הודעה מותאמת אישית ---
         if (!string.IsNullOrEmpty(customMessage))
         {
-            hud.SetMessageAppearanceForBoth(messageColor, messageFont);
+            hud.SetMessageAppearanceForBoth(messageColor, messageDuration);
             hud.ShowMessageForBoth(customMessage);
         }
 
+        // --- טיפוסים ---
         switch (type)
         {
             case PickupType.Heart:
                 gm.lives++;
-                hud.ShowMessageForBoth("����� ��! ����� ��� ��1.");
+                hud.ShowMessageForBoth("אספת לב! קיבלת חיים נוספים.");
                 hud.UpdateHUDs();
                 break;
 
             case PickupType.Key:
                 gm.keys++;
-                hud.ShowMessageForBoth("����� ����!");
+                hud.ShowMessageForBoth("אספת מפתח!");
                 hud.UpdateHUDs();
                 break;
 
             case PickupType.Lifebuoy:
                 gm.lifebuoys++;
-                hud.ShowMessageForBoth("������ ���� ����! ����� ���� ������ �� �� ����� ��� ���.");
+                hud.ShowMessageForBoth("אספת מצוף הצלה! השתמש בו כדי להימנע מהפסד.");
                 hud.UpdateHUDs();
                 break;
 
@@ -68,9 +72,7 @@ public class PickupObject : MonoBehaviour
                 else
                 {
                     other.GetComponentInChildren<PlayerCamera1P>()?.LockCameraForSeconds(0.5f);
-                    other
-                        .GetComponent<PlayerMovement1P>()
-                        ?.TeleportToStart(PlayerStartPoint.Instance.startPosition);
+                    other.GetComponent<PlayerMovement1P>()?.TeleportToStart(PlayerStartPoint.Instance.startPosition);
                 }
                 break;
         }

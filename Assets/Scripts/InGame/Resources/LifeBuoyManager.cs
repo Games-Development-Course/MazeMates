@@ -5,9 +5,6 @@ public class LifeBuoyManager : MonoBehaviour
     public static LifeBuoyManager Instance;
     public GameManager gameManager;
 
-    [Header("UI Overlay shown during hint")]
-    public GameObject overlayObj;
-
     [Header("How long hint stays visible (seconds)")]
     public float displayTime = 2.5f;
 
@@ -16,43 +13,52 @@ public class LifeBuoyManager : MonoBehaviour
         Instance = this;
     }
 
-    /// <summary>
-    /// Activates the lifebuoy overlay, but ONLY if puzzle is currently open.
-    /// </summary>
     public void TryUseLifeBuoy()
     {
         if (gameManager.lifebuoys == 0)
         {
-            HUDManager.Instance.ShowMessageToNavigator("��� �� ����� ���� ������.");
-            Debug.Log("Lifebuoy denied � none available.");
+            HUDManager.Instance.ShowMessageToNavigator("אין לך גלגלי הצלה נוספים.");
             return;
         }
-        // ���� �� ���� ����
+
         if (!GameManager.Instance.inPuzzle)
         {
-            Debug.Log("Lifebuoy denied � puzzle is not open.");
+            Debug.Log("Cannot use lifebuoy — puzzle not active.");
             return;
         }
 
-        Debug.Log("Lifebuoy used � showing hint overlay.");
-        HUDManager.Instance.ShowMessageToNavigator("���� ���� �����, ��� ����� �� ��� �� ����");
+        Debug.Log("Lifebuoy used — choosing random hint");
         gameManager.lifebuoys--;
 
-        // ����� �� ����
-        overlayObj.SetActive(true);
+        DoorController activeDoor = GameManager.Instance.activePuzzleDoor;
+        if (activeDoor == null || activeDoor.spawnedHints == null || activeDoor.spawnedHints.Count == 0)
+        {
+            Debug.LogError("No hints found on active puzzle door!");
+            return;
+        }
 
-        // ���� �� ����� ����
-        CancelInvoke(nameof(HideOverlay));
+        // רמז רנדומלי
+        int index = Random.Range(0, activeDoor.spawnedHints.Count);
+        GameObject chosenHint = activeDoor.spawnedHints[index];
 
-        // ������ ����� ���
-        Invoke(nameof(HideOverlay), displayTime);
+        HUDManager.Instance.ShowMessageToNavigator("רמז הופעל!");
+
+        chosenHint.SetActive(true);
+
+        // כיבוי ישן
+        CancelInvoke(nameof(HideAllHints));
+
+        // הדלקה ל-2.5 שניות
+        Invoke(nameof(HideAllHints), displayTime);
     }
 
-    /// <summary>
-    /// Hides the hint overlay.
-    /// </summary>
-    private void HideOverlay()
+    private void HideAllHints()
     {
-        overlayObj.SetActive(false);
+        DoorController activeDoor = GameManager.Instance.activePuzzleDoor;
+        if (activeDoor == null || activeDoor.spawnedHints == null)
+            return;
+
+        foreach (var h in activeDoor.spawnedHints)
+            h.SetActive(false);
     }
 }

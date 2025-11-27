@@ -1,78 +1,80 @@
-﻿using System.Collections;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
+using System.Linq;
 
 public class PuzzleDoor : IDoor
 {
     private bool solved = false;
+
     private DoorController controller;
 
-    private Canvas canvas;
+    private GameObject puzzleInstance;
+    private Sprite navigatorImageSprite;
+
     private DraggablePiece[] pieces;
-    private Transform[] targets;
+    private RectTransform[] targetSlots;
 
-    private GameObject travellerOriginal;
+    private Image navigatorImage;
 
-    // UI image for navigator
-    private Image navigatorPreviewImage;
-
-    public PuzzleDoor(
-        DoorController controller,
-        Canvas canvas,
-        DraggablePiece[] pieces,
-        Transform[] targets,
-        GameObject originalObj
-    )
+    public PuzzleDoor(DoorController controller, GameObject prefab, Sprite preview)
     {
         this.controller = controller;
-        this.canvas = canvas;
-        this.pieces = pieces;
-        this.targets = targets;
-        this.travellerOriginal = originalObj;
+        this.navigatorImageSprite = preview;
+        this.puzzleInstance = prefab;
+    }
 
-        canvas.enabled = false;
-        travellerOriginal.SetActive(false);
+    private void InstantiatePuzzle()
+    {
+        GameObject slot = HUDManager.Instance.TravellerHUD.PuzzleSlot;
 
+        GameObject instance = Object.Instantiate(puzzleInstance, slot.transform);
+        instance.transform.localPosition = Vector3.zero;
+        instance.transform.localScale = Vector3.one;
+
+        puzzleInstance = instance;
+
+        Transform piecesParent = instance.transform.Find("Pieces");
+        Transform targetsParent = instance.transform.Find("Targets");
+
+        pieces = piecesParent.GetComponentsInChildren<DraggablePiece>(true);
+
+        // סינון החוצה את RectTransform של האבא עצמו
+        targetSlots = targetsParent.GetComponentsInChildren<RectTransform>(true)
+                                   .Where(t => t.gameObject != targetsParent.gameObject)
+                                   .ToArray();
+
+        navigatorImage = HUDManager.Instance.NavigatorHUD.PuzzleImage;
+
+        // מיפוי אחד לאחד
         for (int i = 0; i < pieces.Length; i++)
-        {
-            pieces[i].target = targets[i];
-            pieces[i].puzzle = controller;
-        }
+            pieces[i].target = targetSlots[i];
     }
 
     public bool IsOpen() => solved;
 
     public void TryOpen()
     {
-        if (solved)
-            return;
+        if (solved) return;
 
-        // Traveller UI
-        canvas.gameObject.SetActive(true);
-        canvas.enabled = true;
-        travellerOriginal.SetActive(true);
+        if (puzzleInstance == null || puzzleInstance.transform.parent == null)
+            InstantiatePuzzle();
 
-        // Create navigator preview
-        if (navigatorPreviewImage == null)
+        HUDManager.Instance.TravellerHUD.ShowPuzzle();
+        puzzleInstance.SetActive(true);
+
+
+        if (navigatorImage)
         {
-            GameObject imgObj = new GameObject("NavigatorPuzzlePreview");
-            imgObj.transform.SetParent(HUDManager.Instance.NavigatorHUD.transform, false);
-
-            navigatorPreviewImage = imgObj.AddComponent<Image>();
-            navigatorPreviewImage.sprite = controller.puzzleOriginalSprite;
-            navigatorPreviewImage.preserveAspect = true;
-
-            RectTransform rt = navigatorPreviewImage.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(450, 450);
+            navigatorImage.sprite = navigatorImageSprite;
+            navigatorImage.enabled = true;
+            navigatorImage.gameObject.SetActive(true);
         }
 
-        navigatorPreviewImage.gameObject.SetActive(true);
-
         GameManager.Instance.inPuzzle = true;
-        Cursor.lockState = CursorLockMode.None;
+        GameManager.Instance.activePuzzleDoor = controller;
+
         Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
     }
 
     public void PuzzleSolved()
@@ -83,69 +85,33 @@ public class PuzzleDoor : IDoor
 
         solved = true;
 
-        canvas.gameObject.SetActive(false);
-        travellerOriginal.SetActive(false);
+        HUDManager.Instance.TravellerHUD.HidePuzzle();
 
-        if (navigatorPreviewImage != null)
-            navigatorPreviewImage.gameObject.SetActive(false);
+        puzzleInstance.SetActive(false);
+        if (navigatorImage)
+        {
+            navigatorImage.enabled = false;
+            navigatorImage.gameObject.SetActive(true);
+        }
 
-        RefreshNavigatorCamera();
-
-        Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
+
+        GameManager.Instance.inPuzzle = false;
+        GameManager.Instance.activePuzzleDoor = null;
 
         controller.StartOpeningDoor(controller.openAngle);
     }
 
     public void ForceClosePuzzle()
     {
-        canvas.gameObject.SetActive(false);
-        travellerOriginal.SetActive(false);
-
-        if (navigatorPreviewImage != null)
-            navigatorPreviewImage.gameObject.SetActive(false);
-
-        RefreshNavigatorCamera();
-        GameManager.Instance.inPuzzle = false;
-    }
-
-    public void ForceSolveAndOpen()
-    {
-        ForceClosePuzzle();
-
-        solved = true;
-
-        controller.StartOpeningDoor(controller.openAngle);
-    }
-
-    public void RevealRandomHint()
-    {
-        if (controller.hintOverlaysParent == null)
-            return;
-
-        int count = controller.hintOverlaysParent.childCount;
-        if (count == 0)
-            return;
-
-        Transform hint = controller.hintOverlaysParent.GetChild(Random.Range(0, count));
-        hint.gameObject.SetActive(true);
-
-        GameManager.Instance.StartCoroutine(HideHint(hint.gameObject));
-    }
-
-    private IEnumerator HideHint(GameObject obj)
-    {
-        yield return new WaitForSeconds(2f);
-        obj.SetActive(false);
-    }
-
-    private void RefreshNavigatorCamera()
-    {
-        var navCam = GameObject.Find("NavigatorCamera")?.GetComponent<Camera>();
-        if (navCam != null)
+        HUDManager.Instance.NavigatorHUD.HidePuzzleImage();
+        HUDManager.Instance.TravellerHUD.HidePuzzle();
+        if (navigatorImage)
         {
-            navCam.enabled = false;
-            navCam.enabled = true;
+            navigatorImage.enabled = false;
+            navigatorImage.gameObject.SetActive(true);
         }
+
     }
 }

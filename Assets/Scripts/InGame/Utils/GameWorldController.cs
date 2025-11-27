@@ -70,7 +70,6 @@ public class GameWorldController : MonoBehaviour
     public void ShowPuzzle()
     {
         var door = FindNearestDoorOnPad(DoorType.Puzzle);
-
         if (door == null)
         {
             HUDManager.Instance.ShowMessageToNavigator("המטייל לא עומד על פד של דלת חידה");
@@ -78,15 +77,7 @@ public class GameWorldController : MonoBehaviour
         }
 
         PuzzleDoor puzzle = door.GetPuzzle();
-
-        if (puzzle == null)
-        {
-            HUDManager.Instance.ShowMessageToNavigator("הדלת אינה דלת חידה");
-            return;
-        }
-
         puzzle.TryOpen();
-        HUDManager.Instance.ShowMessageToNavigator("החידה הוצגה למטייל");
     }
 
     // ------------------------------------
