@@ -51,7 +51,6 @@ public class MazeGenerator3D : MonoBehaviour
         PlaceResources();
 
         AssignPuzzlePrefabsToPuzzleDoors(puzzleDoorInstances);
-
     }
 
     // ================================================================
@@ -91,8 +90,8 @@ public class MazeGenerator3D : MonoBehaviour
         grid = new bool[width, height];
 
         for (int x = 0; x < width; x++)
-            for (int y = 0; y < height; y++)
-                grid[x, y] = true;
+        for (int y = 0; y < height; y++)
+            grid[x, y] = true;
 
         DFS(1, 1);
     }
@@ -198,21 +197,26 @@ public class MazeGenerator3D : MonoBehaviour
         for (int i = 0; i < normalDoorsAmount; i++)
         {
             var s = DoorPlacement.PickRandomSpot(spots, used, minDist);
-            if (s == null) break;
+            if (s == null)
+                break;
 
             SpawnDoor(normalDoorPrefab, s);
             used.Add(s);
         }
 
         // PUZZLE DOORS
-        spots.Sort((a, b) =>
-            Vector2.Distance(new Vector2(1, 1), b.cell)
-            .CompareTo(Vector2.Distance(new Vector2(1, 1), a.cell)));
+        spots.Sort(
+            (a, b) =>
+                Vector2
+                    .Distance(new Vector2(1, 1), b.cell)
+                    .CompareTo(Vector2.Distance(new Vector2(1, 1), a.cell))
+        );
 
         for (int i = 0; i < puzzleDoorsAmount; i++)
         {
             var s = DoorPlacement.PickDeepSpot(spots, used, minDist);
-            if (s == null) break;
+            if (s == null)
+                break;
 
             GameObject pd = SpawnDoor(puzzleDoorPrefab, s);
 
@@ -242,9 +246,33 @@ public class MazeGenerator3D : MonoBehaviour
             blocked.Add(c);
         }
 
-        ResourcePlacement.PlaceResources(grid, pathCells, blocked, cellSize, resourcesRoot, heartPrefab, heartsAmount);
-        ResourcePlacement.PlaceResources(grid, pathCells, blocked, cellSize, resourcesRoot, bombPrefab, bombsAmount);
-        ResourcePlacement.PlaceResources(grid, pathCells, blocked, cellSize, resourcesRoot, keyPrefab, keysAmount);
+        ResourcePlacement.PlaceResources(
+            grid,
+            pathCells,
+            blocked,
+            cellSize,
+            resourcesRoot,
+            heartPrefab,
+            heartsAmount
+        );
+        ResourcePlacement.PlaceResources(
+            grid,
+            pathCells,
+            blocked,
+            cellSize,
+            resourcesRoot,
+            bombPrefab,
+            bombsAmount
+        );
+        ResourcePlacement.PlaceResources(
+            grid,
+            pathCells,
+            blocked,
+            cellSize,
+            resourcesRoot,
+            keyPrefab,
+            keysAmount
+        );
     }
 
     // ================================================================
@@ -252,7 +280,8 @@ public class MazeGenerator3D : MonoBehaviour
     // ================================================================
     GameObject SpawnDoor(GameObject prefab, DoorSpot spot)
     {
-        if (prefab == null) return null;
+        if (prefab == null)
+            return null;
 
         Vector3 pos = new Vector3(spot.cell.x * cellSize, 0, spot.cell.y * cellSize);
 
@@ -280,5 +309,4 @@ public class MazeGenerator3D : MonoBehaviour
             }
         }
     }
-                
 }

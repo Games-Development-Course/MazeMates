@@ -18,7 +18,7 @@ public class KeyFloatSpinGlow : MonoBehaviour
     private Material mat;
     private Color baseEmission;
 
-    void Start()    
+    void Start()
     {
         // Force key to stand upright no matter the model import rotation
         transform.localRotation = Quaternion.Euler(0, 0, 0);

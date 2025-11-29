@@ -10,7 +10,8 @@ public static class ResourcePlacement
         float cellSize,
         Transform parent,
         GameObject prefab,
-        int amount)
+        int amount
+    )
     {
         if (prefab == null || amount <= 0)
             return;
@@ -57,24 +58,27 @@ public static class ResourcePlacement
         }
     }
 
-private static bool IsCellSafeFromWalls(bool[,] grid, Vector2Int c)
-{
-    // reject if this IS a wall
-    if (grid[c.x, c.y])
-        return false;
+    private static bool IsCellSafeFromWalls(bool[,] grid, Vector2Int c)
+    {
+        // reject if this IS a wall
+        if (grid[c.x, c.y])
+            return false;
 
-    // Allow neighbors, but avoid extremely tight corners
-    int wallCount = 0;
+        // Allow neighbors, but avoid extremely tight corners
+        int wallCount = 0;
 
-    if (grid[c.x + 1, c.y]) wallCount++;
-    if (grid[c.x - 1, c.y]) wallCount++;
-    if (grid[c.x, c.y + 1]) wallCount++;
-    if (grid[c.x, c.y - 1]) wallCount++;
+        if (grid[c.x + 1, c.y])
+            wallCount++;
+        if (grid[c.x - 1, c.y])
+            wallCount++;
+        if (grid[c.x, c.y + 1])
+            wallCount++;
+        if (grid[c.x, c.y - 1])
+            wallCount++;
 
-    // Reject ONLY if cell is surrounded by 3–4 walls (dead pits)
-    return wallCount < 3;
-}
-
+        // Reject ONLY if cell is surrounded by 3ï¿½4 walls (dead pits)
+        return wallCount < 3;
+    }
 
     private static void Shuffle(List<Vector2Int> list)
     {

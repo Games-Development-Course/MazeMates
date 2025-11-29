@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class DoorSpot
 {
-    public Vector2Int cell;      // ойчен ъа шщъ
-    public Quaternion rotation;  // лйееп дгмъ
-    public float score;          // ощощ мгйшев теоч
+    public Vector2Int cell; // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ
+    public Quaternion rotation; // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+    public float score; // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 }

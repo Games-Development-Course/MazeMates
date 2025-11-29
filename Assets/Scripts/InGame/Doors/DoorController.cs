@@ -92,7 +92,11 @@ public class DoorController : MonoBehaviour
 
         while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
         {
-            pivot.localRotation = Quaternion.Lerp(pivot.localRotation, target, Time.deltaTime * openSpeed);
+            pivot.localRotation = Quaternion.Lerp(
+                pivot.localRotation,
+                target,
+                Time.deltaTime * openSpeed
+            );
             yield return null;
         }
 
@@ -130,9 +134,12 @@ public class DoorController : MonoBehaviour
                 continue;
 
             string n = child.name.ToLower();
-            if (n.Contains("trigger")) continue;
-            if (n.Contains("pad")) continue;
-            if (n.Contains("portal")) continue;
+            if (n.Contains("trigger"))
+                continue;
+            if (n.Contains("pad"))
+                continue;
+            if (n.Contains("portal"))
+                continue;
 
             child.SetParent(pivotObj.transform, true);
         }
@@ -144,7 +151,6 @@ public class DoorController : MonoBehaviour
     public PuzzleDoor GetPuzzle() => door as PuzzleDoor;
 
     public List<GameObject> spawnedHints = new List<GameObject>();
-
 
     // ---------------------------------------------------------
     public void StartSlidingIntoWall() => StartCoroutine(SlideIntoWallRoutine());

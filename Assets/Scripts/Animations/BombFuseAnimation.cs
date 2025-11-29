@@ -3,8 +3,8 @@
 public class BombFuseAnimation : MonoBehaviour
 {
     [Header("Fuse Settings")]
-    public Transform fuseTip;          // the glowing tip of the fuse
-    public Transform fuseMesh;         // the fuse rope mesh
+    public Transform fuseTip; // the glowing tip of the fuse
+    public Transform fuseMesh; // the fuse rope mesh
     public float fuseLength = 0.25f;
     public float fuseBurnTime = 4f;
 
@@ -46,7 +46,8 @@ public class BombFuseAnimation : MonoBehaviour
                 {
                     baseEmission = fuseMat.GetColor("_EmissionColor");
                 }
-                else baseEmission = Color.black;
+                else
+                    baseEmission = Color.black;
 
                 fuseMat.EnableKeyword("_EMISSION");
             }
@@ -109,11 +110,7 @@ public class BombFuseAnimation : MonoBehaviour
             {
                 tickSource.Play();
 
-                float interval = Mathf.Lerp(
-                    tickMaxInterval,
-                    tickMinInterval,
-                    burnT
-                );
+                float interval = Mathf.Lerp(tickMaxInterval, tickMinInterval, burnT);
 
                 nextTick = interval;
             }

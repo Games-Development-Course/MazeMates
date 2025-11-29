@@ -8,8 +8,8 @@ public class PuzzleDoor : IDoor
 
     private DoorController controller;
 
-    private GameObject puzzleInstance;     // runtime instance only
-    private Sprite navigatorImageSprite;   // preview sprite
+    private GameObject puzzleInstance; // runtime instance only
+    private Sprite navigatorImageSprite; // preview sprite
 
     private DraggablePiece[] pieces;
     private RectTransform[] targetSlots;
@@ -28,7 +28,9 @@ public class PuzzleDoor : IDoor
     {
         if (controller.puzzlePrefab == null)
         {
-            Debug.LogError("PuzzleDoor: controller.puzzlePrefab is NULL on door " + controller.name);
+            Debug.LogError(
+                "PuzzleDoor: controller.puzzlePrefab is NULL on door " + controller.name
+            );
             return;
         }
 
