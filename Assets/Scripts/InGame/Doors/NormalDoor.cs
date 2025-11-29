@@ -1,4 +1,4 @@
-public class NormalDoor : IDoor
+﻿public class NormalDoor : IDoor
 {
     private bool opened = false;
     private DoorController controller;
@@ -16,6 +16,7 @@ public class NormalDoor : IDoor
             return;
 
         opened = true;
+
         controller.StartOpeningDoor(controller.openAngle);
     }
 }

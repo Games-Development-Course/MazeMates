@@ -10,7 +10,7 @@ public class GameWorldController : MonoBehaviour
         Instance = this;
     }
 
-    private DoorController FindNearestDoorOnPad(DoorType type)
+    public DoorController FindNearestDoorOnPad(DoorType type)
     {
         var allDoors = FindObjectsByType<DoorController>(FindObjectsSortMode.None);
 

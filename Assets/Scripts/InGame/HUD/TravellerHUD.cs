@@ -1,13 +1,12 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class TravellerHUD : MonoBehaviour
 {
-    [Header("Shared Bar")]
-    public GameObject sharedBarPrefab;
+    [Header("Shared Bar (placed manually)")]
+    public HUDShared sharedBar; // ← במקום prefab
     public RectTransform barParent;
-    private HUDShared sharedBar;
 
     [Header("Traveller UI")]
     public TMP_Text messageText;
@@ -18,14 +17,9 @@ public class TravellerHUD : MonoBehaviour
 
     private void Start()
     {
-        if (sharedBarPrefab && barParent)
-        {
-            var inst = Instantiate(sharedBarPrefab, barParent);
-            sharedBar = inst.GetComponent<HUDShared>();
-        }
-
-        if (PuzzleSlot)
-            PuzzleSlot.SetActive(false);
+        // אם לא הוגדר ידנית — מחפש לבד בתוך ההיררכיה
+        if (!sharedBar)
+            sharedBar = GetComponentInChildren<HUDShared>(true);
     }
 
     public void UpdateShared(GameManager gm)
@@ -47,20 +41,29 @@ public class TravellerHUD : MonoBehaviour
 
     public void ShowPuzzle()
     {
-        if (PuzzleSlot)
-            PuzzleSlot.SetActive(true);
+        if (!PuzzleSlot)
+            return;
+
+        Transform child = PuzzleSlot.transform.Find("PuzzleChicken");
+        if (child != null)
+            child.gameObject.SetActive(true);
     }
 
     public void HidePuzzle()
     {
-        if (PuzzleSlot)
-            PuzzleSlot.SetActive(false);
+        if (!PuzzleSlot)
+            return;
+
+        Transform child = PuzzleSlot.transform.Find("PuzzleChicken");
+        if (child != null)
+            child.gameObject.SetActive(false);
     }
 
     public void FlashLives()
     {
         if (!gameObject.activeInHierarchy || flashing)
             return;
+
         StartCoroutine(FlashRoutine());
     }
 

@@ -1,13 +1,12 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class NavigatorHUD : MonoBehaviour
 {
-    [Header("Shared Bar")]
-    public GameObject sharedBarPrefab;
+    [Header("Shared Bar (placed manually)")]
+    public HUDShared sharedBar; // ← בלי prefab
     public RectTransform barParent;
-    private HUDShared sharedBar;
 
     [Header("Navigator UI")]
     public TMP_Text messageText;
@@ -15,11 +14,9 @@ public class NavigatorHUD : MonoBehaviour
 
     private void Start()
     {
-        if (sharedBarPrefab && barParent)
-        {
-            var inst = Instantiate(sharedBarPrefab, barParent);
-            sharedBar = inst.GetComponent<HUDShared>();
-        }
+        // אם לא שמו ידנית — מחפש לבד בילדים
+        if (!sharedBar)
+            sharedBar = GetComponentInChildren<HUDShared>(true);
 
         if (puzzleImage)
             puzzleImage.gameObject.SetActive(false);

@@ -2,43 +2,47 @@
 
 public class PadTrigger : MonoBehaviour
 {
-    private DoorController door;
+    private DoorController controller;
     private bool playerOnPad = false;
 
-    void Start()
+    private void Awake()
     {
-        door = GetComponentInParent<DoorController>();
+        controller = GetComponentInParent<DoorController>();
     }
 
     void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player"))
             return;
+
         playerOnPad = true;
 
-        if (door.IsOpen())
+        // ודא שהדלת קיימת
+        if (controller == null)
+            controller = GetComponentInParent<DoorController>();
+
+        // אם הדלת כבר פתוחה – אל תציג שום הודעה
+        if (controller != null && controller.IsOpen())
             return;
 
         var hud = HUDManager.Instance;
         var gm = GameManager.Instance;
 
-        switch (door.doorType)
+        switch (controller.doorType)
         {
             case DoorType.Normal:
-                hud.ShowMessageToTraveller("לחץ רווח לפתוח את הדלת ");
+                hud.ShowMessageForTraveller("לחץ רווח לפתוח את הדלת");
                 break;
 
             case DoorType.Puzzle:
-                hud.ShowMessageToTraveller("לחץ רווח להתחיל את החידה");
+                hud.ShowMessageForTraveller("לחץ רווח להתחיל את החידה");
                 break;
 
             case DoorType.Exit:
                 if (gm.AllKeysCollected())
-                    hud.ShowMessageToTraveller(
-                        "יש לך את כל המפתחות! הקש רווח לפתוח את הדלת ולנצח!!"
-                    );
+                    hud.ShowMessageForTraveller("יש לך את כל המפתחות! הקש רווח לניצחון!");
                 else
-                    hud.ShowMessageToTraveller("עליך לאסוף את כל המפתחות!");
+                    hud.ShowMessageForTraveller("עליך לאסוף את כל המפתחות");
                 break;
         }
     }
@@ -47,24 +51,22 @@ public class PadTrigger : MonoBehaviour
     {
         if (!other.CompareTag("Player"))
             return;
+
         playerOnPad = false;
 
-        if (!door.IsOpen())
+        // אם הדלת סגורה → סגור חידה אם יש
+        if (!controller.IsOpen())
         {
-            var puzzle = door.GetPuzzle();
+            var puzzle = controller.GetPuzzle();
             if (puzzle != null)
-            {
                 puzzle.ForceClosePuzzle();
-            }
         }
     }
 
     public bool IsPlayerOnPad() => playerOnPad;
 
-    // 🔥 פונקציה חדשה: האם מותר לשחקן ללחוץ רווח ולהפעיל דלת?
     public bool CanActivateDoorWithSpace()
     {
-        // אם אין מנהל – נניח שמותר
         if (DoorPadToggle.Instance == null)
             return true;
 

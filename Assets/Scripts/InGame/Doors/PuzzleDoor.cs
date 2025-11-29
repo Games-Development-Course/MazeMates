@@ -8,29 +8,35 @@ public class PuzzleDoor : IDoor
 
     private DoorController controller;
 
-    private GameObject puzzleInstance;
-    private Sprite navigatorImageSprite;
+    private GameObject puzzleInstance;     // runtime instance only
+    private Sprite navigatorImageSprite;   // preview sprite
 
     private DraggablePiece[] pieces;
     private RectTransform[] targetSlots;
-
     private Image navigatorImage;
 
-    public PuzzleDoor(DoorController controller, GameObject prefab, Sprite preview)
+    public PuzzleDoor(DoorController controller)
     {
         this.controller = controller;
-        this.navigatorImageSprite = preview;
-        this.puzzleInstance = prefab;
+        this.navigatorImageSprite = controller.navigatorPreview;
     }
 
+    // ---------------------------------------------------------
+    // INSTANTIATE THE PUZZLE UI
+    // ---------------------------------------------------------
     private void InstantiatePuzzle()
     {
+        if (controller.puzzlePrefab == null)
+        {
+            Debug.LogError("PuzzleDoor: controller.puzzlePrefab is NULL on door " + controller.name);
+            return;
+        }
+
         GameObject slot = HUDManager.Instance.TravellerHUD.PuzzleSlot;
 
-        GameObject instance = Object.Instantiate(puzzleInstance, slot.transform);
+        GameObject instance = Object.Instantiate(controller.puzzlePrefab, slot.transform);
         instance.transform.localPosition = Vector3.zero;
         instance.transform.localScale = Vector3.one;
-
         puzzleInstance = instance;
 
         Transform piecesParent = instance.transform.Find("Pieces");
@@ -38,7 +44,6 @@ public class PuzzleDoor : IDoor
 
         pieces = piecesParent.GetComponentsInChildren<DraggablePiece>(true);
 
-        // סינון החוצה את RectTransform של האבא עצמו
         targetSlots = targetsParent
             .GetComponentsInChildren<RectTransform>(true)
             .Where(t => t.gameObject != targetsParent.gameObject)
@@ -46,11 +51,11 @@ public class PuzzleDoor : IDoor
 
         navigatorImage = HUDManager.Instance.NavigatorHUD.PuzzleImage;
 
-        // מיפוי אחד לאחד
         for (int i = 0; i < pieces.Length; i++)
             pieces[i].target = targetSlots[i];
     }
 
+    // ---------------------------------------------------------
     public bool IsOpen() => solved;
 
     public void TryOpen()
@@ -58,7 +63,7 @@ public class PuzzleDoor : IDoor
         if (solved)
             return;
 
-        if (puzzleInstance == null || puzzleInstance.transform.parent == null)
+        if (puzzleInstance == null)
             InstantiatePuzzle();
 
         HUDManager.Instance.TravellerHUD.ShowPuzzle();
@@ -78,6 +83,7 @@ public class PuzzleDoor : IDoor
         Cursor.lockState = CursorLockMode.None;
     }
 
+    // ---------------------------------------------------------
     public void PuzzleSolved()
     {
         foreach (var p in pieces)
@@ -92,7 +98,7 @@ public class PuzzleDoor : IDoor
         if (navigatorImage)
         {
             navigatorImage.enabled = false;
-            navigatorImage.gameObject.SetActive(true);
+            navigatorImage.gameObject.SetActive(false);
         }
 
         Cursor.visible = false;
@@ -104,14 +110,18 @@ public class PuzzleDoor : IDoor
         controller.StartOpeningDoor(controller.openAngle);
     }
 
+    // ---------------------------------------------------------
     public void ForceClosePuzzle()
     {
-        HUDManager.Instance.NavigatorHUD.HidePuzzleImage();
-        HUDManager.Instance.TravellerHUD.HidePuzzle();
+        if (puzzleInstance != null)
+            puzzleInstance.SetActive(false);
+
         if (navigatorImage)
         {
             navigatorImage.enabled = false;
-            navigatorImage.gameObject.SetActive(true);
+            navigatorImage.gameObject.SetActive(false);
         }
+
+        HUDManager.Instance.TravellerHUD.HidePuzzle();
     }
 }

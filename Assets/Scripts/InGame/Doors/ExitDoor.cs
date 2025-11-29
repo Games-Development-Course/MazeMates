@@ -17,7 +17,6 @@ public class ExitDoor : IDoor
 
         if (!GameManager.Instance.AllKeysCollected())
         {
-            HUDManager.Instance.ShowMessageForBoth("��� ���� ������!");
             return;
         }
 

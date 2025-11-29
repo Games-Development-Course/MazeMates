@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b245d5edfaaeab64bb5ea01995c92068
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - wallPrefab: {fileID: 80682184585290736, guid: abe70e1df7acb5d4c9b0da822aae20e2, type: 3}
+  - normalDoorPrefab: {instanceID: 0}
+  - puzzleDoorPrefab: {instanceID: 0}
+  - exitDoorPrefab: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
