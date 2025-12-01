@@ -89,8 +89,8 @@
 
 ## ITCH.IO
 current published implementation on itch.io:
-
-https://gamedevteamx.itch.io/coreloopweek4avivn
+[
+ITCH.IO](https://gamedevteamx.itch.io/mazematesv2)
 
 
 </div>
