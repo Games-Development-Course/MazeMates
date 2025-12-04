@@ -129,7 +129,7 @@ public class MazeGenerator3D : MonoBehaviour
         );
 
         // אם זו רצפה עם Scale רגיל (1,1,1) — נשנה Scale לפי הגודל
-        ground.transform.localScale = new Vector3(groundWidth, groundHeight,1 );
+        ground.transform.localScale = new Vector3(groundWidth, groundHeight, 1);
     }
 
 

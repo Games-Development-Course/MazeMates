@@ -23,6 +23,5 @@ public class ExitDoor : IDoor
         opened = true;
 
         controller.GetComponentInChildren<DoorDissolver>()?.TriggerDissolve();
-        
     }
 }
