@@ -4,9 +4,13 @@
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
+[Uu]ser[Ss]ettings/
 
 # Visual Studio cache
 .vs/
+
+# VSCode cache
+.vscode/
 
 # Rider cache
 .idea/
