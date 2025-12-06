@@ -1,6 +1,7 @@
-﻿using UnityEngine;
+﻿using Unity.Netcode;
+using UnityEngine;
 
-public class PlayerCamera1P : MonoBehaviour
+public class PlayerCamera1P : NetworkBehaviour
 {
     public float mouseSensitivity = 200f;
     public Transform playerBody;
