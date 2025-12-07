@@ -30,17 +30,27 @@ public class NavigatorInteractionManager : NetworkBehaviour
     {
         switch (action)
         {
-            case NavActionType.OpenDoor: TryOpenDoor(); break;
-            case NavActionType.ShowPuzzle: TryShowPuzzle(); break;
-            case NavActionType.RemoveBomb: RemoveBomb(); break;
-            case NavActionType.UseLifebuoy: UseLifebuoy(); break;
-            case NavActionType.PlaceHeart: PlaceHeart(); break;
+            case NavActionType.OpenDoor:
+                TryOpenDoor();
+                break;
+            case NavActionType.ShowPuzzle:
+                TryShowPuzzle();
+                break;
+            case NavActionType.RemoveBomb:
+                RemoveBomb();
+                break;
+            case NavActionType.UseLifebuoy:
+                UseLifebuoy();
+                break;
+            case NavActionType.PlaceHeart:
+                PlaceHeart();
+                break;
         }
     }
 
     private void TryOpenDoor()
     {
-        var door = GameWorldController.Instance.FindDoorPlayerIsOn();
+        DoorController door = GameWorldController.Instance.FindDoorPlayerIsOn();
         if (door == null)
         {
             HUDManager.Instance.ShowMessageToNavigator("אין דלת כאן");
@@ -58,7 +68,7 @@ public class NavigatorInteractionManager : NetworkBehaviour
 
     private void TryShowPuzzle()
     {
-        var door = GameWorldController.Instance.FindNearestDoorOnPad(DoorType.Puzzle);
+        DoorController door = GameWorldController.Instance.FindNearestDoorOnPad(DoorType.Puzzle);
 
         if (door == null)
         {
@@ -86,12 +96,12 @@ public class NavigatorInteractionManager : NetworkBehaviour
     [Rpc(SendTo.Everyone)]
     private void OpenPuzzleForTravellerRpc(ulong doorId)
     {
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects
-            .TryGetValue(doorId, out var obj))
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(doorId, out NetworkObject obj))
             return;
 
         DoorController door = obj.GetComponent<DoorController>();
-        if (door == null) return;
+        if (door == null)
+            return;
 
         if (GameManager.Instance.traveller != null &&
             GameManager.Instance.traveller.GetComponent<NetworkObject>().IsOwner)
@@ -105,12 +115,6 @@ public class NavigatorInteractionManager : NetworkBehaviour
         if (ResourceManager.Instance == null)
         {
             Debug.LogError("ResourceManager.Instance is NULL");
-            return;
-        }
-
-        if (GameManager.Instance?.traveller == null)
-        {
-            Debug.LogError("Traveller NULL");
             return;
         }
 
@@ -131,10 +135,10 @@ public class NavigatorInteractionManager : NetworkBehaviour
     public void PlaceHeart()
     {
         if (ResourceManager.Instance == null)
+        {
+            Debug.LogError("ResourceManager.Instance is NULL");
             return;
-
-        if (GameManager.Instance?.traveller == null)
-            return;
+        }
 
         ResourceManager.Instance.TryPlaceHeart();
     }
