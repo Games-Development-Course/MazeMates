@@ -101,9 +101,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2708922950654919531, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4615415965346183559}
-    - targetCorrespondingSourceObject: {fileID: 6766265876042618338, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 2643389881906601883}
   m_SourcePrefab: {fileID: 100100000, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
 --- !u!1 &2613489745867129297 stripped
 GameObject:
@@ -182,24 +179,3 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!1 &6645737409275746136 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 6766265876042618338, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
-  m_PrefabInstance: {fileID: 134259172341039802}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &2643389881906601883
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6645737409275746136}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 46fe7968bf786aa4a865044445b29521, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FlyMovement
-  ShowTopMostFoldoutHeaderGroup: 1
-  speed: 10
-  fastSpeed: 25
-  verticalSpeed: 8
