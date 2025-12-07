@@ -1,5 +1,5 @@
 using UnityEngine;
-
+// Handles camera collision to prevent clipping through walls in first-person view.
 public class CameraCollision : MonoBehaviour
 {
     public Transform cameraTransform; // MainCamera

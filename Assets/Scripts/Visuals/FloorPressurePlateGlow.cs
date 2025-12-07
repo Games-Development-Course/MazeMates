@@ -28,24 +28,28 @@ public class FloorPressurePlateGlow : MonoBehaviour
     private int objectsOnPlate = 0;
     private Coroutine currentAnim;
 
-    void Awake()
-    {
-        startPos = transform.localPosition;
+void Awake()
+{
+    startPos = transform.localPosition;
 
-        var col = GetComponent<Collider>();
-        col.isTrigger = true;
+    var col = GetComponent<Collider>();
+    col.isTrigger = true;
 
-        rend = GetComponent<Renderer>();
-        // יוצרים עותק חומר כדי לא לשנות לכולם
-        matInstance = rend.material;
+    rend = GetComponent<Renderer>();
+    matInstance = rend.material;
+    matInstance.EnableKeyword("_EMISSION");
 
-        // לוודא ש־Emission פעיל
-        matInstance.EnableKeyword("_EMISSION");
+    // 🔹 Take the existing material color as the idle color
+    if (matInstance.HasProperty("_BaseColor"))
+        idleColor = matInstance.GetColor("_BaseColor");
+    else if (matInstance.HasProperty("_Color"))
+        idleColor = matInstance.GetColor("_Color");
+    else
+        idleColor = matInstance.color;
 
-        // סטייל התחלתי
-        SetMaterialColors(idleColor, idleEmissionColor * 0f);
-    }
-
+    // start with no emission
+    SetMaterialColors(idleColor, idleEmissionColor * 0f);
+}
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag(playerTag)) return;
