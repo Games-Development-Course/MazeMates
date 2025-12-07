@@ -1,8 +1,9 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Unity.Netcode;
 
-public class PickupObject : MonoBehaviour
+public class PickupObject : NetworkBehaviour
 {
     public enum PickupType
     {
@@ -19,69 +20,139 @@ public class PickupObject : MonoBehaviour
     public string customMessage = "";
 
     public Color messageColor = Color.white;
-    public TMP_FontAsset messageFont; // נשאר לשימוש עתידי אך לא חלק מהפונקציה החדשה
+    public TMP_FontAsset messageFont;
 
     [Header("Message Duration")]
-    public float messageDuration = 1.5f; // כמה זמן הצבע המיוחד יישאר
+    public float messageDuration = 1.5f;
 
     private void OnTriggerEnter(Collider other)
     {
+        // כל הלוגיקה מתבצעת רק על השרת
+        if (!IsServer)
+            return;
+
         if (!other.CompareTag("Player"))
             return;
 
         HUDManager hud = HUDManager.Instance;
         GameManager gm = GameManager.Instance;
 
-        // --- הודעה מותאמת אישית ---
-        if (!string.IsNullOrEmpty(customMessage))
-        {
-            hud.SetMessageAppearanceForBoth(messageColor, messageDuration);
-            hud.ShowMessageForBoth(customMessage);
-        }
+        if (gm == null || hud == null)
+            return;
 
-        // --- טיפוסים ---
+        string finalMessage = customMessage;
+        bool gameOver = false;
+
+        // עדכון לוגיקה של המשחק על השרת
         switch (type)
         {
             case PickupType.Heart:
                 gm.lives++;
-                hud.ShowMessageForBoth("אספת לב! קיבלת חיים נוספים.");
-                hud.UpdateHUDs();
+                if (string.IsNullOrEmpty(finalMessage))
+                    finalMessage = "אספת לב! קיבלת חיים נוספים.";
                 break;
 
             case PickupType.Key:
                 gm.keys++;
-                hud.ShowMessageForBoth("אספת מפתח!");
-                hud.UpdateHUDs();
+                if (string.IsNullOrEmpty(finalMessage))
+                    finalMessage = "אספת מפתח!";
                 break;
 
             case PickupType.Lifebuoy:
                 gm.lifebuoys++;
-                hud.ShowMessageForBoth("אספת מצוף הצלה! השתמש בו כדי להימנע מהפסד.");
-                hud.UpdateHUDs();
+                if (string.IsNullOrEmpty(finalMessage))
+                    finalMessage = "אספת מצוף הצלה! השתמש בו כדי להימנע מהפסד.";
                 break;
 
             case PickupType.Bomb:
                 gm.lives--;
-                HUDManager.Instance.FlashTravellerLife();
 
+                if (string.IsNullOrEmpty(finalMessage))
+                    finalMessage = "דרכת על פצצה! איבדת לב.";
 
-
-                hud.UpdateHUDs();
+                // לוגיקת בומבה – רק על השרת, כי השרת מזיז את השחקן והמצב יסונכרן
+                hud.FlashTravellerLife();
 
                 if (gm.lives <= 0)
                 {
-                    SceneManager.LoadScene("GameOver");
+                    gameOver = true;
                 }
                 else
                 {
-                    other.GetComponentInChildren<PlayerCamera1P>()?.LockCameraForSeconds(0.5f);
-                    other
-                        .GetComponent<PlayerMovement1P>()
-                        ?.TeleportToStart(PlayerStartPoint.Instance.startPosition);
+                    var cam = other.GetComponentInChildren<PlayerCamera1P>();
+                    if (cam != null)
+                        cam.LockCameraForSeconds(0.5f);
+
+                    var move = other.GetComponent<PlayerMovement1P>();
+                    if (move != null && PlayerStartPoint.Instance != null)
+                        move.TeleportToStart(PlayerStartPoint.Instance.startPosition);
                 }
                 break;
         }
 
-        Destroy(gameObject);
+        // שולחים לכולם סינכרון HUD + הודעה
+        ApplyPickupClientRpc(
+            type,
+            finalMessage,
+            messageColor,
+            messageDuration,
+            gm.lives,
+            gm.keys,
+            gm.lifebuoys,
+            gameOver
+        );
+
+        // הורדת האובייקט מהשרת (ומשם מכל הקליינטים)
+        var netObj = GetComponent<NetworkObject>();
+        if (netObj != null)
+        {
+            netObj.Despawn(true);
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    [ClientRpc]
+    private void ApplyPickupClientRpc(
+        PickupType pickupType,
+        string msg,
+        Color color,
+        float duration,
+        int lives,
+        int keys,
+        int lifebuoys,
+        bool gameOver)
+    {
+        HUDManager hud = HUDManager.Instance;
+        GameManager gm = GameManager.Instance;
+
+        if (hud == null || gm == null)
+            return;
+
+        // מעדכנים את הערכים לפי מה שהשרת החליט
+        gm.lives = lives;
+        gm.keys = keys;
+        gm.lifebuoys = lifebuoys;
+
+        if (!string.IsNullOrEmpty(msg))
+        {
+            hud.SetMessageAppearanceForBoth(color, duration);
+            hud.ShowMessageForBoth(msg);
+        }
+
+        // בומבה – כבר הבהבנו חיים בשרת, אבל אפשר לוודא שוב לוגיקה ויזואלית
+        if (pickupType == PickupType.Bomb)
+        {
+            hud.FlashTravellerLife();
+        }
+
+        hud.UpdateHUDs();
+
+        if (gameOver)
+        {
+            SceneManager.LoadScene("GameOver");
+        }
     }
 }

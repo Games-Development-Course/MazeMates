@@ -1,43 +1,46 @@
-﻿using UnityEngine;
+﻿using Unity.Netcode;
+using UnityEngine;
 
-public class NavigatorActions : MonoBehaviour
+public class NavigatorActions : NetworkBehaviour
 {
-    private GameWorldController world;
-
-    private void Start()
+    private bool Safe()
     {
-        world = GameWorldController.Instance;
-    }
-
-    public void OpenDoor()
-    {
-        var gm = GameManager.Instance;
-
-        // אם המטייל עומד על פד של דלת יציאה → נפתח דלת יציאה
-        var exitDoor = GameWorldController.Instance.FindNearestDoorOnPad(DoorType.Exit);
-        if (exitDoor != null)
+        if (NavigatorInteractionManager.Instance == null)
         {
-            world.OpenExitDoor();
-            return;
+            HUDManager.Instance?.ShowMessageToNavigator("המערכת עדיין נטענת...");
+            return false;
         }
 
-        // אחרת, אם הוא עומד על דלת רגילה → נפתח דלת רגילה
-        var normalDoor = GameWorldController.Instance.FindNearestDoorOnPad(DoorType.Normal);
-        if (normalDoor != null)
-        {
-            world.OpenNormalDoor();
-            return;
-        }
-
-        // אם לא על שום דלת
-        HUDManager.Instance.ShowMessageToNavigator("המטייל לא עומד על דלת");
+        return true;
     }
 
-    public void ShowPuzzle() => world.ShowPuzzle();
+    public void UI_OpenDoor()
+    {
+        if (!Safe()) return;
+        NavigatorInteractionManager.Instance.Execute(NavActionType.OpenDoor);
+    }
 
-    public void RemoveBomb() => world.RemoveBomb();
+    public void UI_ShowPuzzle()
+    {
+        if (!Safe()) return;
+        NavigatorInteractionManager.Instance.Execute(NavActionType.ShowPuzzle);
+    }
 
-    public void PlaceHeart() => world.PlaceHeart();
+    public void UI_RemoveBomb()
+    {
+        if (!Safe()) return;
+        NavigatorInteractionManager.Instance.Execute(NavActionType.RemoveBomb);
+    }
 
-    public void UseLifebuoy() => world.UseLifebuoy();
+    public void UI_UseLifebuoy()
+    {
+        if (!Safe()) return;
+        NavigatorInteractionManager.Instance.Execute(NavActionType.UseLifebuoy);
+    }
+
+    public void UI_PlaceHeart()
+    {
+        if (!Safe()) return;
+        NavigatorInteractionManager.Instance.Execute(NavActionType.PlaceHeart);
+    }
 }

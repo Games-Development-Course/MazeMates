@@ -9,7 +9,6 @@ public class HUDManager : MonoBehaviour
     public TravellerHUD Traveller;
     public NavigatorHUD Navigator;
 
-    [Header("Message Settings")]
     public float defaultMessageDuration = 2f;
     public float HideDuration = 0.6f;
 
@@ -18,17 +17,13 @@ public class HUDManager : MonoBehaviour
         Instance = this;
     }
 
-    // ====================================================================
-    // INTERNAL — SHOW MESSAGE + Hide
-    // ====================================================================
-
     private void ShowAndHide(string travellerMsg, string navigatorMsg, float duration)
     {
-        if (!string.IsNullOrEmpty(travellerMsg))
-            Traveller?.ShowMessage(travellerMsg);
+        if (!string.IsNullOrEmpty(travellerMsg) && Traveller != null)
+            Traveller.ShowMessage(travellerMsg);
 
-        if (!string.IsNullOrEmpty(navigatorMsg))
-            Navigator?.ShowMessage(navigatorMsg);
+        if (!string.IsNullOrEmpty(navigatorMsg) && Navigator != null)
+            Navigator.ShowMessage(navigatorMsg);
 
         StopAllCoroutines();
         StartCoroutine(HideMessagesAfter(duration));
@@ -38,12 +33,11 @@ public class HUDManager : MonoBehaviour
     {
         yield return new WaitForSeconds(t);
 
-        // Hide out
         float duration = 0.35f;
         float time = 0f;
 
-        var travellerText = Traveller?.messageText; // TMP/Text component
-        var navigatorText = Navigator?.messageText;
+        var travellerText = Traveller != null ? Traveller.messageText : null;
+        var navigatorText = Navigator != null ? Navigator.messageText : null;
 
         Color tColor = travellerText != null ? travellerText.color : Color.white;
         Color nColor = navigatorText != null ? navigatorText.color : Color.white;
@@ -52,30 +46,28 @@ public class HUDManager : MonoBehaviour
         {
             float a = Mathf.Lerp(1f, 0f, time / duration);
 
-            if (travellerText)
+            if (travellerText != null)
                 travellerText.color = new Color(tColor.r, tColor.g, tColor.b, a);
-            if (navigatorText)
+
+            if (navigatorText != null)
                 navigatorText.color = new Color(nColor.r, nColor.g, nColor.b, a);
 
             time += Time.deltaTime;
             yield return null;
         }
 
-        if (travellerText)
+        if (travellerText != null)
+        {
             travellerText.text = "";
-        if (navigatorText)
-            navigatorText.text = "";
-
-        // Restore alpha for next message
-        if (travellerText)
             travellerText.color = new Color(tColor.r, tColor.g, tColor.b, 1f);
-        if (navigatorText)
-            navigatorText.color = new Color(nColor.r, nColor.g, nColor.b, 1f);
-    }
+        }
 
-    // ====================================================================
-    // NEW API
-    // ====================================================================
+        if (navigatorText != null)
+        {
+            navigatorText.text = "";
+            navigatorText.color = new Color(nColor.r, nColor.g, nColor.b, 1f);
+        }
+    }
 
     public void ShowMessageForTraveller(string msg)
     {
@@ -95,49 +87,94 @@ public class HUDManager : MonoBehaviour
     public void UpdateHUD()
     {
         var gm = GameManager.Instance;
+        if (gm == null)
+            return;
 
-        Traveller?.UpdateShared(gm);
-        Navigator?.UpdateShared(gm);
+        if (Traveller != null)
+            Traveller.UpdateShared(gm);
+
+        if (Navigator != null)
+            Navigator.UpdateShared(gm);
     }
 
     public void FlashTravellerLife()
     {
-        Traveller?.FlashLives();
+        if (Traveller != null)
+            Traveller.FlashLives();
     }
 
     public void ShowPuzzle(Sprite navigatorSprite)
     {
-        Traveller?.ShowPuzzle();
-        Navigator?.ShowPuzzleImage(navigatorSprite);
+        if (Traveller != null)
+            Traveller.ShowPuzzle();
+
+        if (Navigator != null)
+            Navigator.ShowPuzzleImage(navigatorSprite);
     }
 
     public void HidePuzzle()
     {
-        Traveller?.HidePuzzle();
-        Navigator?.HidePuzzleImage();
+        if (Traveller != null)
+            Traveller.HidePuzzle();
+
+        if (Navigator != null)
+            Navigator.HidePuzzleImage();
     }
 
-    // ====================================================================
-    // OLD API COMPAT
-    // ====================================================================
+    public void ShowMessageToTraveller(string msg)
+    {
+        ShowMessageForTraveller(msg);
+    }
 
-    public void ShowMessageToTraveller(string msg) => ShowMessageForTraveller(msg);
+    public void ShowMessageToNavigator(string msg)
+    {
+        ShowMessageForNavigator(msg);
+    }
 
-    public void ShowMessageToNavigator(string msg) => ShowMessageForNavigator(msg);
+    public void UpdateHUDs()
+    {
+        UpdateHUD();
+    }
 
-    public void UpdateHUDs() => UpdateHUD();
+    public void FlashLifeIcons()
+    {
+        FlashTravellerLife();
+    }
 
-    public void FlashLifeIcons() => FlashTravellerLife();
+    public TravellerHUD TravellerHUD
+    {
+        get { return Traveller; }
+    }
 
-    public TravellerHUD TravellerHUD => Traveller;
-    public NavigatorHUD NavigatorHUD => Navigator;
+    public NavigatorHUD NavigatorHUD
+    {
+        get { return Navigator; }
+    }
 
     public void SetMessageAppearanceForBoth(Color c, float dur)
     {
-        Traveller?.SetMessageColor(c);
-        Navigator?.SetMessageColor(c);
+        if (Traveller != null)
+            Traveller.SetMessageColor(c);
+
+        if (Navigator != null)
+            Navigator.SetMessageColor(c);
 
         StopAllCoroutines();
         StartCoroutine(HideMessagesAfter(dur));
+    }
+
+    public void ApplyState(int lives, int keys, int lifebuoys, int heartPlacements, int bombRemovals)
+    {
+        var gm = GameManager.Instance;
+        if (gm == null)
+            return;
+
+        gm.lives = lives;
+        gm.keys = keys;
+        gm.lifebuoys = lifebuoys;
+        gm.HeartPlacements = heartPlacements;
+        gm.BombRemovals = bombRemovals;
+
+        UpdateHUD();
     }
 }

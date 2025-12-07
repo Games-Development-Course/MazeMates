@@ -1,48 +1,39 @@
-using UnityEngine;
+    using UnityEngine;
 
-public class GameManager : MonoBehaviour
-{
-    public static GameManager Instance;
-
-    public int lives = 3;
-    public int keys;
-    public bool inPuzzle = false;
-    public int lifebuoys = 1; // ��� ����� ���� �� ���
-    public int HeartPlacements = 1;
-    public int BombRemovals = 1;
-    public DoorController activePuzzleDoor;
-
-    public int totalKeysInLevel = 0;
-
-    private void Start()
+    public class GameManager : MonoBehaviour
     {
-        HUDManager.Instance?.UpdateHUD();
-    }
+        public static GameManager Instance;
 
-    private void Awake()
-    {
-        if (Instance == null)
+        // נקבע אוטומטית מה־PlayerSpawnManager
+        [HideInInspector]
+        public GameObject traveller;
+
+        public int lives = 3;
+        public int keys;
+        public bool inPuzzle = false;
+
+        public int lifebuoys = 1;
+        public int HeartPlacements = 1;
+        public int BombRemovals = 1;
+
+        public DoorController activePuzzleDoor;
+        public int totalKeysInLevel = 0;
+
+        private void Awake()
         {
-            Instance = this;
+            if (Instance == null)
+                Instance = this;
+            else
+                Destroy(gameObject);
         }
-        else
+
+        private void Start()
         {
-            Destroy(gameObject);
+            HUDManager.Instance?.UpdateHUD();
+        }
+
+        public bool AllKeysCollected()
+        {
+            return keys >= totalKeysInLevel;
         }
     }
-
-    public bool AllKeysCollected()
-    {
-        return keys >= totalKeysInLevel;
-    }
-
-#if UNITY_EDITOR
-    private void OnValidate()
-    {
-        if (!Application.isPlaying)
-            return;
-
-        HUDManager.Instance?.UpdateHUDs();
-    }
-#endif
-}

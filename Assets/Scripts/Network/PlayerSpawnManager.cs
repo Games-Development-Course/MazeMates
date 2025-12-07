@@ -11,23 +11,23 @@ public class PlayerSpawnManager : MonoBehaviour
 
     private void Awake()
     {
-        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+        if (NetworkManager.Singleton != null)
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
     }
+
 
     private void OnClientConnected(ulong clientId)
     {
-        // רק השרת מבצע Spawn!
         if (!NetworkManager.Singleton.IsServer)
             return;
 
+        // שחקן ראשון הוא המטייל
         if (clientId == NetworkManager.Singleton.LocalClientId)
         {
-            // HOST = Traveller
             SpawnTraveller(clientId);
         }
         else
         {
-            // Client = Navigator
             SpawnNavigator(clientId);
         }
     }
@@ -36,6 +36,11 @@ public class PlayerSpawnManager : MonoBehaviour
     {
         var obj = Instantiate(travellerPrefab, travSpawn.position, travSpawn.rotation);
         obj.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
+
+        // כאן התיקון הקריטי:
+        GameManager.Instance.traveller = obj;
+
+        Debug.Log("Traveller spawned & linked to GameManager");
     }
 
     private void SpawnNavigator(ulong clientId)

@@ -17,6 +17,6 @@
 
         opened = true;
 
-        controller.StartOpeningDoor(controller.openAngle);
+        controller.RequestOpenDoorRpc(); // ← גרסה מתוקנת ל־RPC
     }
 }

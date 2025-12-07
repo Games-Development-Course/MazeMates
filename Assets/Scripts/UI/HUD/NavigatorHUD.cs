@@ -1,26 +1,59 @@
 ﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 
 public class NavigatorHUD : MonoBehaviour
 {
-    [Header("Shared Bar (placed manually)")]
-    public HUDShared sharedBar; // ← בלי prefab
+    [Header("Shared Bar (manual reference)")]
+    public HUDShared sharedBar;
     public RectTransform barParent;
 
     [Header("Navigator UI")]
     public TMP_Text messageText;
     public Image puzzleImage;
 
-    private void Start()
+    [Header("Buttons to Lock Before Ready")]
+    public Button[] actionButtons;
+
+    private IEnumerator Start()
     {
-        // אם לא שמו ידנית — מחפש לבד בילדים
         if (!sharedBar)
             sharedBar = GetComponentInChildren<HUDShared>(true);
 
         if (puzzleImage)
             puzzleImage.gameObject.SetActive(false);
+
+        // 🔒 נועל כל הכפתורים עד שהנווט וה־manager ערוכים
+        foreach (var b in actionButtons)
+            b.interactable = false;
+
+        yield return StartCoroutine(WaitForNavigator());
+
+        Debug.Log("NavigatorHUD: Navigator is ready — buttons unlocked.");
     }
+
+    private IEnumerator WaitForNavigator()
+    {
+        while (NavigatorInteractionManager.Instance == null)
+            yield return null;
+
+        var nav = NavigatorInteractionManager.Instance;
+
+        while (!nav.IsSpawned)
+            yield return null;
+
+        while (!nav.IsOwner)
+            yield return null;
+
+        foreach (var b in actionButtons)
+            b.interactable = true;
+    }
+
+
+    // ============================================
+    // HUD API
+    // ============================================
 
     public void UpdateShared(GameManager gm)
     {
@@ -53,6 +86,4 @@ public class NavigatorHUD : MonoBehaviour
         if (puzzleImage)
             puzzleImage.gameObject.SetActive(false);
     }
-
-    public Image PuzzleImage => puzzleImage;
 }

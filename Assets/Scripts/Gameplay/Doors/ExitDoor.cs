@@ -16,12 +16,10 @@ public class ExitDoor : IDoor
             return;
 
         if (!GameManager.Instance.AllKeysCollected())
-        {
             return;
-        }
 
         opened = true;
 
-        controller.GetComponentInChildren<DoorDissolver>()?.TriggerDissolve();
+        controller.RequestOpenDoorRpc();
     }
 }

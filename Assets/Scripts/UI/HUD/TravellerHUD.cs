@@ -44,8 +44,8 @@ public class TravellerHUD : MonoBehaviour
         if (!PuzzleSlot)
             return;
 
-        Transform child = PuzzleSlot.transform.Find("PuzzleChicken");
-        if (child != null)
+        // מפעיל כל פאזל שנמצא ב־PuzzleSlot
+        foreach (Transform child in PuzzleSlot.transform)
             child.gameObject.SetActive(true);
     }
 
@@ -54,10 +54,10 @@ public class TravellerHUD : MonoBehaviour
         if (!PuzzleSlot)
             return;
 
-        Transform child = PuzzleSlot.transform.Find("PuzzleChicken");
-        if (child != null)
+        foreach (Transform child in PuzzleSlot.transform)
             child.gameObject.SetActive(false);
     }
+
 
     public void FlashLives()
     {
