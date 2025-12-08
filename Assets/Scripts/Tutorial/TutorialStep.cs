@@ -13,6 +13,7 @@ public enum TutorialConditionType
     None,
     PlayerMoved,
     PlayerLookedAround,
+    NavigatorRemoveBomb,
     DoorOpened,
     ResourcePicked,
     NavigatorPlacedItem,
@@ -21,7 +22,7 @@ public enum TutorialConditionType
     CustomEvent
 }
 
-[CreateAssetMenu(menuName = "MazeMates/Tutorial Step", fileName = "NewTutorialStep")]
+[CreateAssetMenu(menuName = "Scriptable Objects/Tutorial Step", fileName = "NewTutorialStep")]
 public class TutorialStep : ScriptableObject
 {
     [Header("Identification")]

@@ -12,15 +12,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d2866ab287412c4e85fad635ad89379, type: 3}
   m_Name: Step0
   m_EditorClassIdentifier: Assembly-CSharp::TutorialStep
-  stepId: 
-  description: 
-  targetRole: 0
+  stepId: 0
+  description: Welcome step
+  targetRole: 2
   conditionType: 0
-  travellerMessage: 
-  navigatorMessage: 
+  travellerMessage: "\u05D1\u05E7\u05D5\u05DB\u05D9\u05DD \u05D4\u05D1\u05D0\u05D9\u05DD
+    \u05DC-MazeMate \u05E9\u05EA\u05E4\u05D5 \u05E4\u05E2\u05D5\u05DC\u05D4 \u05E2\u05DC
+    \u05DE\u05E0\u05EA \u05DC\u05E6\u05D0\u05EA \u05DE\u05D4\u05DE\u05D1\u05D5\u05DA"
+  navigatorMessage: "\u05D1\u05E7\u05D5\u05DB\u05D9\u05DD \u05D4\u05D1\u05D0\u05D9\u05DD
+    \u05DC-MazeMate \u05E9\u05EA\u05E4\u05D5 \u05E4\u05E2\u05D5\u05DC\u05D4 \u05E2\u05DC
+    \u05DE\u05E0\u05EA \u05DC\u05E6\u05D0\u05EA \u05DE\u05D4\u05DE\u05D1\u05D5\u05DA"
   completeOnCondition: 1
-  minDuration: 0
-  autoCompleteAfter: 0
+  minDuration: 5
+  autoCompleteAfter: 15
   onStepStart:
     m_PersistentCalls:
       m_Calls: []
