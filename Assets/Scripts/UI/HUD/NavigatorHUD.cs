@@ -68,8 +68,16 @@ public class NavigatorHUD : MonoBehaviour
         if (messageText)
             messageText.color = c;
     }
+    public void Clear()
+    {
+        if (messageText == null)
+            return;
 
- 
+        messageText.text = string.Empty;
+        messageText.gameObject.SetActive(false);
+    }
+
+
 
 
 }

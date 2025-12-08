@@ -86,4 +86,13 @@ public class TravellerHUD : MonoBehaviour
 
         flashing = false;
     }
+    public void Clear()
+    {
+        if (messageText == null)
+            return;
+
+        messageText.text = string.Empty;
+        messageText.gameObject.SetActive(false);
+    }
+
 }
