@@ -11,7 +11,6 @@ public class NavigatorHUD : MonoBehaviour
 
     [Header("Navigator UI")]
     public TMP_Text messageText;
-    public Image puzzleImage;
 
     [Header("Buttons to Lock Before Ready")]
     public Button[] actionButtons;
@@ -21,8 +20,6 @@ public class NavigatorHUD : MonoBehaviour
         if (!sharedBar)
             sharedBar = GetComponentInChildren<HUDShared>(true);
 
-        if (puzzleImage)
-            puzzleImage.gameObject.SetActive(false);
 
         // 🔒 נועל כל הכפתורים עד שהנווט וה־manager ערוכים
         foreach (var b in actionButtons)
@@ -72,18 +69,7 @@ public class NavigatorHUD : MonoBehaviour
             messageText.color = c;
     }
 
-    public void ShowPuzzleImage(Sprite s)
-    {
-        if (!puzzleImage)
-            return;
+ 
 
-        puzzleImage.sprite = s;
-        puzzleImage.gameObject.SetActive(true);
-    }
 
-    public void HidePuzzleImage()
-    {
-        if (puzzleImage)
-            puzzleImage.gameObject.SetActive(false);
-    }
 }

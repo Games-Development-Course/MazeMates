@@ -76,7 +76,6 @@ public class NavigatorInteractionManager : NetworkBehaviour
             return;
         }
 
-        HUDManager.Instance.Navigator.ShowPuzzleImage(door.navigatorPreview);
 
         RequestOpenPuzzleRpc(door.NetworkObjectId);
     }

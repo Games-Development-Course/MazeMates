@@ -108,8 +108,6 @@ public class HUDManager : MonoBehaviour
         if (Traveller != null)
             Traveller.ShowPuzzle();
 
-        if (Navigator != null)
-            Navigator.ShowPuzzleImage(navigatorSprite);
     }
 
     public void HidePuzzle()
@@ -117,8 +115,6 @@ public class HUDManager : MonoBehaviour
         if (Traveller != null)
             Traveller.HidePuzzle();
 
-        if (Navigator != null)
-            Navigator.HidePuzzleImage();
     }
 
     public void ShowMessageToTraveller(string msg)
