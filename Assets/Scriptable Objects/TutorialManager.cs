@@ -165,3 +165,4 @@ public class TutorialManager : NetworkBehaviour
     public void NotifyBothReachedExit() => MarkConditionSatisfied(TutorialConditionType.BothReachedExit);
     public void NotifyCustomEvent() => MarkConditionSatisfied(TutorialConditionType.CustomEvent);
 }
+;

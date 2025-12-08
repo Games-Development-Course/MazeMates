@@ -9,18 +9,20 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2abdbe2b320aa8f4e921278a357b291e, type: 3}
+  m_Script: {fileID: 11500000, guid: 1d2866ab287412c4e85fad635ad89379, type: 3}
   m_Name: Step2
   m_EditorClassIdentifier: Assembly-CSharp::TutorialStep
   stepId: 2
-  description: look around with mouse
-  targetRole: 0
+  description: movement explain - mouse
+  targetRole: 2
   conditionType: 2
-  travellerMessage: Use the mouse to look around
-  navigatorMessage: Good. Now wait for him to look around
+  travellerMessage: "\u05D4\u05D6\u05D6 \u05D0\u05EA \u05D4\u05E2\u05DB\u05D1\u05E8
+    \u05DB\u05D3\u05D9 \u05DC\u05D4\u05E1\u05EA\u05DB\u05DC \u05DC\u05E6\u05D3\u05D3\u05D9\u05DD."
+  navigatorMessage: "\u05D4\u05D6\u05D6 \u05D0\u05EA \u05D4\u05E2\u05DB\u05D1\u05E8
+    \u05DB\u05D3\u05D9 \u05DC\u05D4\u05E1\u05EA\u05DB\u05DC \u05DC\u05E6\u05D3\u05D3\u05D9\u05DD."
   completeOnCondition: 1
-  minDuration: 0
-  autoCompleteAfter: 0
+  minDuration: 5
+  autoCompleteAfter: 100
   onStepStart:
     m_PersistentCalls:
       m_Calls: []
