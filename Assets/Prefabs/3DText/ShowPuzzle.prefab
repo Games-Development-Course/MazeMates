@@ -98,7 +98,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2794962325070289415}
-  - component: {fileID: 7790980426861178318}
   m_Layer: 0
   m_Name: ShowPuzzle
   m_TagString: Untagged
@@ -122,16 +121,3 @@ Transform:
   - {fileID: 3719336968129422098}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 90, y: -180, z: 0}
---- !u!114 &7790980426861178318
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8062121029576804024}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: afb81eec19a25ca41ab19bc80c993cc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RotateY
-  speed: 45
