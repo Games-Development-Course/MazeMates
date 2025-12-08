@@ -325,6 +325,7 @@ GameObject:
   - component: {fileID: 6597004391222943262}
   - component: {fileID: 1282630705601659933}
   - component: {fileID: 2988523074998265920}
+  - component: {fileID: -1149461557675341435}
   m_Layer: 8
   m_Name: ExitDoor(Clone)
   m_TagString: Untagged
@@ -392,4 +393,20 @@ MonoBehaviour:
   openSpeed: 2
   puzzlePrefab: {fileID: 0}
   navigatorPreview: {fileID: 0}
+  navigatorScreen: {fileID: 0}
+  navigatorScreenQuad: {fileID: 0}
+  navigatorScreenMaterialIndex: 0
+  tvZoom: 1
   spawnedHints: []
+--- !u!114 &-1149461557675341435
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7136614938675831820}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 09da808d4524e204f962b4db54f8ab2d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'

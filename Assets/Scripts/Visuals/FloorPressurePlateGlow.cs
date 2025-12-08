@@ -19,46 +19,50 @@ public class FloorPressurePlateGlow : MonoBehaviour
     public float emissionIntensity = 2f;           // חוזק ה־Glow
 
     [Header("Events")]
-    public UnityEvent onPressed;                   // מה לעשות כשדורכים (פעם ראשונה)
+    public UnityEvent onPressed;                   // מה לעשות כשדורכים (פעם אחת)
     public string playerTag = "Player";
 
     private Vector3 startPos;
     private Renderer rend;
     private Material matInstance;
+
     private int objectsOnPlate = 0;
+    private bool isPressed = false;               // ✅ האם הפלטה כרגע לחוצה
     private Coroutine currentAnim;
 
-void Awake()
-{
-    startPos = transform.localPosition;
+    void Awake()
+    {
+        startPos = transform.localPosition;
 
-    var col = GetComponent<Collider>();
-    col.isTrigger = true;
+        var col = GetComponent<Collider>();
+        col.isTrigger = true;
 
-    rend = GetComponent<Renderer>();
-    matInstance = rend.material;
-    matInstance.EnableKeyword("_EMISSION");
+        rend = GetComponent<Renderer>();
+        matInstance = rend.material;
+        matInstance.EnableKeyword("_EMISSION");
 
-    // 🔹 Take the existing material color as the idle color
-    if (matInstance.HasProperty("_BaseColor"))
-        idleColor = matInstance.GetColor("_BaseColor");
-    else if (matInstance.HasProperty("_Color"))
-        idleColor = matInstance.GetColor("_Color");
-    else
-        idleColor = matInstance.color;
+        // לקחת את הצבע ההתחלתי כחופשי (idle)
+        if (matInstance.HasProperty("_BaseColor"))
+            idleColor = matInstance.GetColor("_BaseColor");
+        else if (matInstance.HasProperty("_Color"))
+            idleColor = matInstance.GetColor("_Color");
+        else
+            idleColor = matInstance.color;
 
-    // start with no emission
-    SetMaterialColors(idleColor, idleEmissionColor * 0f);
-}
+        // start with no emission
+        SetMaterialColors(idleColor, idleEmissionColor * 0f);
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag(playerTag)) return;
 
         objectsOnPlate++;
 
-        // אם זו הדריכה הראשונה – מפעילים אנימציה ואיוונט
-        if (objectsOnPlate == 1)
+        // ✅ מעבר מ"לא לחוץ" ל"לחוץ" – מפעיל פעם אחת בלבד
+        if (!isPressed)
         {
+            isPressed = true;
             StartPressAnimation(true);
             onPressed?.Invoke();
         }
@@ -71,9 +75,10 @@ void Awake()
         objectsOnPlate--;
         if (objectsOnPlate < 0) objectsOnPlate = 0;
 
-        // אם כבר אף אחד לא עומד – חוזרים למעלה
-        if (objectsOnPlate == 0)
+        // ✅ רק כשהפלטה ננטשת לגמרי – חוזרים למעלה
+        if (objectsOnPlate == 0 && isPressed)
         {
+            isPressed = false;
             StartPressAnimation(false);
         }
     }
@@ -91,14 +96,14 @@ void Awake()
         Vector3 downPos = startPos - transform.up * pressDepth;
 
         Vector3 fromPos = pressingDown ? startPos : downPos;
-        Vector3 toPos   = pressingDown ? downPos : startPos;
+        Vector3 toPos = pressingDown ? downPos : startPos;
 
-        Color fromColor      = pressingDown ? idleColor : pressedColor;
-        Color toColor        = pressingDown ? pressedColor : idleColor;
+        Color fromColor = pressingDown ? idleColor : pressedColor;
+        Color toColor = pressingDown ? pressedColor : idleColor;
 
-        Color fromEmission   = pressingDown ? idleEmissionColor * 0f
+        Color fromEmission = pressingDown ? idleEmissionColor * 0f
                                             : pressedEmissionColor * emissionIntensity;
-        Color toEmission     = pressingDown ? pressedEmissionColor * emissionIntensity
+        Color toEmission = pressingDown ? pressedEmissionColor * emissionIntensity
                                             : idleEmissionColor * 0f;
 
         float t = 0f;
@@ -107,18 +112,15 @@ void Awake()
             t += Time.deltaTime * pressSpeed;
             float lerp = Mathf.SmoothStep(0f, 1f, t);
 
-            // תנועה למטה/למעלה
             transform.localPosition = Vector3.Lerp(fromPos, toPos, lerp);
 
-            // שינוי צבע ו־Emission בהדרגה
-            Color currColor    = Color.Lerp(fromColor, toColor, lerp);
+            Color currColor = Color.Lerp(fromColor, toColor, lerp);
             Color currEmission = Color.Lerp(fromEmission, toEmission, lerp);
             SetMaterialColors(currColor, currEmission);
 
             yield return null;
         }
 
-        // לוודא שנחתנו בדיוק ביעד
         transform.localPosition = toPos;
         SetMaterialColors(toColor, toEmission);
 
@@ -129,7 +131,6 @@ void Awake()
     {
         if (matInstance == null) return;
 
-        // סטנדרט / URP Lit
         if (matInstance.HasProperty("_BaseColor"))
             matInstance.SetColor("_BaseColor", baseColor);
         if (matInstance.HasProperty("_Color"))
