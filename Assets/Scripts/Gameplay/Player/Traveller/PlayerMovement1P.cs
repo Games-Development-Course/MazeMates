@@ -13,6 +13,8 @@ public class PlayerMovement1P : NetworkBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        Debug.Log($"[PlayerMovement1P] name={name}, Owner={OwnerClientId}, " +
+                   $"Local={NetworkManager.Singleton.LocalClientId}, IsOwner={IsOwner}");
     }
 
     void Update()

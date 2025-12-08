@@ -8,9 +8,25 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 703167820132432491, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
+      propertyPath: m_Name
+      value: NavigatorCamera
+      objectReference: {fileID: 0}
+    - target: {fileID: 2309182035748745938, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.18
+      objectReference: {fileID: 0}
     - target: {fileID: 2708922950654919531, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
       propertyPath: m_Name
       value: Navigator
+      objectReference: {fileID: 0}
+    - target: {fileID: 3055123407200953416, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
+      propertyPath: field of view
+      value: 77.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 3055123407200953416, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
+      propertyPath: far clip plane
+      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 3055123407200953416, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
       propertyPath: m_TargetDisplay
@@ -18,7 +34,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3055123407200953416, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
       propertyPath: m_CullingMask.m_Bits
-      value: 252279
+      value: 2039
       objectReference: {fileID: 0}
     - target: {fileID: 4641676686332425684, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
       propertyPath: m_LocalScale.x
@@ -80,6 +96,14 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 8584453427580582829, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
+      propertyPath: moveSpeed
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 8584453427580582829, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
+      propertyPath: maxTimeToReach
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 8659512961658666799, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 1491307302
@@ -93,7 +117,8 @@ PrefabInstance:
       value: 2688652144
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 8433384998924693231, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2708922950654919531, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
