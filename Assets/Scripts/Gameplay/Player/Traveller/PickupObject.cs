@@ -43,7 +43,9 @@ public class PickupObject : NetworkBehaviour
         string finalMessage = customMessage;
         bool gameOver = false;
 
-        // עדכון לוגיקה של המשחק על השרת
+        // ---------------------------------------------------------
+        // עדכון ערכי משחק (רק בשרת)
+        // ---------------------------------------------------------
         switch (type)
         {
             case PickupType.Heart:
@@ -61,7 +63,7 @@ public class PickupObject : NetworkBehaviour
             case PickupType.Lifebuoy:
                 gm.lifebuoys++;
                 if (string.IsNullOrEmpty(finalMessage))
-                    finalMessage = "אספת מצוף הצלה! השתמש בו כדי להימנע מהפסד.";
+                    finalMessage = "אספת מצוף הצלה!";
                 break;
 
             case PickupType.Bomb:
@@ -70,7 +72,6 @@ public class PickupObject : NetworkBehaviour
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "דרכת על פצצה! איבדת לב.";
 
-                // לוגיקת בומבה – רק על השרת, כי השרת מזיז את השחקן והמצב יסונכרן
                 hud.FlashTravellerLife();
 
                 if (gm.lives <= 0)
@@ -84,13 +85,25 @@ public class PickupObject : NetworkBehaviour
                         cam.LockCameraForSeconds(0.5f);
 
                     var move = other.GetComponent<PlayerMovement1P>();
-                    if (move != null && PlayerStartPoint.Instance != null)
-                        move.TeleportToStart(PlayerStartPoint.Instance.startPosition);
+
+                    // -------------------------------
+                    // תיקון חשוב – Traveller StartPoint
+                    // -------------------------------
+                    if (move != null && PlayerStartPoint.TravellerPoint != null)
+                    {
+                        Vector3 resetPos = PlayerStartPoint.TravellerPoint.startPosition;
+                        Quaternion resetRot = PlayerStartPoint.TravellerPoint.startRotation;
+
+                        move.TeleportToStart(resetPos);
+                        other.transform.rotation = resetRot;
+                    }
                 }
                 break;
         }
 
-        // שולחים לכולם סינכרון HUD + הודעה
+        // ---------------------------------------------------------
+        // שולחים ל־Clients לעדכן HUD ולהציג הודעה
+        // ---------------------------------------------------------
         ApplyPickupClientRpc(
             type,
             finalMessage,
@@ -102,18 +115,17 @@ public class PickupObject : NetworkBehaviour
             gameOver
         );
 
-        // הורדת האובייקט מהשרת (ומשם מכל הקליינטים)
+        // השמדת האובייקט מהרשת
         var netObj = GetComponent<NetworkObject>();
         if (netObj != null)
-        {
             netObj.Despawn(true);
-        }
         else
-        {
             Destroy(gameObject);
-        }
     }
 
+    // ================================================================
+    //  CLIENT RPC – מציג הודעה ומעדכן HUD
+    // ================================================================
     [ClientRpc]
     private void ApplyPickupClientRpc(
         PickupType pickupType,
@@ -131,7 +143,6 @@ public class PickupObject : NetworkBehaviour
         if (hud == null || gm == null)
             return;
 
-        // מעדכנים את הערכים לפי מה שהשרת החליט
         gm.lives = lives;
         gm.keys = keys;
         gm.lifebuoys = lifebuoys;
@@ -142,17 +153,12 @@ public class PickupObject : NetworkBehaviour
             hud.ShowMessageForBoth(msg);
         }
 
-        // בומבה – כבר הבהבנו חיים בשרת, אבל אפשר לוודא שוב לוגיקה ויזואלית
         if (pickupType == PickupType.Bomb)
-        {
             hud.FlashTravellerLife();
-        }
 
         hud.UpdateHUDs();
 
         if (gameOver)
-        {
             SceneManager.LoadScene("GameOver");
-        }
     }
 }

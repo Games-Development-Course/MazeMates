@@ -1,39 +1,64 @@
-    using UnityEngine;
+using UnityEngine;
+using Unity.Netcode; // חשוב!
 
-    public class GameManager : MonoBehaviour
+public class GameManager : MonoBehaviour
+{
+    public static GameManager Instance;
+
+    [HideInInspector] public GameObject traveller;
+    [HideInInspector] public GameObject navigator;
+
+    // השדות האלה כבר לא קריטיים ללוגיקה, אבל נשאיר למקרה שתשתמש בהם בעתיד
+    [HideInInspector] public PlayerMovement1P travellerMove;
+    [HideInInspector] public PlayerMovement1P navigatorMove;
+
+    [HideInInspector] public PlayerCamera1P travellerCam;
+    [HideInInspector] public PlayerCamera1P navigatorCam;
+
+    public int lives = 3;
+    public int keys;
+    public bool inPuzzle = false;
+
+    public int lifebuoys = 1;
+    public int HeartPlacements = 1;
+    public int BombRemovals = 1;
+
+    public DoorController activePuzzleDoor;
+    public int totalKeysInLevel = 0;
+
+    private void Awake()
     {
-        public static GameManager Instance;
-
-        // נקבע אוטומטית מה־PlayerSpawnManager
-        [HideInInspector]
-        public GameObject traveller;
-
-        public int lives = 3;
-        public int keys;
-        public bool inPuzzle = false;
-
-        public int lifebuoys = 1;
-        public int HeartPlacements = 1;
-        public int BombRemovals = 1;
-
-        public DoorController activePuzzleDoor;
-        public int totalKeysInLevel = 0;
-
-        private void Awake()
-        {
-            if (Instance == null)
-                Instance = this;
-            else
-                Destroy(gameObject);
-        }
-
-        private void Start()
-        {
-            HUDManager.Instance?.UpdateHUD();
-        }
-
-        public bool AllKeysCollected()
-        {
-            return keys >= totalKeysInLevel;
-        }
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
     }
+
+    private void Start()
+    {
+        HUDManager.Instance?.UpdateHUD();
+    }
+
+    public bool AllKeysCollected()
+    {
+        return keys >= totalKeysInLevel;
+    }
+
+    // ============================
+    // NETWORK START HELPERS
+    // ============================
+
+    public void StartHost()
+    {
+        Debug.Log("[GameManager] Starting Host…");
+        NetworkCleanup.Cleanup();
+        NetworkManager.Singleton.StartHost();
+    }
+
+    public void StartClient()
+    {
+        Debug.Log("[GameManager] Starting Client…");
+        NetworkCleanup.Cleanup();
+        NetworkManager.Singleton.StartClient();
+    }
+}

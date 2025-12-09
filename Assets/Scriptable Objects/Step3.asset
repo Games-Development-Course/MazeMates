@@ -12,19 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d2866ab287412c4e85fad635ad89379, type: 3}
   m_Name: Step3
   m_EditorClassIdentifier: Assembly-CSharp::TutorialStep
-  stepId: 3
-  description: bomb encountaring
+  stepId: Mouse
+  description: movement explain - mouse
   targetRole: 2
-  conditionType: 3
-  travellerMessage: "\u05D4\u05D9\u05D6\u05D4\u05E8 \u05E4\u05E6\u05E6\u05D4 \u05DE\u05D5\u05DC\u05DA,
-    \u05D1\u05E7\u05E9 \u05DE\u05D4\u05E0\u05D5\u05D5\u05D8 \u05E9\u05D9\u05E1\u05D9\u05E8
-    \u05D0\u05D5\u05EA\u05D4"
-  navigatorMessage: "\u05E2\u05DE\u05D5\u05D3 \u05E2\u05DC \u05D4\u05DB\u05E4\u05EA\u05D5\u05E8
-    \u05D4\u05E9\u05D7\u05D5\u05E8 \u05DB\u05D3\u05D9 \u05DC\u05D4\u05E1\u05D9\u05E8
-    \u05D0\u05EA \u05D4\u05E4\u05E6\u05E6\u05D4"
+  conditionType: 6
+  travellerMessage: "\u05D4\u05D6\u05D6 \u05D0\u05EA \u05D4\u05E2\u05DB\u05D1\u05E8
+    \u05DB\u05D3\u05D9 \u05DC\u05D4\u05E1\u05EA\u05DB\u05DC \u05DC\u05E6\u05D3\u05D3\u05D9\u05DD."
+  navigatorMessage: "\u05D4\u05D6\u05D6 \u05D0\u05EA \u05D4\u05E2\u05DB\u05D1\u05E8
+    \u05DB\u05D3\u05D9 \u05DC\u05D4\u05E1\u05EA\u05DB\u05DC \u05DC\u05E6\u05D3\u05D3\u05D9\u05DD."
+  unlockMovement: 1
+  unlockCamera: 1
   completeOnCondition: 1
-  minDuration: 5
-  autoCompleteAfter: 1000
+  minDuration: 10
+  autoCompleteAfter: 100
+  minHUDDuration: 5
+  minWaitMessageDuration: 5
   onStepStart:
     m_PersistentCalls:
       m_Calls: []

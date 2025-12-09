@@ -1,11 +1,12 @@
 ﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 
 public class TravellerHUD : MonoBehaviour
 {
     [Header("Shared Bar (placed manually)")]
-    public HUDShared sharedBar; // ← במקום prefab
+    public HUDShared sharedBar;
     public RectTransform barParent;
 
     [Header("Traveller UI")]
@@ -17,7 +18,6 @@ public class TravellerHUD : MonoBehaviour
 
     private void Start()
     {
-        // אם לא הוגדר ידנית — מחפש לבד בתוך ההיררכיה
         if (!sharedBar)
             sharedBar = GetComponentInChildren<HUDShared>(true);
     }
@@ -29,8 +29,11 @@ public class TravellerHUD : MonoBehaviour
 
     public void ShowMessage(string msg)
     {
-        if (messageText)
-            messageText.text = msg;
+        if (messageText == null)
+            return;
+
+        messageText.gameObject.SetActive(true);
+        messageText.text = msg;
     }
 
     public void SetMessageColor(Color c)
@@ -44,7 +47,6 @@ public class TravellerHUD : MonoBehaviour
         if (!PuzzleSlot)
             return;
 
-        // מפעיל כל פאזל שנמצא ב־PuzzleSlot
         foreach (Transform child in PuzzleSlot.transform)
             child.gameObject.SetActive(true);
     }
@@ -58,7 +60,6 @@ public class TravellerHUD : MonoBehaviour
             child.gameObject.SetActive(false);
     }
 
-
     public void FlashLives()
     {
         if (!gameObject.activeInHierarchy || flashing)
@@ -67,7 +68,7 @@ public class TravellerHUD : MonoBehaviour
         StartCoroutine(FlashRoutine());
     }
 
-    private System.Collections.IEnumerator FlashRoutine()
+    private IEnumerator FlashRoutine()
     {
         flashing = true;
 
@@ -86,13 +87,13 @@ public class TravellerHUD : MonoBehaviour
 
         flashing = false;
     }
+
     public void Clear()
     {
         if (messageText == null)
             return;
 
         messageText.text = string.Empty;
-        messageText.gameObject.SetActive(false);
+        // לא מכבים את האובייקט – כדי שהודעות עתידיות ייראו
     }
-
 }

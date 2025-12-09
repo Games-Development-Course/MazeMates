@@ -29,6 +29,7 @@ public class NavigatorActions : NetworkBehaviour
     public void UI_RemoveBomb()
     {
         if (!Safe()) return;
+        Object.FindFirstObjectByType<BombStepHelper>()?.OnNavigatorRemovedBomb();   
         NavigatorInteractionManager.Instance.Execute(NavActionType.RemoveBomb);
     }
 

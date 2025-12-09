@@ -1,15 +1,6 @@
 ﻿using Unity.Netcode;
 using UnityEngine;
 
-public enum NavActionType
-{
-    OpenDoor,
-    ShowPuzzle,
-    RemoveBomb,
-    UseLifebuoy,
-    PlaceHeart
-}
-
 public class NavigatorInteractionManager : NetworkBehaviour
 {
     public static NavigatorInteractionManager Instance;
@@ -17,7 +8,6 @@ public class NavigatorInteractionManager : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         Instance = this;
-        Debug.Log("NavigatorInteractionManager READY");
     }
 
     public override void OnDestroy()
@@ -26,6 +16,13 @@ public class NavigatorInteractionManager : NetworkBehaviour
             Instance = null;
     }
 
+    private TutorialManager tutorial =>
+        FindFirstObjectByType<TutorialManager>();
+
+    // ======================================================
+    // ACTIONS
+    // ======================================================
+
     public void Execute(NavActionType action)
     {
         switch (action)
@@ -33,17 +30,24 @@ public class NavigatorInteractionManager : NetworkBehaviour
             case NavActionType.OpenDoor:
                 TryOpenDoor();
                 break;
+
             case NavActionType.ShowPuzzle:
                 TryShowPuzzle();
                 break;
+
             case NavActionType.RemoveBomb:
                 RemoveBomb();
+                tutorial?.NotifyNavigatorRemovedBomb();
                 break;
+
             case NavActionType.UseLifebuoy:
                 UseLifebuoy();
+                tutorial?.NotifyNavigatorGaveLifebuoy();
                 break;
+
             case NavActionType.PlaceHeart:
                 PlaceHeart();
+                tutorial?.NotifyNavigatorPlacedHeart();
                 break;
         }
     }
@@ -51,6 +55,7 @@ public class NavigatorInteractionManager : NetworkBehaviour
     private void TryOpenDoor()
     {
         DoorController door = GameWorldController.Instance.FindDoorPlayerIsOn();
+
         if (door == null)
         {
             HUDManager.Instance.ShowMessageToNavigator("אין דלת כאן");
@@ -64,6 +69,9 @@ public class NavigatorInteractionManager : NetworkBehaviour
         }
 
         door.Interact();
+
+        var t = FindFirstObjectByType<TutorialManager>();
+        t?.NotifyNavigatorOpenedNormalDoor();
     }
 
     private void TryShowPuzzle()
@@ -76,8 +84,9 @@ public class NavigatorInteractionManager : NetworkBehaviour
             return;
         }
 
-
         RequestOpenPuzzleRpc(door.NetworkObjectId);
+
+        tutorial?.NotifyNavigatorOpenedPuzzleDoor();
     }
 
     [Rpc(SendTo.Server)]
@@ -99,8 +108,7 @@ public class NavigatorInteractionManager : NetworkBehaviour
             return;
 
         DoorController door = obj.GetComponent<DoorController>();
-        if (door == null)
-            return;
+        if (door == null) return;
 
         if (GameManager.Instance.traveller != null &&
             GameManager.Instance.traveller.GetComponent<NetworkObject>().IsOwner)
@@ -111,34 +119,36 @@ public class NavigatorInteractionManager : NetworkBehaviour
 
     public void RemoveBomb()
     {
-        if (ResourceManager.Instance == null)
-        {
-            Debug.LogError("ResourceManager.Instance is NULL");
-            return;
-        }
-
         ResourceManager.Instance.TryRemoveBomb();
     }
 
     public void UseLifebuoy()
     {
-        if (ResourceManager.Instance == null)
-        {
-            Debug.LogError("ResourceManager.Instance is NULL");
-            return;
-        }
-
         ResourceManager.Instance.TryUseLifebuoy();
     }
 
     public void PlaceHeart()
     {
-        if (ResourceManager.Instance == null)
-        {
-            Debug.LogError("ResourceManager.Instance is NULL");
-            return;
-        }
-
         ResourceManager.Instance.TryPlaceHeart();
     }
 }
+public enum NavActionType
+{
+    None,
+
+    // פעולות דלתות
+    OpenDoor,
+    OpenNormalDoor,
+    OpenPuzzleDoor,
+    ShowPuzzle,
+    OpenExitDoor,
+
+    // לב / לייף־בוי / אייטמים
+    UseLifebuoy,
+    GiveLifebuoy,
+    PlaceHeart,
+
+    // פצצות
+    RemoveBomb
+}
+

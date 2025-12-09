@@ -4,9 +4,11 @@ using System.Collections;
 
 public class PlayerSpawnManager : MonoBehaviour
 {
+    [Header("Fallback spawn points")]
     public Transform travSpawn;
     public Transform navSpawn;
 
+    [Header("Prefabs")]
     public GameObject travellerPrefab;
     public GameObject navigatorPrefab;
 
@@ -18,77 +20,135 @@ public class PlayerSpawnManager : MonoBehaviour
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
     }
 
+    private void OnDestroy()
+    {
+        if (NetworkManager.Singleton != null)
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+    }
+
     private void OnClientConnected(ulong clientId)
     {
         if (!NetworkManager.Singleton.IsServer)
             return;
 
-        // Host = Traveller
+        // השחקן הראשון (Host) = מטייל
         if (clientId == NetworkManager.Singleton.LocalClientId)
         {
             SpawnTraveller(clientId);
         }
         else
         {
+            // שחקן נוסף = נווט
             SpawnNavigator(clientId);
-            OnNavigatorSpawned(); // נקרא כשהנווט הגיע
+            OnNavigatorSpawned();
         }
     }
 
+    // ==========================================
+    // TRAVELLER
+    // ==========================================
+
     private void SpawnTraveller(ulong clientId)
     {
-        var obj = Instantiate(travellerPrefab, travSpawn.position, travSpawn.rotation);
-        obj.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
+        var gm = GameManager.Instance;
 
-        GameManager.Instance.traveller = obj;
+        Vector3 pos = travSpawn.position;
+        Quaternion rot = travSpawn.rotation;
 
-        var move = obj.GetComponent<PlayerMovement1P>();
-        if (move != null) move.enabled = false;
+        var obj = Instantiate(travellerPrefab, pos, rot);
+        var netObj = obj.GetComponent<NetworkObject>();
+        netObj.SpawnAsPlayerObject(clientId);
+
+        gm.traveller = obj;
+
+        gm.travellerMove = obj.GetComponent<PlayerMovement1P>();
+        gm.travellerCam = obj.GetComponentInChildren<PlayerCamera1P>();
+
+        // כולם מתחילים קפואים (גם במובמנט וגם במצלמה)
+        Freeze(obj);
 
         HUDManager.Instance?.Traveller?.ShowMessage("ממתין להתחברות הנווט…");
 
-        Debug.Log("Traveller spawned & locked");
+        Debug.Log($"[Spawn] Traveller at {pos}");
     }
+
+    // ==========================================
+    // NAVIGATOR
+    // ==========================================
 
     private void SpawnNavigator(ulong clientId)
     {
-        Debug.Log("NAV: navSpawn.position = " + navSpawn.position);
+        var gm = GameManager.Instance;
 
-        var obj = Instantiate(navigatorPrefab, navSpawn.position, navSpawn.rotation);
-        Debug.Log("NAV: after Instantiate, obj.position = " + obj.transform.position);
+        Vector3 pos = navSpawn.position;
+        Quaternion rot = navSpawn.rotation;
 
-        obj.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
+        var obj = Instantiate(navigatorPrefab, pos, rot);
+        var netObj = obj.GetComponent<NetworkObject>();
+        netObj.SpawnAsPlayerObject(clientId);
+
+        gm.navigator = obj;
+
+        gm.navigatorMove = obj.GetComponent<PlayerMovement1P>();
+        gm.navigatorCam = obj.GetComponentInChildren<PlayerCamera1P>();
+
+        Freeze(obj);
 
         navigatorSpawned = true;
 
-        Debug.Log("Navigator spawned");
+        Debug.Log($"[Spawn] Navigator at {pos}");
     }
+
+    // ==========================================
+    // FREEZE / UNFREEZE (רק לוודא שכולם קפואים)
+    // ==========================================
+
+    private void Freeze(GameObject obj)
+    {
+        var move = obj.GetComponent<PlayerMovement1P>();
+        if (move != null) move.SetFrozen(true);
+
+        var cam = obj.GetComponentInChildren<PlayerCamera1P>();
+        if (cam != null) cam.SetCameraFrozen(true);
+    }
+
+    // כרגע הטוטוריאל שולט בשחרור – Unfreeze רק לעתיד
+    private void Unfreeze(GameObject obj)
+    {
+        var move = obj.GetComponent<PlayerMovement1P>();
+        if (move != null) move.SetFrozen(false);
+
+        var cam = obj.GetComponentInChildren<PlayerCamera1P>();
+        if (cam != null) cam.SetCameraFrozen(false);
+    }
+
+    // ==========================================
+    // BOTH CONNECTED → START TUTORIAL
+    // ==========================================
 
     private void OnNavigatorSpawned()
     {
-        if (!navigatorSpawned || GameManager.Instance.traveller == null)
+        var gm = GameManager.Instance;
+
+        if (!navigatorSpawned || gm.traveller == null)
             return;
 
-        Debug.Log("Both players present — unlocking traveller & starting tutorial");
-
-        StartCoroutine(DelayedTutorialStart());
+        StartCoroutine(StartTutorialDelayed());
     }
 
-    private IEnumerator DelayedTutorialStart()
+    private IEnumerator StartTutorialDelayed()
     {
-        // זמן המתנה לסנכרון כל האובייקטים ב־Client
-        yield return new WaitForSeconds(0.25f);
+        yield return new WaitForSeconds(0.2f);
 
-        // מנקה הודעת "ממתין"
-        HUDManager.Instance?.Traveller?.Clear();
+        // מנקים את "ממתין להתחברות הנווט…" מה-HUD הרגיל של המטייל
+        if (HUDManager.Instance != null && HUDManager.Instance.Traveller != null)
+        {
+            HUDManager.Instance.Traveller.Clear();
+        }
 
-        // משחרר תנועה
-        var move = GameManager.Instance.traveller.GetComponent<PlayerMovement1P>();
-        if (move != null) move.enabled = true;
-
-        // מתחיל טוטוריאל
-        var tutorial = FindFirstObjectByType<TutorialManager>();
-        if (tutorial != null)
-            tutorial.StartTutorial();
+        // מפעילים טוטוריאל – הוא אחראי מעכשיו על נעילות/שחרורים
+        var t = FindFirstObjectByType<TutorialManager>();
+        if (t != null)
+            t.StartTutorial();
     }
 }

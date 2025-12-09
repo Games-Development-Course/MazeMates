@@ -12,17 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d2866ab287412c4e85fad635ad89379, type: 3}
   m_Name: Step2
   m_EditorClassIdentifier: Assembly-CSharp::TutorialStep
-  stepId: 2
-  description: movement explain - mouse
+  stepId: Movement
+  description: movement explain - arrows
   targetRole: 2
-  conditionType: 2
-  travellerMessage: "\u05D4\u05D6\u05D6 \u05D0\u05EA \u05D4\u05E2\u05DB\u05D1\u05E8
-    \u05DB\u05D3\u05D9 \u05DC\u05D4\u05E1\u05EA\u05DB\u05DC \u05DC\u05E6\u05D3\u05D3\u05D9\u05DD."
-  navigatorMessage: "\u05D4\u05D6\u05D6 \u05D0\u05EA \u05D4\u05E2\u05DB\u05D1\u05E8
-    \u05DB\u05D3\u05D9 \u05DC\u05D4\u05E1\u05EA\u05DB\u05DC \u05DC\u05E6\u05D3\u05D3\u05D9\u05DD."
+  conditionType: 3
+  travellerMessage: "\u05DC\u05D7\u05E5 \u05E2\u05DC \u05DB\u05E4\u05EA\u05D5\u05E8\u05D9
+    \u05D4\u05D7\u05D9\u05E6\u05D9\u05DD \u05DB\u05D3\u05D9 \u05DC\u05D6\u05D5\u05D6"
+  navigatorMessage: "\u05DC\u05D7\u05E5 \u05E2\u05DC \u05DB\u05E4\u05EA\u05D5\u05E8\u05D9
+    \u05D4\u05D7\u05D9\u05E6\u05D9\u05DD \u05DB\u05D3\u05D9 \u05DC\u05D6\u05D5\u05D6"
+  unlockMovement: 1
+  unlockCamera: 0
   completeOnCondition: 1
-  minDuration: 5
+  minDuration: 10
   autoCompleteAfter: 100
+  minHUDDuration: 5
+  minWaitMessageDuration: 5
   onStepStart:
     m_PersistentCalls:
       m_Calls: []

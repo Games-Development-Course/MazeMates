@@ -11,14 +11,34 @@ public enum TutorialRoleTarget
 public enum TutorialConditionType
 {
     None,
-    PlayerMoved,
-    PlayerLookedAround,
+
+    // שליטה בסיסית
+    TravellerMoved,
+    NavigatorMoved,
+    BothMoved,              // ⭐ שני השחקנים חייבים לזוז
+
+    TravellerLookedAround,
+    NavigatorLookedAround,
+    BothLookedAround,        // ⭐ שני השחקנים חייבים להסתכל מסביב
+
+    // כפתורי הנווט
     NavigatorRemoveBomb,
-    DoorOpened,
-    ResourcePicked,
-    NavigatorPlacedItem,
+    NavigatorOpenNormalDoor,
+    NavigatorOpenPuzzleDoor,
+    NavigatorOpenExitDoor,
+    NavigatorPlaceHeart,
+    NavigatorGiveLifebuoy,
+
+    // משאבים אצל המטייל
+    TravellerPickedKey,
+    TravellerPickedHeart,
+
+    // פאזלים ודלתות
     PuzzleSolved,
+
+    // סוף מבוך
     BothReachedExit,
+
     CustomEvent
 }
 
@@ -35,20 +55,19 @@ public class TutorialStep : ScriptableObject
     public TutorialConditionType conditionType = TutorialConditionType.None;
 
     [Header("HUD Messages")]
-    [TextArea]
-    public string travellerMessage;
-    [TextArea]
-    public string navigatorMessage;
+    [TextArea] public string travellerMessage;
+    [TextArea] public string navigatorMessage;
+
+    [Header("Unlock Controls")]
+    public bool unlockMovement = false;
+    public bool unlockCamera = false;
 
     [Header("Timing")]
-    [Tooltip("אם true השלב מסתיים כאשר התנאי מתקיים")]
     public bool completeOnCondition = true;
-
-    [Tooltip("זמן מינימלי שהשלב חייב לרוץ לפני שמותר לסיים אותו")]
     public float minDuration = 0f;
-
-    [Tooltip("אם ערך גדול מאפס וב completeOnCondition = false השלב יסתיים אוטומטית אחרי מספר שניות")]
     public float autoCompleteAfter = 0f;
+    public float minHUDDuration = 0f;
+    public float minWaitMessageDuration = 0f;
 
     [Header("Events")]
     public UnityEvent onStepStart;

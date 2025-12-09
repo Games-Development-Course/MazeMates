@@ -8,45 +8,85 @@ public class PlayerCamera1P : NetworkBehaviour
 
     float xRotation = 0f;
 
-    public float lockDuration = 0.5f;
-    private bool cameraLocked = true;
-    private float timer = 0f;
+    private bool cameraFrozen = true;
+    private float autoUnlockIn = -1f;
+
+    private TutorialManager tutorial;
+    private bool isTraveller;
+    private bool isNavigator;
 
     void Start()
     {
         if (!IsOwner)
         {
-            enabled = false; // ❗ הסקריפט לא עובד אצל שחקנים אחרים
+            enabled = false;
             return;
         }
 
         Cursor.lockState = CursorLockMode.Locked;
+
+        tutorial = FindFirstObjectByType<TutorialManager>();
+
+        // 🔴 במקום name של המצלמה – לוקחים את השם של האב (השחקן)
+        var rootMovement = GetComponentInParent<PlayerMovement1P>();
+        if (rootMovement != null)
+        {
+            string rootName = rootMovement.gameObject.name;
+            isTraveller = rootName.Contains("Trav");
+            isNavigator = rootName.Contains("Nav");
+        }
+        else
+        {
+            // fallback – במקרה קצה
+            isTraveller = name.Contains("Trav");
+            isNavigator = name.Contains("Nav");
+        }
     }
 
     void Update()
     {
-        if (!IsOwner) return;              // ❗ רק הבעלים מזיז את המצלמה
+        if (!IsOwner) return;
         if (GameManager.Instance == null) return;
         if (playerBody == null) return;
         if (GameManager.Instance.inPuzzle) return;
 
-        if (cameraLocked)
+        // ====== FREEZE CAMERA ======
+        if (cameraFrozen)
         {
-            timer += Time.deltaTime;
-
-            xRotation = 0f;
             transform.localRotation = Quaternion.identity;
-            playerBody.rotation = Quaternion.identity;
 
-            if (timer >= lockDuration)
-                cameraLocked = false;
+            if (autoUnlockIn > 0)
+            {
+                autoUnlockIn -= Time.deltaTime;
+                if (autoUnlockIn <= 0)
+                    cameraFrozen = false;
+            }
 
             return;
         }
 
-        // input
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
+        // ====== RAW INPUT ======
+        float mouseX = Input.GetAxis("Mouse X");
+        float mouseY = Input.GetAxis("Mouse Y");
+
+        bool looked = Mathf.Abs(mouseX) > 0.01f || Mathf.Abs(mouseY) > 0.01f;
+
+        // ====== שליחת אירוע מבט לסרבר (טוטוריאל) ======
+        if (looked && tutorial != null && tutorial.TutorialActive.Value)
+        {
+            if (isTraveller)
+            {
+                SendLookServerRpc(true);   // Traveller
+            }
+            else if (isNavigator)
+            {
+                SendLookServerRpc(false);  // Navigator
+            }
+        }
+
+        // ====== CAMERA MOVEMENT ======
+        mouseX *= mouseSensitivity * Time.deltaTime;
+        mouseY *= mouseSensitivity * Time.deltaTime;
 
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -90f, 90f);
@@ -54,10 +94,34 @@ public class PlayerCamera1P : NetworkBehaviour
         transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
         playerBody.Rotate(Vector3.up * mouseX);
     }
-    public void LockCameraForSeconds(float duration)
+
+    // ====== API ======
+
+    public void SetCameraFrozen(bool freeze)
     {
-        lockDuration = duration;
-        cameraLocked = true;
-        timer = 0f;
+        cameraFrozen = freeze;
+        autoUnlockIn = -1f;
+    }
+
+    public void LockCameraForSeconds(float sec)
+    {
+        cameraFrozen = true;
+        autoUnlockIn = sec;
+    }
+
+    public bool IsFrozen => cameraFrozen;
+
+    // ====== SERVER RPC ======
+
+    [ServerRpc]
+    private void SendLookServerRpc(bool traveller)
+    {
+        var tm = FindFirstObjectByType<TutorialManager>();
+        if (tm == null) return;
+
+        if (traveller)
+            tm.NotifyTravellerLooked();
+        else
+            tm.NotifyNavigatorLooked();
     }
 }
