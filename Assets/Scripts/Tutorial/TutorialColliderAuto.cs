@@ -39,3 +39,4 @@ public class TutorialColliderAuto : MonoBehaviour
         }
     }
 }
+g
