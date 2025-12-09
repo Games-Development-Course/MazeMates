@@ -1,19 +1,32 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-private void OnTriggerEnter(Collider other)
+public class BombStopZone : MonoBehaviour
 {
-    if (!_active) return;
-    if (!other.CompareTag("Player")) return;
+    private BombStepHelper helper;
+    private TutorialManager tutorial;
 
-    var gm = GameManager.Instance;
-    if (other.gameObject != gm.traveller) return;
+    private void Awake()
+    {
+        helper = FindAnyObjectByType<BombStepHelper>();
+        tutorial = FindAnyObjectByType<TutorialManager>();
+    }
 
-    // ��� �����
-    gm.travellerMove.SetFrozen(true);
+    private void OnTriggerEnter(Collider other)
+    {
+        var gm = GameManager.Instance;
+        if (gm == null) return;
 
-    // ���� �����
-    LookAtBomb(gm.travellerCam);
+        // לוודא שזה המטייל
+        if (other.gameObject != gm.traveller)
+            return;
 
-    // *** ����� ����� ***
-    FindObjectOfType<BombStepHelper>().OnTravellerReachedBombPoint();
+        Debug.Log("[BombStopZone] Traveller reached bomb trigger");
+
+        // כבר לא צריך את הקוליידר של שלב 4-1
+        helper?.DisableTargetCollider();
+
+        // 🔑 זה מה שסוגר את Step 4-1
+        // אם conditionType של Step 4-1 = CustomEvent
+        tutorial?.NotifyCustomEvent();
+    }
 }

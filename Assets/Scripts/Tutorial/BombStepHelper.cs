@@ -1,60 +1,106 @@
-using UnityEngine;
+ο»Ώusing UnityEngine;
 
 public class BombStepHelper : MonoBehaviour
 {
-    public BombStopZone bombZone;
-    public GameObject tutorialCollider; // διμγ ωμ RemoveBomb
+    [Header("Colliders")]
+    public GameObject targetCollider;   // Χ”-trigger Χ©Χ Χ©ΧΧ‘ 4-1
+    public GameObject tutorialCollider; // Χ”-TutorialCollider Χ©ΧΧªΧ—Χª RemoveBomb
 
-    private bool travellerReachedPoint = false;
-    private bool bombRemoved = false;
+    [Header("Camera Target")]
+    public Transform lookTarget;        // Χ”ΧΧ™Χ§Χ•Χ Χ©Χ Χ”Χ¤Χ¦Χ¦Χ”
 
-    // πχψΰ α-OnStepStart ωμ ωμα δτφφδ
-    public void OnBombStepStart()
+    private TutorialManager tutorial;
+
+    private void Awake()
     {
-        // ϊϊ ωμα 1: ϊηιμϊ δδμιλδ ωμ δξθιιμ
-        travellerReachedPoint = false;
-        bombRemoved = false;
-
-        // δπεεθ ςγιιο μΰ ιλεμ μμηευ ςμ δλτϊεψ
-        tutorialCollider.SetActive(true);
-
-        // ξτςιμ ΰϊ δΞBombStopZone
-        bombZone.EnableZone();
+        tutorial = FindFirstObjectByType<TutorialManager>();
     }
 
-    // πχψΰ ξϊεκ BombStopZone λΰωψ δξθιιμ πλπρ
-    public void OnTravellerReachedBombPoint()
+    // ============================================================
+    // Χ©ΧΧ‘ 4-1 β€“ Χ”ΧΧΧ™Χ™Χ Χ”Χ•ΧΧ ΧΆΧ“ Χ”-TargetCollider
+    // ============================================================
+
+    // Χ Χ§Χ¨Χ Χ-OnStepStart Χ©Χ Step 4-1
+    public void EnableTargetCollider()
     {
-        travellerReachedPoint = true;
+        if (targetCollider != null)
+            targetCollider.SetActive(true);
 
-        // λαδ ΰϊ BombStopZone
-        bombZone.DisableZone();
+        // Χ”Χ›Χ¤ΧªΧ•Χ¨ ΧΆΧ“Χ™Χ™Χ Χ ΧΆΧ•Χ ΧΆΧ“ Χ©ΧΧ‘ 4-2
+        if (tutorialCollider != null)
+            tutorialCollider.SetActive(true);
 
-        // ςαεψ μϊϊΞωμα 2 — ΰτωψ μπιεεθ μδϊηιμ μςαεγ:
-        tutorialCollider.SetActive(false);
-
-        // ςγλεο HUD
-        HUDManager.Instance.ShowTraveller("διζδψ! τφφδ ξεμκ. αχω ξδπεεθ μδριψ ΰεϊδ.");
-        HUDManager.Instance.ShowNavigator("ςξεγ ςμ δλτϊεψ δωηεψ λγι μδριψ ΰϊ δτφφδ.");
+        // β ΧΧ Χ Χ•Χ’ΧΆΧ™Χ Χ‘ΧΧΆΧ¨Χ Χ ΧΆΧ™ΧΧ•Χª Χ›ΧΧ β€” Χ”Χ›Χ Χ Χ©ΧΧ ΧΆ"Χ™ Χ”-Step
+        // Χ©ΧΧ‘ 4-1 Χ—Χ™Χ™Χ‘ ΧΧ”Χ’Χ“Χ™Χ¨ Χ‘ΧΆΧ¦ΧΧ• Χ‘ΧΧΧ¤Χ™Χ™Χ Χ™Χ:
+        // travellerLockMovement = false
+        // travellerLockCamera   = false
+        // navigatorLockMovement = false
+        // navigatorLockCamera   = false
     }
 
-    // πχψΰ λΰωψ δπεεθ γεψκ ςμ RemoveBomb
-    public void OnNavigatorRemovedBomb()
+    // Χ Χ§Χ¨Χ Χ-OnStepComplete Χ©Χ Step 4-1
+    public void DisableTargetCollider()
     {
-        if (!travellerReachedPoint) return;
+        if (targetCollider != null)
+            targetCollider.SetActive(false);
 
-        bombRemoved = true;
+        // Χ”-tutorialCollider Χ™Χ¨Χ“ Χ¨Χ§ Χ‘ΧªΧ—Χ™ΧΧª Χ©ΧΧ‘ 4-2
+    }
 
-        // μΰτωψ μξθιιμ μδξωικ
-        GameManager.Instance.travellerMove.SetFrozen(false);
+    // ============================================================
+    // Χ©ΧΧ‘ 4-2 β€“ Χ”ΧΧΧ™Χ™Χ Χ¨Χ•ΧΧ” ΧΧª Χ”Χ¤Χ¦Χ¦Χ”
+    // ============================================================
 
-        // μδηζιψ ΰϊ δ-TutorialCollider λγι ωμΰ ιμηφε ωεα
-        tutorialCollider.SetActive(true);
+    // Χ Χ§Χ¨Χ Χ-OnStepStart Χ©Χ Step 4-2
+    public void OnBombStep2Start()
+    {
+        if (tutorial == null) return;
 
-        // δεγςεϊ HUD
-        HUDManager.Instance.ShowTraveller("δτφφδ δερψδ αδφμηδ! δξωκ μδϊχγν.");
-        HUDManager.Instance.ShowNavigator("δρψϊ ΰϊ δτφφδ αδφμηδ.");
+        // π”¥ 1. ΧΧ©Χ—Χ¨Χ¨ ΧΧª Χ”-TutorialCollider (ΧΧªΧª ΧΧ Χ™Χ•Χ•Χ ΧΧ¤Χ©Χ¨Χ•Χª ΧΧΆΧΧ•Χª ΧΆΧ Χ”Χ›Χ¤ΧªΧ•Χ¨)
+        if (tutorialCollider != null)
+            tutorialCollider.SetActive(false);
 
-        TutorialManager.Instance.CompleteStep(); // ριεν δωμα
+        // β ΧΧ Χ Χ•Χ’ΧΆΧ™Χ Χ‘Χ ΧΆΧ™ΧΧ•Χª Χ›ΧΧ β€“ Χ”Χ ΧΆΧ™ΧΧ•Χª ΧΧ•Χ’Χ“Χ¨Χ•Χª ΧΆΧ Χ”-Step ΧΆΧ¦ΧΧ•
+
+        // 2. ΧΧ΅Χ•Χ‘Χ‘ ΧΧª Χ”ΧΧ¦ΧΧΧ” Χ©Χ Χ”ΧΧΧ™Χ™Χ ΧΧ›Χ™Χ•Χ•Χ Χ”Χ¤Χ¦Χ¦Χ”
+        RotateTravellerCameraToBomb();
+
+        // 3. HUD
+        tutorial.travellerHUD?.ShowMessage(
+            "Χ”Χ™Χ–Χ”Χ¨! Χ¤Χ¦Χ¦Χ” ΧΧ•ΧΧ.\nΧ‘Χ§Χ© ΧΧ”Χ Χ•Χ•Χ ΧΧ”Χ΅Χ™Χ¨ ΧΧ•ΧªΧ”."
+        );
+
+        tutorial.navigatorHUD?.ShowMessage(
+            "ΧΆΧΧ•Χ“ ΧΆΧ Χ”Χ›Χ¤ΧªΧ•Χ¨ Χ”Χ©Χ—Χ•Χ¨ Χ›Χ“Χ™ ΧΧ”Χ΅Χ™Χ¨ ΧΧª Χ”Χ¤Χ¦Χ¦Χ”."
+        );
+    }
+
+    private void RotateTravellerCameraToBomb()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null || gm.travellerCam == null || lookTarget == null)
+            return;
+
+        var camTransform = gm.travellerCam.transform;
+
+        Vector3 dir = lookTarget.position - camTransform.position;
+        dir.y = 0f;
+
+        if (dir.sqrMagnitude > 0.01f)
+            camTransform.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up);
+    }
+
+    // ============================================================
+    // ΧΧ—Χ¨Χ™ Χ©Χ”Χ Χ•Χ•Χ Χ“Χ•Χ¨Χ ΧΆΧ RemoveBomb
+    // ============================================================
+
+    public void OnBombRemovedSuccess()
+    {
+        if (tutorial == null) return;
+
+        // π”¥ ΧΧ ΧΧ©Χ—Χ¨Χ¨Χ™Χ Χ™Χ“Χ Χ™Χª β€” Χ”Χ©ΧΧ‘ Χ”Χ‘Χ Χ¦Χ¨Χ™Χ ΧΧ”Χ’Χ“Χ™Χ¨ Unlock Χ‘ΧΆΧ¦ΧΧ• Χ‘-TutorialStep
+
+        tutorial.travellerHUD?.ShowSuccess("Χ”Χ¤Χ¦Χ¦Χ” Χ”Χ•Χ΅Χ¨Χ” Χ‘Χ”Χ¦ΧΧ—Χ”! Χ”ΧΧ©Χ ΧΧ”ΧªΧ§Χ“Χ.");
+        tutorial.navigatorHUD?.ShowSuccess("Χ”Χ΅Χ¨Χª ΧΧª Χ”Χ¤Χ¦Χ¦Χ” Χ‘Χ”Χ¦ΧΧ—Χ”!");
     }
 }

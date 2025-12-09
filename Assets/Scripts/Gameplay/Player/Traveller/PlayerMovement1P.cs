@@ -14,7 +14,7 @@ public class PlayerMovement1P : NetworkBehaviour
     private bool isTraveller;
     private bool isNavigator;
 
-    private bool movementFrozen = true;   // Default state
+    private bool movementFrozen = false;   // Default state
 
     // ------------- IMPORTANT: Awake עבור ה-Controller -------------
     void Awake()

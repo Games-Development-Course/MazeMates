@@ -26,8 +26,6 @@ public class TutorialManager : NetworkBehaviour
 
     private float stepStartTime;
     private float hudShownTime;
-    private float waitMessageShownTime;
-    private bool showingWaitMessage;
 
     private bool travellerMoved, navigatorMoved;
     private bool travellerLooked, navigatorLooked;
@@ -44,6 +42,55 @@ public class TutorialManager : NetworkBehaviour
             TutorialActive.Value = false;
     }
 
+    private void OnEnable()
+    {
+        if (NetworkManager.Singleton != null)
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+    }
+
+    private void OnDisable()
+    {
+        if (NetworkManager.Singleton != null)
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+    }
+
+    // ============================================================
+    // CLIENT CONNECTED — APPLY CURRENT LOCKS TO NEW PLAYER
+    // ============================================================
+
+    private void OnClientConnected(ulong clientId)
+    {
+        if (!IsServer) return;
+        if (!TutorialActive.Value) return;
+        if (currentIndex < 0 || currentIndex >= steps.Length) return;
+
+        var step = Current;
+        SendLocksToSpecificClient(clientId, step);
+    }
+
+    private void SendLocksToSpecificClient(ulong clientId, TutorialStep step)
+    {
+        var p = new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams
+            {
+                TargetClientIds = new ulong[] { clientId }
+            }
+        };
+
+        ApplyLocksClientRpc(
+            step.travellerLockMovement,
+            step.travellerLockCamera,
+            step.navigatorLockMovement,
+            step.navigatorLockCamera,
+            p
+        );
+    }
+
+    // ============================================================
+    // START TUTORIAL
+    // ============================================================
+
     public void StartTutorial()
     {
         if (!IsServer) return;
@@ -59,11 +106,9 @@ public class TutorialManager : NetworkBehaviour
         if (currentIndex < 0 || currentIndex >= steps.Length) return;
 
         TutorialStep step = Current;
-
         float elapsedHUD = Time.time - hudShownTime;
-        float elapsedWait = showingWaitMessage ? Time.time - waitMessageShownTime : 9999f;
 
-        // --- Auto complete ---
+        // Auto complete
         if (!step.completeOnCondition &&
             step.autoCompleteAfter > 0 &&
             Time.time - stepStartTime >= step.autoCompleteAfter)
@@ -72,15 +117,11 @@ public class TutorialManager : NetworkBehaviour
             return;
         }
 
-        // --- Complete-on-condition with HUD timing ---
+        // Complete on condition
         if (step.completeOnCondition && conditionSatisfied)
         {
-            // חייבים זמן מינימום להודעה הראשונית
             if (elapsedHUD < step.minHUDDuration)
                 return;
-
-
-        
 
             CompleteCurrentStep();
         }
@@ -109,85 +150,105 @@ public class TutorialManager : NetworkBehaviour
 
         stepStartTime = Time.time;
         hudShownTime = Time.time;
-        waitMessageShownTime = -1f;
-        showingWaitMessage = false;
 
         travellerMoved = navigatorMoved = false;
         travellerLooked = navigatorLooked = false;
 
         var step = Current;
 
-        ApplyUnlocks(step);
+        ApplyLocks(step);
         ShowStepHUD(step);
 
         step.onStepStart?.Invoke();
     }
 
     // ============================================================
-    // UNLOCK CONTROL – CLIENT RPC
+    // LOCK SYSTEM – SERVER SIDE
     // ============================================================
 
-    private void ApplyUnlocks(TutorialStep s)
+    private void ApplyLocks(TutorialStep s)
     {
-        ApplyUnlocksClientRpc(s.targetRole, s.unlockMovement, s.unlockCamera);
+        ApplyLocksClientRpc(
+            s.travellerLockMovement,
+            s.travellerLockCamera,
+            s.navigatorLockMovement,
+            s.navigatorLockCamera
+        );
     }
 
+    // ============================================================
+    // LOCK SYSTEM – CLIENT RPC
+    // ============================================================
+
     [ClientRpc]
-    private void ApplyUnlocksClientRpc(TutorialRoleTarget targetRole, bool unlockMovement, bool unlockCamera)
+    private void ApplyLocksClientRpc(
+        bool travellerLockMovement,
+        bool travellerLockCamera,
+        bool navigatorLockMovement,
+        bool navigatorLockCamera,
+        ClientRpcParams rpcParams = default)
     {
-        var movers = FindObjectsOfType<PlayerMovement1P>();
-        foreach (var m in movers)
+        // כאן קובעים מי אני: Host = מטייל, Client = נווט
+        bool iAmTraveller = IsHost;
+        bool iAmNavigator = !IsHost;
+
+        // לתיעוד מה שקורה בפועל
+        Debug.Log($"[TutorialManager] ApplyLocks on {(IsHost ? "HOST" : "CLIENT")} | " +
+                  $"Trav(M:{travellerLockMovement},C:{travellerLockCamera}) " +
+                  $"Nav(M:{navigatorLockMovement},C:{navigatorLockCamera})");
+
+        // ---- Movement ----
+        foreach (var m in FindObjectsOfType<PlayerMovement1P>())
         {
             if (!m.IsOwner) continue;
 
-            bool affect = targetRole switch
+            if (iAmTraveller)
             {
-                TutorialRoleTarget.Traveller => m.name.Contains("Trav"),
-                TutorialRoleTarget.Navigator => m.name.Contains("Nav"),
-                TutorialRoleTarget.Both => true,
-                _ => false
-            };
-
-            if (affect)
-                m.SetFrozen(!unlockMovement);
+                m.SetFrozen(travellerLockMovement);
+                Debug.Log("[TutorialManager] Movement lock applied to TRAVELLER local player");
+            }
+            else if (iAmNavigator)
+            {
+                m.SetFrozen(navigatorLockMovement);
+                Debug.Log("[TutorialManager] Movement lock applied to NAVIGATOR local player");
+            }
         }
 
-        var cams = FindObjectsOfType<PlayerCamera1P>();
-        foreach (var c in cams)
+        // ---- Camera ----
+        foreach (var c in FindObjectsOfType<PlayerCamera1P>())
         {
             if (!c.IsOwner) continue;
 
-            bool affect = targetRole switch
+            if (iAmTraveller)
             {
-                TutorialRoleTarget.Traveller => c.name.Contains("Trav"),
-                TutorialRoleTarget.Navigator => c.name.Contains("Nav"),
-                TutorialRoleTarget.Both => true,
-                _ => false
-            };
-
-            if (affect)
-                c.SetCameraFrozen(!unlockCamera);
+                c.SetCameraFrozen(travellerLockCamera);
+                Debug.Log("[TutorialManager] Camera lock applied to TRAVELLER local player");
+            }
+            else if (iAmNavigator)
+            {
+                c.SetCameraFrozen(navigatorLockCamera);
+                Debug.Log("[TutorialManager] Camera lock applied to NAVIGATOR local player");
+            }
         }
     }
 
     // ============================================================
-    // HUD PER ROLE
+    // HUD
     // ============================================================
 
     private void ShowStepHUD(TutorialStep step)
     {
-        if (travellerHUD != null)
-            SetTravellerHUDMessageClientRpc(step.travellerMessage);
-
-        if (navigatorHUD != null)
-            SetNavigatorHUDMessageClientRpc(step.navigatorMessage);
+        SetTravellerHUDMessageClientRpc(step.travellerMessage);
+        SetNavigatorHUDMessageClientRpc(step.navigatorMessage);
     }
 
     [ClientRpc]
     private void ClearHUDClientRpc()
     {
-        if (IsHost) travellerHUD?.Clear();
-        else navigatorHUD?.Clear();
+        if (IsHost)
+            travellerHUD?.Clear();
+        else
+            navigatorHUD?.Clear();
     }
 
     [ClientRpc]
@@ -229,7 +290,7 @@ public class TutorialManager : NetworkBehaviour
     }
 
     // ============================================================
-    // MOVEMENT + LOOK EVENT HANDLERS
+    // MOVEMENT + LOOK EVENTS
     // ============================================================
 
     public void NotifyTravellerMoved() => HandleMovement(ref travellerMoved, true);
@@ -250,20 +311,22 @@ public class TutorialManager : NetworkBehaviour
 
         if (step.conditionType == TutorialConditionType.BothMoved)
         {
-            if (Time.time - hudShownTime >= Current.minHUDDuration)
-            {
-                ShowWaitMessage(isTraveller);
-                showingWaitMessage = true;
-            }
-
-
-
             if (travellerMoved && navigatorMoved)
                 MarkConditionSatisfiedInternal();
         }
     }
+    public void DisableColliderByName(string objName)
+    {
+        GameObject obj = GameObject.Find(objName);
+        if (obj != null)
+        {
+            var col = obj.GetComponent<Collider>();
+            if (col != null)
+                col.enabled = false;
+        }
+    }
 
-    // LOOK
+
     public void NotifyTravellerLooked() => HandleLook(ref travellerLooked, true);
     public void NotifyNavigatorLooked() => HandleLook(ref navigatorLooked, false);
 
@@ -282,28 +345,13 @@ public class TutorialManager : NetworkBehaviour
 
         if (step.conditionType == TutorialConditionType.BothLookedAround)
         {
-            if (Time.time - hudShownTime >= Current.minHUDDuration)
-            {
-                ShowWaitMessage(isTraveller);
-                showingWaitMessage = true;
-            }
-
-
             if (travellerLooked && navigatorLooked)
                 MarkConditionSatisfiedInternal();
         }
     }
 
-    private void ShowWaitMessage(bool isTraveller)
-    {
-        if (isTraveller)
-            SetTravellerHUDMessageClientRpc(travellerWaitingForNavigator);
-        else
-            SetNavigatorHUDMessageClientRpc(navigatorWaitingForTraveller);
-    }
-
     // ============================================================
-    // OTHER EVENTS
+    // CONDITION EVENTS
     // ============================================================
 
     public void NotifyNavigatorRemovedBomb() => Check(TutorialConditionType.NavigatorRemoveBomb);

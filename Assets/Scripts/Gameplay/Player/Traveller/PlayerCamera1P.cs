@@ -8,7 +8,7 @@ public class PlayerCamera1P : NetworkBehaviour
 
     float xRotation = 0f;
 
-    private bool cameraFrozen = true;
+    private bool cameraFrozen = false;
     private float autoUnlockIn = -1f;
 
     private TutorialManager tutorial;
@@ -101,7 +101,22 @@ public class PlayerCamera1P : NetworkBehaviour
     {
         cameraFrozen = freeze;
         autoUnlockIn = -1f;
+
+        if (freeze)
+        {
+            // נועל מבט ואיפוס תזוזה
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+        else
+        {
+            // השחקנים בטוטוריאל צריכים להיות תמיד במצב נעול עכבר (FPS)
+            // כלומר לא משחררים אותם לגמרי כמו במשחק אחר
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
     }
+
 
     public void LockCameraForSeconds(float sec)
     {

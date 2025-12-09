@@ -1,13 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.Events;
 
-public enum TutorialRoleTarget
-{
-    Traveller,
-    Navigator,
-    Both
-}
-
 public enum TutorialConditionType
 {
     None,
@@ -15,11 +8,11 @@ public enum TutorialConditionType
     // שליטה בסיסית
     TravellerMoved,
     NavigatorMoved,
-    BothMoved,              // ⭐ שני השחקנים חייבים לזוז
+    BothMoved,
 
     TravellerLookedAround,
     NavigatorLookedAround,
-    BothLookedAround,        // ⭐ שני השחקנים חייבים להסתכל מסביב
+    BothLookedAround,
 
     // כפתורי הנווט
     NavigatorRemoveBomb,
@@ -33,7 +26,7 @@ public enum TutorialConditionType
     TravellerPickedKey,
     TravellerPickedHeart,
 
-    // פאזלים ודלתות
+    // פאזלים
     PuzzleSolved,
 
     // סוף מבוך
@@ -47,21 +40,27 @@ public class TutorialStep : ScriptableObject
 {
     [Header("Identification")]
     public string stepId;
-    [TextArea]
-    public string description;
+    [TextArea] public string description;
 
     [Header("Logic")]
-    public TutorialRoleTarget targetRole;
     public TutorialConditionType conditionType = TutorialConditionType.None;
 
     [Header("HUD Messages")]
     [TextArea] public string travellerMessage;
     [TextArea] public string navigatorMessage;
 
-    [Header("Unlock Controls")]
-    public bool unlockMovement = false;
-    public bool unlockCamera = false;
+    // ===========================================================
+    // NEW: explicit lock flags per role
+    // ===========================================================
+    [Header("Traveller Lock Settings")]
+    public bool travellerLockMovement = true;
+    public bool travellerLockCamera = true;
 
+    [Header("Navigator Lock Settings")]
+    public bool navigatorLockMovement = true;
+    public bool navigatorLockCamera = true;
+
+    // ===========================================================
     [Header("Timing")]
     public bool completeOnCondition = true;
     public float minDuration = 0f;
