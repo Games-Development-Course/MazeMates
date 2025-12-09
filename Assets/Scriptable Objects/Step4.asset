@@ -20,8 +20,8 @@ MonoBehaviour:
     \u05D9\u05E1\u05D9\u05D9\u05DD.."
   travellerLockMovement: 0
   travellerLockCamera: 0
-  navigatorLockMovement: 1
-  navigatorLockCamera: 1
+  navigatorLockMovement: 0
+  navigatorLockCamera: 0
   completeOnCondition: 1
   minDuration: 0
   autoCompleteAfter: 100

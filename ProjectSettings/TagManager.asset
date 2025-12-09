@@ -8,6 +8,11 @@ TagManager:
   - Key
   - Bomb
   - Door
+  - Tutorial_RemoveBomb
+  - Tutorial_ShowPuzzle
+  - Tutorial_OpenDoor
+  - Tutorial_PlaceHeart
+  - Tutorial_ShowHint
   layers:
   - Default
   - TransparentFX

@@ -1,6 +1,7 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using System.Collections.Generic;
 using Unity.Netcode;
-using System.Collections;
+using UnityEngine;
 
 public class TutorialManager : NetworkBehaviour
 {
@@ -31,6 +32,17 @@ public class TutorialManager : NetworkBehaviour
     private bool travellerLooked, navigatorLooked;
 
     private TutorialStep Current => steps[currentIndex];
+
+    // ============================================
+    // AUTO COLLIDERS REGISTRY
+    // ============================================
+    public static List<TutorialColliderAuto> autoColliders = new List<TutorialColliderAuto>();
+
+    public static void RegisterAutoCollider(TutorialColliderAuto c)
+    {
+        if (c != null && !autoColliders.Contains(c))
+            autoColliders.Add(c);
+    }
 
     // ============================================================
     // NETWORK START
@@ -156,10 +168,23 @@ public class TutorialManager : NetworkBehaviour
 
         var step = Current;
 
+        // ✅ לכבות/לטפל בקוליידרים הרלוונטיים לכל הקליינטים
+        StepStartedCollidersClientRpc(currentIndex);
+
         ApplyLocks(step);
         ShowStepHUD(step);
 
         step.onStepStart?.Invoke();
+    }
+
+    [ClientRpc]
+    private void StepStartedCollidersClientRpc(int stepIndex)
+    {
+        foreach (var c in autoColliders)
+        {
+            if (c != null)
+                c.OnStepStarted(stepIndex);
+        }
     }
 
     // ============================================================
@@ -188,11 +213,10 @@ public class TutorialManager : NetworkBehaviour
         bool navigatorLockCamera,
         ClientRpcParams rpcParams = default)
     {
-        // כאן קובעים מי אני: Host = מטייל, Client = נווט
+        // Host = מטייל, Client = נווט
         bool iAmTraveller = IsHost;
         bool iAmNavigator = !IsHost;
 
-        // לתיעוד מה שקורה בפועל
         Debug.Log($"[TutorialManager] ApplyLocks on {(IsHost ? "HOST" : "CLIENT")} | " +
                   $"Trav(M:{travellerLockMovement},C:{travellerLockCamera}) " +
                   $"Nav(M:{navigatorLockMovement},C:{navigatorLockCamera})");
@@ -315,17 +339,6 @@ public class TutorialManager : NetworkBehaviour
                 MarkConditionSatisfiedInternal();
         }
     }
-    public void DisableColliderByName(string objName)
-    {
-        GameObject obj = GameObject.Find(objName);
-        if (obj != null)
-        {
-            var col = obj.GetComponent<Collider>();
-            if (col != null)
-                col.enabled = false;
-        }
-    }
-
 
     public void NotifyTravellerLooked() => HandleLook(ref travellerLooked, true);
     public void NotifyNavigatorLooked() => HandleLook(ref navigatorLooked, false);
@@ -349,6 +362,10 @@ public class TutorialManager : NetworkBehaviour
                 MarkConditionSatisfiedInternal();
         }
     }
+
+    // אופציונלי: כיבוי לפי Tag (אם אתה עדיין משתמש בזה איפשהו)
+   
+
 
     // ============================================================
     // CONDITION EVENTS
