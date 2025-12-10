@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿// DoorController.cs
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
@@ -14,8 +15,6 @@ public class DoorController : NetworkBehaviour
     [Header("Puzzle Settings")]
     public GameObject puzzlePrefab;
     public Sprite navigatorPreview;          // ימולא אוטומטית מ-OriginalImage אם ריק
-
-    private Texture2D noiseTexture;
 
     [Header("Navigator TV Screen")]
     public MeshRenderer navigatorScreen;           // לא חובה – רק אם אתה רוצה גם זכוכית וכו'
@@ -40,8 +39,6 @@ public class DoorController : NetworkBehaviour
     // =====================================================================
     private void Awake()
     {
-        noiseTexture = NoiseGenerator.GenerateNoise(256);
-
         // נסה למצוא את ה-Quad בשם ScreenQuad אם לא חיברת ידנית
         if (navigatorScreenQuad == null)
         {
@@ -66,10 +63,6 @@ public class DoorController : NetworkBehaviour
             FindOrCreatePivot();
 
         InitDoorLogic();
-
-        // ברירת מחדל: רעש במסך
-        if (noiseTexture != null)
-            ApplyTextureToNavigatorScreen(noiseTexture);
     }
 
     // =====================================================================
@@ -172,42 +165,6 @@ public class DoorController : NetworkBehaviour
             navigatorMatInstance.SetFloat("_Metallic", 0f);
         if (navigatorMatInstance.HasProperty("_Smoothness"))
             navigatorMatInstance.SetFloat("_Smoothness", 0f);
-    }
-
-    // =====================================================================
-    // PUBLIC API מהפאזל
-    // =====================================================================
-    public void ShowNavigatorPreviewOnScreen(Sprite sprite)
-    {
-        bool showPuzzle = sprite != null && sprite.texture != null;
-
-        if (!IsServer)
-        {
-            RequestSetNavigatorScreenServerRpc(showPuzzle);
-        }
-        else
-        {
-            SetNavigatorScreenClientRpc(showPuzzle);
-        }
-    }
-
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestSetNavigatorScreenServerRpc(bool showPuzzle)
-    {
-        SetNavigatorScreenClientRpc(showPuzzle);
-    }
-
-    [Rpc(SendTo.Everyone)]
-    private void SetNavigatorScreenClientRpc(bool showPuzzle)
-    {
-        Texture texToShow;
-
-        if (showPuzzle && navigatorPreview != null && navigatorPreview.texture != null)
-            texToShow = navigatorPreview.texture;
-        else
-            texToShow = noiseTexture;
-
-        ApplyTextureToNavigatorScreen(texToShow);
     }
 
     // =====================================================================
@@ -341,5 +298,112 @@ public class DoorController : NetworkBehaviour
         }
 
         pivot = pivotObj.transform;
+    }
+
+    // =====================================================================
+    // STATIC HELPERS לשימוש מהנווט
+    // =====================================================================
+
+    // גרסה ללא פרמטר – תואמת קריאה כמו DoorController.FindDoorPlayerIsOn()
+    public static DoorController FindDoorPlayerIsOn()
+    {
+        var doors = Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None);
+        foreach (var door in doors)
+        {
+            if (door.TravellerIsOnPad())
+                return door;
+        }
+        return null;
+    }
+
+    // גרסה עם פרמטר GameObject – אם אי פעם יקראו עם player, עדיין יעבוד
+    public static DoorController FindDoorPlayerIsOn(GameObject player)
+    {
+        // כרגע אנחנו לא מסננים לפי השחקן, רק לפי האם יש שחקן על הפד
+        return FindDoorPlayerIsOn();
+    }
+
+    // גרסה כללית – לפי מיקום בלבד
+    public static DoorController FindNearestDoorOnPad(Vector3 position, float maxDistance = 5f)
+    {
+        DoorController nearest = null;
+        float minDist = float.MaxValue;
+
+        var doors = Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None);
+        foreach (var door in doors)
+        {
+            if (!door.TravellerIsOnPad())
+                continue;
+
+            float dist = Vector3.Distance(position, door.transform.position);
+            if (dist < minDist && dist <= maxDistance)
+            {
+                minDist = dist;
+                nearest = door;
+            }
+        }
+
+        return nearest;
+    }
+
+    // גרסה תואמת ל-NavigatorActions: DoorType + מיקום
+    public static DoorController FindNearestDoorOnPad(DoorType type, Vector3 position, float maxDistance = 5f)
+    {
+        DoorController nearest = null;
+        float minDist = float.MaxValue;
+
+        var doors = Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None);
+        foreach (var door in doors)
+        {
+            if (door.doorType != type)
+                continue;
+
+            if (!door.TravellerIsOnPad())
+                continue;
+
+            float dist = Vector3.Distance(position, door.transform.position);
+            if (dist < minDist && dist <= maxDistance)
+            {
+                minDist = dist;
+                nearest = door;
+            }
+        }
+
+        return nearest;
+    }
+
+    // =====================================================================
+    // PUBLIC API מהפאזל
+    // =====================================================================
+    public void ShowNavigatorPreviewOnScreen(Sprite sprite)
+    {
+        bool showPuzzle = sprite != null && sprite.texture != null;
+
+        if (!IsServer)
+        {
+            RequestSetNavigatorScreenServerRpc(showPuzzle);
+        }
+        else
+        {
+            SetNavigatorScreenClientRpc(showPuzzle);
+        }
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestSetNavigatorScreenServerRpc(bool showPuzzle)
+    {
+        SetNavigatorScreenClientRpc(showPuzzle);
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void SetNavigatorScreenClientRpc(bool showPuzzle)
+    {
+        // כרגע תמיד מציגים את ה-preview אם קיים (או נשארים על הישן אם null)
+        if (navigatorPreview != null && navigatorPreview.texture != null)
+        {
+            Texture texToShow = navigatorPreview.texture;
+            ApplyTextureToNavigatorScreen(texToShow);
+        }
+        // אחרת לא עושים כלום – נשאר הטקסטורה האחרונה (ל-noise תשתמש בפתרון שלך אם יש)
     }
 }

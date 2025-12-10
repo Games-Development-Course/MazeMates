@@ -1,7 +1,9 @@
-﻿using System.Collections;
+﻿// TutorialManager.cs
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class TutorialManager : NetworkBehaviour
 {
@@ -166,24 +168,29 @@ public class TutorialManager : NetworkBehaviour
         travellerMoved = navigatorMoved = false;
         travellerLooked = navigatorLooked = false;
 
-        var step = Current;
+        // מחכה פריים אחד — כל האובייקטים יספיקו לעבור Awake
+        StartCoroutine(DelayedColliderStep(Current.stepId));
 
-        // ✅ לכבות/לטפל בקוליידרים הרלוונטיים לכל הקליינטים
-        StepStartedCollidersClientRpc(currentIndex);
+        ApplyLocks(Current);
+        ShowStepHUD(Current);
+        Current.onStepStart?.Invoke();
 
-        ApplyLocks(step);
-        ShowStepHUD(step);
+        Debug.Log($"[Tutorial] Step started: index={currentIndex} id={Current.stepId} condition={Current.conditionType}");
+    }
 
-        step.onStepStart?.Invoke();
+    private IEnumerator DelayedColliderStep(string id)
+    {
+        yield return null;
+        StepStartedCollidersClientRpc(id);
     }
 
     [ClientRpc]
-    private void StepStartedCollidersClientRpc(int stepIndex)
+    private void StepStartedCollidersClientRpc(string stepId)
     {
         foreach (var c in autoColliders)
         {
             if (c != null)
-                c.OnStepStarted(stepIndex);
+                c.OnStepStarted(stepId);
         }
     }
 
@@ -222,7 +229,7 @@ public class TutorialManager : NetworkBehaviour
                   $"Nav(M:{navigatorLockMovement},C:{navigatorLockCamera})");
 
         // ---- Movement ----
-        foreach (var m in FindObjectsOfType<PlayerMovement1P>())
+        foreach (var m in Object.FindObjectsByType<PlayerMovement1P>(FindObjectsSortMode.None))
         {
             if (!m.IsOwner) continue;
 
@@ -239,7 +246,7 @@ public class TutorialManager : NetworkBehaviour
         }
 
         // ---- Camera ----
-        foreach (var c in FindObjectsOfType<PlayerCamera1P>())
+        foreach (var c in Object.FindObjectsByType<PlayerCamera1P>(FindObjectsSortMode.None))
         {
             if (!c.IsOwner) continue;
 
@@ -295,6 +302,7 @@ public class TutorialManager : NetworkBehaviour
 
     private void MarkConditionSatisfiedInternal()
     {
+        Debug.Log($"[Tutorial] Condition satisfied on step {currentIndex} ({Current.stepId})");
         conditionSatisfied = true;
     }
 
@@ -302,6 +310,7 @@ public class TutorialManager : NetworkBehaviour
     {
         if (!IsServer || !stepActive) return;
 
+        Debug.Log($"[Tutorial] Completing step {currentIndex} ({Current.stepId})");
         stepActive = false;
         Current.onStepComplete?.Invoke();
         StartCoroutine(GoNext());
@@ -336,7 +345,9 @@ public class TutorialManager : NetworkBehaviour
         if (step.conditionType == TutorialConditionType.BothMoved)
         {
             if (travellerMoved && navigatorMoved)
+            {
                 MarkConditionSatisfiedInternal();
+            }
         }
     }
 
@@ -359,19 +370,32 @@ public class TutorialManager : NetworkBehaviour
         if (step.conditionType == TutorialConditionType.BothLookedAround)
         {
             if (travellerLooked && navigatorLooked)
+            {
                 MarkConditionSatisfiedInternal();
+            }
         }
     }
 
-    // אופציונלי: כיבוי לפי Tag (אם אתה עדיין משתמש בזה איפשהו)
-   
+    public bool IsTutorialRunningForStep(string stepId)
+    {
+        if (!TutorialActive.Value) return false;
 
+        if (currentIndex < 0 || currentIndex >= steps.Length)
+            return false;
+
+        return steps[currentIndex].stepId == stepId;
+    }
 
     // ============================================================
     // CONDITION EVENTS
     // ============================================================
 
-    public void NotifyNavigatorRemovedBomb() => Check(TutorialConditionType.NavigatorRemoveBomb);
+    public void NotifyNavigatorRemovedBomb()
+    {
+        Debug.Log($"[Tutorial] NotifyNavigatorRemovedBomb received | server={IsServer} stepActive={stepActive} index={currentIndex} cond={(currentIndex >= 0 && currentIndex < steps.Length ? Current.conditionType.ToString() : "N/A")}");
+        Check(TutorialConditionType.NavigatorRemoveBomb);
+    }
+
     public void NotifyNavigatorOpenedNormalDoor() => Check(TutorialConditionType.NavigatorOpenNormalDoor);
     public void NotifyNavigatorOpenedPuzzleDoor() => Check(TutorialConditionType.NavigatorOpenPuzzleDoor);
     public void NotifyNavigatorOpenedExitDoor() => Check(TutorialConditionType.NavigatorOpenExitDoor);
@@ -388,6 +412,9 @@ public class TutorialManager : NetworkBehaviour
     private void Check(TutorialConditionType t)
     {
         if (!IsServer || !stepActive) return;
+
+        Debug.Log($"[Tutorial] Check() called with {t} | Current={Current.conditionType}");
+
         if (Current.conditionType == t)
             MarkConditionSatisfiedInternal();
     }

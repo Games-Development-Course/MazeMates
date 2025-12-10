@@ -30,10 +30,10 @@ public class NavigatorHUD : MonoBehaviour
 
     private IEnumerator WaitForNavigator()
     {
-        while (NavigatorInteractionManager.Instance == null)
+        while (NavigatorActions.Instance == null)
             yield return null;
 
-        var nav = NavigatorInteractionManager.Instance;
+        var nav = NavigatorActions.Instance;
 
         while (!nav.IsSpawned)
             yield return null;

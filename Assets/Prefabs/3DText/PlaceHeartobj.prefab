@@ -43,6 +43,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3138545678550902672}
   - component: {fileID: 7477328655170476634}
+  - component: {fileID: 8095346501829682983}
   m_Layer: 0
   m_Name: TutorialCollider
   m_TagString: Untagged
@@ -86,6 +87,20 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.79, y: 1.79, z: 3.78}
   m_Center: {x: 0, y: 0, z: -0.3}
+--- !u!114 &8095346501829682983
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7048108204754252483}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 293e4d2f3c551794f975b349aee5165e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TutorialColliderAuto
+  disableOnStepId: Heart
+  targetCollider: {fileID: 7477328655170476634}
 --- !u!1 &7656439013353128763
 GameObject:
   m_ObjectHideFlags: 0

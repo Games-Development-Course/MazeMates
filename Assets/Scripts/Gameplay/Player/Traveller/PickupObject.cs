@@ -1,7 +1,7 @@
 using TMPro;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Unity.Netcode;
 
 public class PickupObject : NetworkBehaviour
 {
@@ -43,6 +43,9 @@ public class PickupObject : NetworkBehaviour
         string finalMessage = customMessage;
         bool gameOver = false;
 
+        // נשלוף טוטוריאל פעם אחת
+        var tm = Object.FindFirstObjectByType<TutorialManager>();
+
         // ---------------------------------------------------------
         // עדכון ערכי משחק (רק בשרת)
         // ---------------------------------------------------------
@@ -52,12 +55,18 @@ public class PickupObject : NetworkBehaviour
                 gm.lives++;
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "אספת לב! קיבלת חיים נוספים.";
+
+                // ⭐ הטוטוריאל – המטייל אסף לב
+                tm?.NotifyTravellerPickedHeart();
                 break;
 
             case PickupType.Key:
                 gm.keys++;
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "אספת מפתח!";
+
+                // ⭐ הטוטוריאל – המטייל אסף מפתח
+                tm?.NotifyTravellerPickedKey();
                 break;
 
             case PickupType.Lifebuoy:

@@ -24,10 +24,10 @@ MonoBehaviour:
   navigatorLockMovement: 0
   navigatorLockCamera: 1
   completeOnCondition: 1
-  minDuration: 10
+  minDuration: 0
   autoCompleteAfter: 100
-  minHUDDuration: 5
-  minWaitMessageDuration: 5
+  minHUDDuration: 0
+  minWaitMessageDuration: 0
   onStepStart:
     m_PersistentCalls:
       m_Calls: []

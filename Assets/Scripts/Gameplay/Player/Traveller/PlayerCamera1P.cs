@@ -1,4 +1,5 @@
-﻿using Unity.Netcode;
+﻿// PlayerCamera1P.cs
+using Unity.Netcode;
 using UnityEngine;
 
 public class PlayerCamera1P : NetworkBehaviour
@@ -25,7 +26,7 @@ public class PlayerCamera1P : NetworkBehaviour
 
         Cursor.lockState = CursorLockMode.Locked;
 
-        tutorial = FindFirstObjectByType<TutorialManager>();
+        tutorial = Object.FindFirstObjectByType<TutorialManager>();
 
         // 🔴 במקום name של המצלמה – לוקחים את השם של האב (השחקן)
         var rootMovement = GetComponentInParent<PlayerMovement1P>();
@@ -111,12 +112,10 @@ public class PlayerCamera1P : NetworkBehaviour
         else
         {
             // השחקנים בטוטוריאל צריכים להיות תמיד במצב נעול עכבר (FPS)
-            // כלומר לא משחררים אותם לגמרי כמו במשחק אחר
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
     }
-
 
     public void LockCameraForSeconds(float sec)
     {
@@ -131,7 +130,7 @@ public class PlayerCamera1P : NetworkBehaviour
     [ServerRpc]
     private void SendLookServerRpc(bool traveller)
     {
-        var tm = FindFirstObjectByType<TutorialManager>();
+        var tm = Object.FindFirstObjectByType<TutorialManager>();
         if (tm == null) return;
 
         if (traveller)

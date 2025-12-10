@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d2866ab287412c4e85fad635ad89379, type: 3}
   m_Name: Step4
   m_EditorClassIdentifier: Assembly-CSharp::TutorialStep
-  stepId: Bomb-Move
+  stepId: Bomb1
   description: "\u05D4\u05EA\u05E7\u05D3\u05DD \u05D1\u05DE\u05D1\u05D5\u05DA "
   conditionType: 17
   travellerMessage: "\u05D4\u05EA\u05E7\u05D3\u05DD \u05D1\u05DE\u05D1\u05D5\u05DA"
-  navigatorMessage: "\u05DC\u05DB\u05D4 \u05E9\u05DE\u05D4\u05D8\u05D9\u05D9\u05DC
+  navigatorMessage: "\u05D7\u05DB\u05D4 \u05E9\u05DE\u05D4\u05D8\u05D9\u05D9\u05DC
     \u05D9\u05E1\u05D9\u05D9\u05DD.."
   travellerLockMovement: 0
   travellerLockCamera: 0
@@ -25,8 +25,8 @@ MonoBehaviour:
   completeOnCondition: 1
   minDuration: 0
   autoCompleteAfter: 100
-  minHUDDuration: 0
-  minWaitMessageDuration: 0
+  minHUDDuration: 5
+  minWaitMessageDuration: 5
   onStepStart:
     m_PersistentCalls:
       m_Calls:

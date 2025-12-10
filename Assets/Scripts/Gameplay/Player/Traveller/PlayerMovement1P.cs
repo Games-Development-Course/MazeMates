@@ -1,4 +1,5 @@
-﻿using Unity.Netcode;
+﻿// PlayerMovement1P.cs
+using Unity.Netcode;
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
@@ -24,7 +25,7 @@ public class PlayerMovement1P : NetworkBehaviour
 
     void Start()
     {
-        tutorial = FindFirstObjectByType<TutorialManager>();
+        tutorial = Object.FindFirstObjectByType<TutorialManager>();
         isTraveller = name.Contains("Trav");
         isNavigator = name.Contains("Nav");
     }
@@ -88,7 +89,7 @@ public class PlayerMovement1P : NetworkBehaviour
     [ServerRpc]
     private void NotifyMovementServerRpc(bool isTraveller)
     {
-        var tm = FindFirstObjectByType<TutorialManager>();
+        var tm = Object.FindFirstObjectByType<TutorialManager>();
         if (tm == null) return;
 
         if (isTraveller)

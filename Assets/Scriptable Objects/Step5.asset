@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d2866ab287412c4e85fad635ad89379, type: 3}
   m_Name: Step5
   m_EditorClassIdentifier: Assembly-CSharp::TutorialStep
-  stepId: Bomb_Warning
+  stepId: Bomb2
   description: RemoveBomb
   conditionType: 7
   travellerMessage: "\u05D4\u05D9\u05D6\u05D4\u05E8 \u05E4\u05E6\u05E6\u05D4 \u05DE\u05D5\u05DC\u05DA,
@@ -26,49 +26,13 @@ MonoBehaviour:
   navigatorLockMovement: 0
   navigatorLockCamera: 0
   completeOnCondition: 1
-  minDuration: 10
+  minDuration: 0
   autoCompleteAfter: 1000
-  minHUDDuration: 5
-  minWaitMessageDuration: 5
+  minHUDDuration: 0
+  minWaitMessageDuration: 0
   onStepStart:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1767021772316895229, guid: ab506a970f809d64696ccb6d487fdce1, type: 3}
-        m_TargetAssemblyTypeName: BombStepHelper, Assembly-CSharp
-        m_MethodName: OnBombStep2Start
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 1767021772316895229, guid: ab506a970f809d64696ccb6d487fdce1, type: 3}
-        m_TargetAssemblyTypeName: BombStepHelper, Assembly-CSharp
-        m_MethodName: OnBombStep2Start
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   onStepComplete:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 5753594546748155708, guid: ab506a970f809d64696ccb6d487fdce1, type: 3}
-        m_TargetAssemblyTypeName: TutorialManager, Assembly-CSharp
-        m_MethodName: DisableColliderByTag
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Tutorial_RemoveBomb
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []

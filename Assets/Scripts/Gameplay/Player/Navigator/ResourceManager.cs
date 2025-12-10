@@ -1,32 +1,53 @@
-﻿using Unity.Netcode;
+﻿using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 public class ResourceManager : NetworkBehaviour
 {
     public static ResourceManager Instance;
 
-    public float bombRemoveRange = 3f;
+    [Header("Bomb Settings")]
+    public float bombRemoveRange = 4f;
+
+    [Header("Prefabs")]
     public GameObject heartPrefab;
     public GameObject lifebuoyEffectPrefab;
 
+    private TutorialManager tutorial;
+
+    // ============================================================
+    // INITIALIZATION
+    // ============================================================
+
     public override void OnNetworkSpawn()
     {
-        Debug.Log("ResourceManager SPAWNED   IsServer=" + IsServer + "  IsClient=" + IsClient);
-
-        // נשמור תמיד את האינסטנס
         Instance = this;
+        tutorial = FindFirstObjectByType<TutorialManager>();
+
+        Debug.Log($"[ResourceManager] NetworkSpawn  Server={IsServer}  Client={IsClient}");
     }
 
     private void Awake()
     {
-        // גיבוי במקרה שהסצנה נטענת לפני NetworkSpawn
         if (Instance == null)
             Instance = this;
     }
 
     // ============================================================
-    // API – נקרא מהנווט (NavigatorInteractionManager)
+    // PUBLIC API (Navigator)
     // ============================================================
+
+    public void TryRemoveBomb()
+    {
+        if (!IsServer)
+        {
+            Debug.Log("[CLIENT] Sending RequestRemoveBombRpc");
+            RequestRemoveBombRpc();
+            return;
+        }
+
+        ServerRemoveBomb();
+    }
 
     public void TryPlaceHeart()
     {
@@ -37,17 +58,6 @@ public class ResourceManager : NetworkBehaviour
         }
 
         ServerPlaceHeart();
-    }
-
-    public void TryRemoveBomb()
-    {
-        if (!IsServer)
-        {
-            RequestRemoveBombRpc();
-            return;
-        }
-
-        ServerRemoveBomb();
     }
 
     public void TryUseLifebuoy()
@@ -62,229 +72,193 @@ public class ResourceManager : NetworkBehaviour
     }
 
     // ============================================================
-    // SERVER LOGIC – PLACE HEART
+    // BOMB REMOVAL — SERVER LOGIC
+    // ============================================================
+
+    private void ServerRemoveBomb()
+    {
+        Debug.Log("[SERVER] ServerRemoveBomb called");
+
+        GameManager gm = GameManager.Instance;
+        if (gm == null || gm.traveller == null)
+        {
+            Debug.Log("[SERVER] Traveller missing");
+            NavNoTravellerRpc();
+            return;
+        }
+
+        if (gm.BombRemovals <= 0)
+        {
+            Debug.Log("[SERVER] No BombRemovals left");
+            NavNoBombAttemptsRpc();
+            return;
+        }
+
+        Transform traveller = gm.traveller.transform;
+        GameObject bombObj = FindClosestBomb(traveller.position, bombRemoveRange);
+
+        if (bombObj == null)
+        {
+            Debug.Log("[SERVER] No bomb found near traveller");
+            NavNoBombFoundRpc();
+            return;
+        }
+
+        Debug.Log("[SERVER] Removing bomb: " + bombObj.name);
+
+        NetworkObject no = bombObj.GetComponent<NetworkObject>();
+        if (no != null)
+        {
+            no.Despawn(true);
+        }
+        else
+        {
+            Destroy(bombObj);
+        }
+
+        gm.BombRemovals--;
+        SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
+
+        tutorial?.NotifyNavigatorRemovedBomb();
+    }
+
+    // ------------------------------------------------------------
+    // FIND CLOSEST BOMB
+    // ------------------------------------------------------------
+
+    private GameObject FindClosestBomb(Vector3 origin, float maxRange)
+    {
+        GameObject closest = null;
+        float best = Mathf.Infinity;
+
+        Debug.Log("[SERVER] Scanning bombs...");
+
+        // 1) Bomb prefabs with tag
+        GameObject[] tagged = GameObject.FindGameObjectsWithTag("Bomb");
+        foreach (var b in tagged)
+        {
+            if (b == null) continue;
+            float d = Vector3.Distance(origin, b.transform.position);
+            if (d < best && d <= maxRange)
+            {
+                best = d;
+                closest = b;
+            }
+        }
+
+        // 2) PickupObjects of type Bomb
+        var pickups = FindObjectsByType<PickupObject>(FindObjectsSortMode.None);
+        foreach (var p in pickups)
+        {
+            if (p == null) continue;
+            if (p.type != PickupObject.PickupType.Bomb)
+                continue;
+
+            float d = Vector3.Distance(origin, p.transform.position);
+            if (d < best && d <= maxRange)
+            {
+                best = d;
+                closest = p.gameObject;
+            }
+        }
+
+        if (closest == null)
+            Debug.Log("[SERVER] No bomb found");
+        else
+            Debug.Log("[SERVER] Closest bomb = " + closest.name);
+
+        return closest;
+    }
+
+    // ============================================================
+    // HEART LOGIC
     // ============================================================
 
     private void ServerPlaceHeart()
     {
         GameManager gm = GameManager.Instance;
-        if (gm == null)
-            return;
+        if (gm == null || gm.traveller == null) return;
 
         if (gm.HeartPlacements <= 0)
         {
-            NotifyNavigatorMessageRpc("לא נותרו לבבות");
+            NavNoHeartsLeftRpc();
             return;
         }
 
-        if (gm.traveller == null)
-        {
-            NotifyNavigatorMessageRpc("אין מטייל במשחק");
-            return;
-        }
+        Vector3 pos = gm.traveller.transform.position + gm.traveller.transform.forward * 1f;
 
-        if (heartPrefab == null)
-        {
-            Debug.LogError("ResourceManager: heartPrefab is null");
-            return;
-        }
-
-        Transform t = gm.traveller.transform;
-
-        float eyeHeight = 1.6f;
-        float forwardDistance = 1.2f;
-        float backFromWall = 0.3f;
-        float dropRayHeight = 2f;
-        float dropRayDown = 5f;
-
-        Vector3 eyePos = t.position + Vector3.up * eyeHeight;
-        Vector3 dropPos;
-
-        RaycastHit hit;
-
-        // אם מסתכל על קיר – ניפול מעט אחורה ממנו ונחפש רצפה משם
-        if (Physics.Raycast(eyePos, t.forward, out hit, forwardDistance))
-        {
-            Vector3 ahead = hit.point - t.forward * backFromWall;
-            Vector3 rayStart = ahead + Vector3.up * dropRayHeight;
-
-            RaycastHit floorHit;
-            if (Physics.Raycast(rayStart, Vector3.down, out floorHit, dropRayDown))
-            {
-                dropPos = floorHit.point;
-            }
-            else
-            {
-                dropPos = new Vector3(ahead.x, t.position.y, ahead.z);
-            }
-        }
-        else
-        {
-            // אין קיר מול הפנים – סתם קדימה + Ray למטה
-            Vector3 ahead = t.position + t.forward * forwardDistance;
-            Vector3 rayStart = ahead + Vector3.up * dropRayHeight;
-
-            RaycastHit floorHit;
-            if (Physics.Raycast(rayStart, Vector3.down, out floorHit, dropRayDown))
-            {
-                dropPos = floorHit.point;
-            }
-            else
-            {
-                dropPos = new Vector3(ahead.x, t.position.y, ahead.z);
-            }
-        }
-
-        GameObject heart = Instantiate(heartPrefab, dropPos, Quaternion.identity);
-        NetworkObject netObj = heart.GetComponent<NetworkObject>();
-        if (netObj != null)
-            netObj.Spawn();
+        GameObject h = Instantiate(heartPrefab, pos, Quaternion.identity);
+        NetworkObject no = h.GetComponent<NetworkObject>();
+        if (no != null)
+            no.Spawn();
 
         gm.HeartPlacements--;
         SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
+
+        tutorial?.NotifyNavigatorPlacedHeart();
     }
 
     // ============================================================
-    // SERVER LOGIC – REMOVE BOMB
-    // ============================================================
-
-    private void ServerRemoveBomb()
-    {
-        GameManager gm = GameManager.Instance;
-        if (gm == null)
-            return;
-
-        if (gm.BombRemovals <= 0)
-        {
-            NotifyNavigatorMessageRpc("לא נותרו ניסיונות להסרת פצצה");
-            return;
-        }
-
-        if (gm.traveller == null)
-        {
-            NotifyNavigatorMessageRpc("אין מטייל במשחק");
-            return;
-        }
-
-        Transform traveller = gm.traveller.transform;
-
-        GameObject[] bombs = GameObject.FindGameObjectsWithTag("Bomb");
-        if (bombs.Length == 0)
-        {
-            NotifyNavigatorMessageRpc("אין פצצות במפה");
-            return;
-        }
-
-        GameObject closest = null;
-        float bestDist = Mathf.Infinity;
-
-        foreach (GameObject b in bombs)
-        {
-            float d = Vector3.Distance(traveller.position, b.transform.position);
-            if (d < bestDist)
-            {
-                bestDist = d;
-                closest = b;
-            }
-        }
-
-        if (closest == null)
-        {
-            NotifyNavigatorMessageRpc("לא נמצאה פצצה");
-            return;
-        }
-
-        NetworkObject bombNetObj = closest.GetComponent<NetworkObject>();
-        if (bombNetObj != null)
-        {
-            bombNetObj.Despawn(true);
-        }
-        else
-        {
-            Destroy(closest);
-        }
-
-        gm.BombRemovals--;
-        SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
-    }
-
-    // ============================================================
-    // SERVER LOGIC – USE LIFEBOUY
+    // LIFEBOUY LOGIC
     // ============================================================
 
     private void ServerUseLifebuoy()
     {
         GameManager gm = GameManager.Instance;
-        if (gm == null)
-            return;
+        if (gm == null) return;
 
         if (gm.lifebuoys <= 0)
         {
-            NotifyNavigatorMessageRpc("לא נותרו מצופי הצלה");
+            NavNoLifebuoysRpc();
             return;
         }
 
         if (!gm.inPuzzle || gm.activePuzzleDoor == null)
         {
-            NotifyNavigatorMessageRpc("ניתן להשתמש במצוף רק כשהחידה פתוחה");
+            NavLifebuoyOnlyInPuzzleRpc();
             return;
         }
 
-        DoorController door = gm.activePuzzleDoor;
-        NetworkObject doorNet = door.GetComponent<NetworkObject>();
-
-        ulong doorId = 0;
-        if (doorNet != null)
-            doorId = doorNet.NetworkObjectId;
-
-        // בקשה ללקוח של המטייל להדליק hint
-        RevealHintForPuzzleRpc(doorId);
-
-        // אפקט ויזואלי על המטייל
-        if (lifebuoyEffectPrefab != null && gm.traveller != null)
-        {
-            GameObject eff = Instantiate(lifebuoyEffectPrefab, gm.traveller.transform.position, Quaternion.identity);
-            NetworkObject effNet = eff.GetComponent<NetworkObject>();
-            if (effNet != null)
-                effNet.Spawn();
-        }
+        tutorial?.NotifyNavigatorGaveLifebuoy();
 
         gm.lifebuoys--;
         SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
     }
 
     // ============================================================
-    // RPC – CLIENT → SERVER
+    // RPC – CLIENT → SERVER  (RequireOwnership = false!)
     // ============================================================
 
-    [Rpc(SendTo.Server)]
-    private void RequestPlaceHeartRpc()
-    {
-        ServerPlaceHeart();
-    }
-
-    [Rpc(SendTo.Server)]
+    [Rpc(SendTo.Server, RequireOwnership = false)]
     private void RequestRemoveBombRpc()
     {
+        Debug.Log("[SERVER] RequestRemoveBombRpc received");
         ServerRemoveBomb();
     }
 
-    [Rpc(SendTo.Server)]
+    [Rpc(SendTo.Server, RequireOwnership = false)]
+    private void RequestPlaceHeartRpc()
+    {
+        Debug.Log("[SERVER] RequestPlaceHeartRpc received");
+        ServerPlaceHeart();
+    }
+
+    [Rpc(SendTo.Server, RequireOwnership = false)]
     private void RequestUseLifebuoyRpc()
     {
+        Debug.Log("[SERVER] RequestUseLifebuoyRpc received");
         ServerUseLifebuoy();
     }
 
     // ============================================================
-    // RPC – SERVER → CLIENTS
+    // RPC – SERVER → CLIENTS — Resource Sync
     // ============================================================
 
     [Rpc(SendTo.Everyone)]
     private void SyncResourceCountsRpc(int lifebuoys, int hearts, int bombs)
     {
         GameManager gm = GameManager.Instance;
-        if (gm == null)
-            return;
+        if (gm == null) return;
 
         gm.lifebuoys = lifebuoys;
         gm.HeartPlacements = hearts;
@@ -293,53 +267,14 @@ public class ResourceManager : NetworkBehaviour
         HUDManager.Instance?.UpdateHUDs();
     }
 
-    [Rpc(SendTo.Everyone)]
-    private void NotifyNavigatorMessageRpc(string msg)
-    {
-        HUDManager.Instance?.ShowMessageForNavigator(msg);
-    }
+    // ============================================================
+    // RPC – SERVER → CLIENTS — HUD messages
+    // ============================================================
 
-    [Rpc(SendTo.Everyone)]
-    private void RevealHintForPuzzleRpc(ulong doorId)
-    {
-        GameManager gm = GameManager.Instance;
-        if (gm == null)
-            return;
-
-        // רק הלקוח של המטייל מפעיל את ה-Hint בפועל
-        if (gm.traveller == null)
-            return;
-
-        NetworkObject travellerNet = gm.traveller.GetComponent<NetworkObject>();
-        if (travellerNet == null || !travellerNet.IsOwner)
-            return;
-
-        DoorController door = null;
-
-        if (doorId != 0)
-        {
-            if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects
-                    .TryGetValue(doorId, out var obj))
-                return;
-
-            door = obj.GetComponent<DoorController>();
-        }
-        else
-        {
-            door = gm.activePuzzleDoor;
-        }
-
-        if (door == null)
-            return;
-
-        // GetPuzzle מחזיר IDoor, אז נעשה cast ל-PuzzleDoor
-        var puzzleDoor = door.GetPuzzle() as PuzzleDoor;
-        if (puzzleDoor == null)
-        {
-            Debug.LogWarning("RevealHintForPuzzleRpc: door has no PuzzleDoor logic");
-            return;
-        }
-
-        puzzleDoor.RevealRandomHint();
-    }
+    [Rpc(SendTo.Everyone)] private void NavNoHeartsLeftRpc() => HUDManager.Instance?.NavNoHeartsLeft();
+    [Rpc(SendTo.Everyone)] private void NavNoTravellerRpc() => HUDManager.Instance?.NavNoTraveller();
+    [Rpc(SendTo.Everyone)] private void NavNoBombAttemptsRpc() => HUDManager.Instance?.NavNoBombAttempts();
+    [Rpc(SendTo.Everyone)] private void NavNoBombFoundRpc() => HUDManager.Instance?.NavNoBombFound();
+    [Rpc(SendTo.Everyone)] private void NavNoLifebuoysRpc() => HUDManager.Instance?.NavNoLifebuoys();
+    [Rpc(SendTo.Everyone)] private void NavLifebuoyOnlyInPuzzleRpc() => HUDManager.Instance?.NavLifebuoyOnlyInPuzzle();
 }

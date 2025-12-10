@@ -10,9 +10,9 @@ GameObject:
   m_Component:
   - component: {fileID: 1684665609650605124}
   - component: {fileID: 9129332950018388648}
-  - component: {fileID: 1569715727225797702}
+  - component: {fileID: 6295077311271173770}
   m_Layer: 0
-  m_Name: TutorialColliderHint
+  m_Name: TutorialColliderBomb
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -54,7 +54,7 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.79, y: 1.79, z: 3.78}
   m_Center: {x: 0, y: 0, z: -1.9}
---- !u!114 &1569715727225797702
+--- !u!114 &6295077311271173770
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -63,7 +63,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 1086090564066138151}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7760c73354c1736478eea2c0fb331ca5, type: 3}
+  m_Script: {fileID: 11500000, guid: 293e4d2f3c551794f975b349aee5165e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DisableColliderOnStepStart
+  m_EditorClassIdentifier: Assembly-CSharp::TutorialColliderAuto
+  disableOnStepId: Bomb1
   targetCollider: {fileID: 9129332950018388648}

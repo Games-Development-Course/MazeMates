@@ -110,7 +110,6 @@ GameObject:
   - component: {fileID: 8542499861621857944}
   - component: {fileID: 4922496235165310045}
   - component: {fileID: 5753594546748155708}
-  - component: {fileID: 1767021772316895229}
   m_Layer: 0
   m_Name: TutorialManager
   m_TagString: Untagged
@@ -189,21 +188,6 @@ MonoBehaviour:
   defaultAutoStepDelay: 0.15
   TutorialActive:
     m_InternalValue: 0
---- !u!114 &1767021772316895229
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2403381312430786665}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3804960ac7605bd49b386217912e583f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
-  targetCollider: {fileID: 8077460506810603913}
-  tutorialCollider: {fileID: 0}
-  lookTarget: {fileID: 7620687456779808019}
 --- !u!1 &3643670805236655347
 GameObject:
   m_ObjectHideFlags: 0

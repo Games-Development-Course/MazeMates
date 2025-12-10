@@ -54,7 +54,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3055123407200953416, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
       propertyPath: m_CullingMask.m_Bits
-      value: 2039
+      value: 4294967295
       objectReference: {fileID: 0}
     - target: {fileID: 4503779537748817214, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
       propertyPath: m_LocalRotation.w
@@ -157,8 +157,8 @@ PrefabInstance:
       insertIndex: 2
       addedObject: {fileID: 8283737984067010340}
     - targetCorrespondingSourceObject: {fileID: 2708922950654919531, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
-      insertIndex: 3
-      addedObject: {fileID: 935106654659643741}
+      insertIndex: -1
+      addedObject: {fileID: 2233651041794530059}
   m_SourcePrefab: {fileID: 100100000, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
 --- !u!1 &2613489745867129297 stripped
 GameObject:
@@ -178,7 +178,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavigatorInteractionManager
   ShowTopMostFoldoutHeaderGroup: 1
---- !u!114 &935106654659643741
+--- !u!114 &2233651041794530059
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -187,7 +187,40 @@ MonoBehaviour:
   m_GameObject: {fileID: 2613489745867129297}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ae0c4d88ea884c74ab7a9c0cb04213e2, type: 3}
+  m_Script: {fileID: 11500000, guid: da52bf8bbc1de48cfb221a6ff30f7972, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NavigatorActions
+  m_EditorClassIdentifier: Unity.Multiplayer.Center.NetcodeForGameObjectsExample::Unity.Multiplayer.Center.NetcodeForGameObjectsExample.ClientNetworkTransform
   ShowTopMostFoldoutHeaderGroup: 1
+  NetworkTransformExpanded: 0
+  AutoOwnerAuthorityTickOffset: 1
+  PositionInterpolationType: 0
+  RotationInterpolationType: 0
+  ScaleInterpolationType: 0
+  PositionLerpSmoothing: 1
+  PositionMaxInterpolationTime: 0.1
+  RotationLerpSmoothing: 1
+  RotationMaxInterpolationTime: 0.1
+  ScaleLerpSmoothing: 1
+  ScaleMaxInterpolationTime: 0.1
+  AuthorityMode: 0
+  TickSyncChildren: 0
+  UseUnreliableDeltas: 0
+  SyncPositionX: 1
+  SyncPositionY: 1
+  SyncPositionZ: 1
+  SyncRotAngleX: 1
+  SyncRotAngleY: 1
+  SyncRotAngleZ: 1
+  SyncScaleX: 1
+  SyncScaleY: 1
+  SyncScaleZ: 1
+  PositionThreshold: 0.001
+  RotAngleThreshold: 0.01
+  ScaleThreshold: 0.01
+  UseQuaternionSynchronization: 0
+  UseQuaternionCompression: 0
+  UseHalfFloatPrecision: 0
+  InLocalSpace: 0
+  SwitchTransformSpaceWhenParented: 0
+  Interpolate: 1
+  SlerpPosition: 0
