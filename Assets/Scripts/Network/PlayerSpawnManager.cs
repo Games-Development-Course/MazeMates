@@ -59,12 +59,12 @@ public class PlayerSpawnManager : MonoBehaviour
         var netObj = obj.GetComponent<NetworkObject>();
         netObj.SpawnAsPlayerObject(clientId);
 
-        gm.traveller = obj;
+        EnableAllNetworkBehaviours(obj);
 
+        gm.traveller = obj;
         gm.travellerMove = obj.GetComponent<PlayerMovement1P>();
         gm.travellerCam = obj.GetComponentInChildren<PlayerCamera1P>();
 
-        // כולם מתחילים קפואים (גם במובמנט וגם במצלמה)
         Freeze(obj);
 
         HUDManager.Instance?.Traveller?.ShowMessage("ממתין להתחברות הנווט…");
@@ -87,8 +87,9 @@ public class PlayerSpawnManager : MonoBehaviour
         var netObj = obj.GetComponent<NetworkObject>();
         netObj.SpawnAsPlayerObject(clientId);
 
-        gm.navigator = obj;
+        EnableAllNetworkBehaviours(obj);
 
+        gm.navigator = obj;
         gm.navigatorMove = obj.GetComponent<PlayerMovement1P>();
         gm.navigatorCam = obj.GetComponentInChildren<PlayerCamera1P>();
 
@@ -100,7 +101,19 @@ public class PlayerSpawnManager : MonoBehaviour
     }
 
     // ==========================================
-    // FREEZE / UNFREEZE (רק לוודא שכולם קפואים)
+    // ENABLE NETWORK BEHAVIOURS (FIX)
+    // ==========================================
+
+    private void EnableAllNetworkBehaviours(GameObject obj)
+    {
+        foreach (var nb in obj.GetComponentsInChildren<NetworkBehaviour>(true))
+        {
+            nb.enabled = true;
+        }
+    }
+
+    // ==========================================
+    // FREEZE / UNFREEZE
     // ==========================================
 
     private void Freeze(GameObject obj)
@@ -112,7 +125,6 @@ public class PlayerSpawnManager : MonoBehaviour
         if (cam != null) cam.SetCameraFrozen(true);
     }
 
-    // כרגע הטוטוריאל שולט בשחרור – Unfreeze רק לעתיד
     private void Unfreeze(GameObject obj)
     {
         var move = obj.GetComponent<PlayerMovement1P>();
@@ -140,15 +152,14 @@ public class PlayerSpawnManager : MonoBehaviour
     {
         yield return new WaitForSeconds(0.2f);
 
-        // מנקים את "ממתין להתחברות הנווט…" מה-HUD הרגיל של המטייל
         if (HUDManager.Instance != null && HUDManager.Instance.Traveller != null)
         {
             HUDManager.Instance.Traveller.Clear();
         }
 
-        // מפעילים טוטוריאל – הוא אחראי מעכשיו על נעילות/שחרורים
         var t = FindFirstObjectByType<TutorialManager>();
         if (t != null)
             t.StartTutorial();
     }
 }
+    

@@ -1,5 +1,4 @@
-﻿// NavigatorActions.cs
-using Unity.Netcode;
+﻿using Unity.Netcode;
 using UnityEngine;
 
 public class NavigatorActions : NetworkBehaviour
@@ -8,31 +7,51 @@ public class NavigatorActions : NetworkBehaviour
 
     private TutorialManager tutorial;
 
+    private void Awake()
+    {
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[NavigatorActions][Awake] enabled={enabled} active={gameObject.activeSelf} hierarchyActive={gameObject.activeInHierarchy}");
+    }
+
+    private void Start()
+    {
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[NavigatorActions][Start] enabled={enabled} active={gameObject.activeSelf} hierarchyActive={gameObject.activeInHierarchy}");
+    }
+
     public override void OnNetworkSpawn()
     {
         if (IsOwner)
             Instance = this;
 
-        // נחסוך Find בכל קריאה
         tutorial = Object.FindFirstObjectByType<TutorialManager>();
+
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[NavigatorActions][OnNetworkSpawn] IsOwner={IsOwner} IsHost={IsHost} IsServer={IsServer}");
     }
 
     public override void OnDestroy()
     {
         if (Instance == this)
             Instance = null;
+
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            "[NavigatorActions][OnDestroy] Instance cleared");
     }
 
-  
-    // ======================================================
-    // UI – מחובר ישירות לכפתורים ב-Inspector
-    // ======================================================
+
+    // =====================================================================
+    // UI — BUTTON EVENTS
+    // =====================================================================
 
     public void UI_OpenDoor()
     {
         if (!IsLocalNavigator()) return;
 
         DoorController door = DoorController.FindDoorPlayerIsOn();
+
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[NAV-ACT] UI_OpenDoor pressed | door={(door == null ? "null" : door.name)} | type={door?.doorType}");
 
         if (door == null)
         {
@@ -46,9 +65,13 @@ public class NavigatorActions : NetworkBehaviour
             return;
         }
 
-        // ⭐ זה האירוע שהטוטוריאל מחכה לו
+        // Notify tutorial
         if (door.doorType == DoorType.Normal)
+        {
             tutorial?.NotifyNavigatorOpenedNormalDoor();
+            
+
+        }
 
         if (door.doorType == DoorType.Exit)
             tutorial?.NotifyNavigatorOpenedExitDoor();
@@ -56,11 +79,16 @@ public class NavigatorActions : NetworkBehaviour
         door.Interact();
     }
 
+
+
     public void UI_ShowPuzzle()
     {
         if (!IsLocalNavigator()) return;
 
         DoorController door = DoorController.FindNearestDoorOnPad(DoorType.Puzzle, transform.position);
+
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[NAV-ACT] UI_ShowPuzzle | door={(door == null ? "null" : door.name)}");
 
         if (door == null)
         {
@@ -69,22 +97,20 @@ public class NavigatorActions : NetworkBehaviour
         }
 
         RequestOpenPuzzleRpc(door.NetworkObjectId);
-
-        // ⭐ הטוטוריאל צריך לדעת שהנווט פתח דלת חידה
         tutorial?.NotifyNavigatorOpenedPuzzleDoor();
     }
-    // NavigatorActions.cs
+
 
     private bool IsLocalNavigator()
     {
-        // במשחק הנוכחי: Host = Traveller, Client = Navigator
         return !IsHost;
     }
 
+
     public void UI_RemoveBomb()
     {
-        Debug.Log("[NAV] RemoveBomb pressed. IsOwner=" + IsOwner +
-                  " IsServer=" + IsServer + " IsHost=" + IsHost);
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[NAV] RemoveBomb pressed | Owner={IsOwner} Server={IsServer} Host={IsHost}");
 
         if (!IsLocalNavigator()) return;
 
@@ -109,8 +135,8 @@ public class NavigatorActions : NetworkBehaviour
         }
 
         ResourceManager.Instance.TryUseLifebuoy();
-        // ResourceManager כבר קורא NotifyNavigatorGaveLifebuoy מה-RPC
     }
+
 
     public void UI_PlaceHeart()
     {
@@ -123,12 +149,12 @@ public class NavigatorActions : NetworkBehaviour
         }
 
         ResourceManager.Instance.TryPlaceHeart();
-        // ResourceManager כבר קורא NotifyNavigatorPlacedHeart מה-RPC
     }
 
-    // ======================================================
-    // פתיחת פאזל – Rpc
-    // ======================================================
+
+    // =====================================================================
+    // PUZZLE OPEN — RPC
+    // =====================================================================
 
     [Rpc(SendTo.Server)]
     private void RequestOpenPuzzleRpc(ulong doorId)
@@ -145,8 +171,7 @@ public class NavigatorActions : NetworkBehaviour
     [Rpc(SendTo.Everyone)]
     private void OpenPuzzleForTravellerRpc(ulong doorId)
     {
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects
-                .TryGetValue(doorId, out NetworkObject obj))
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(doorId, out NetworkObject obj))
             return;
 
         DoorController door = obj.GetComponent<DoorController>();

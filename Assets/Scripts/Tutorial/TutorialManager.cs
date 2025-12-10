@@ -1,9 +1,7 @@
-﻿// TutorialManager.cs
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class TutorialManager : NetworkBehaviour
 {
@@ -35,9 +33,6 @@ public class TutorialManager : NetworkBehaviour
 
     private TutorialStep Current => steps[currentIndex];
 
-    // ============================================
-    // AUTO COLLIDERS REGISTRY
-    // ============================================
     public static List<TutorialColliderAuto> autoColliders = new List<TutorialColliderAuto>();
 
     public static void RegisterAutoCollider(TutorialColliderAuto c)
@@ -46,8 +41,9 @@ public class TutorialManager : NetworkBehaviour
             autoColliders.Add(c);
     }
 
+
     // ============================================================
-    // NETWORK START
+    // NETWORK SPAWN
     // ============================================================
 
     public override void OnNetworkSpawn()
@@ -68,8 +64,9 @@ public class TutorialManager : NetworkBehaviour
             NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
     }
 
+
     // ============================================================
-    // CLIENT CONNECTED — APPLY CURRENT LOCKS TO NEW PLAYER
+    // CLIENT CONNECTED
     // ============================================================
 
     private void OnClientConnected(ulong clientId)
@@ -78,8 +75,7 @@ public class TutorialManager : NetworkBehaviour
         if (!TutorialActive.Value) return;
         if (currentIndex < 0 || currentIndex >= steps.Length) return;
 
-        var step = Current;
-        SendLocksToSpecificClient(clientId, step);
+        SendLocksToSpecificClient(clientId, Current);
     }
 
     private void SendLocksToSpecificClient(ulong clientId, TutorialStep step)
@@ -101,6 +97,8 @@ public class TutorialManager : NetworkBehaviour
         );
     }
 
+
+
     // ============================================================
     // START TUTORIAL
     // ============================================================
@@ -116,13 +114,15 @@ public class TutorialManager : NetworkBehaviour
 
     private void Update()
     {
-        if (!IsServer || !stepActive) return;
+        if (!IsServer) return;
+        if (!stepActive) return;
+
         if (currentIndex < 0 || currentIndex >= steps.Length) return;
 
         TutorialStep step = Current;
+
         float elapsedHUD = Time.time - hudShownTime;
 
-        // Auto complete
         if (!step.completeOnCondition &&
             step.autoCompleteAfter > 0 &&
             Time.time - stepStartTime >= step.autoCompleteAfter)
@@ -131,7 +131,6 @@ public class TutorialManager : NetworkBehaviour
             return;
         }
 
-        // Complete on condition
         if (step.completeOnCondition && conditionSatisfied)
         {
             if (elapsedHUD < step.minHUDDuration)
@@ -141,6 +140,8 @@ public class TutorialManager : NetworkBehaviour
         }
     }
 
+
+
     // ============================================================
     // STEP FLOW
     // ============================================================
@@ -149,15 +150,20 @@ public class TutorialManager : NetworkBehaviour
     {
         if (!IsServer) return;
 
-        ClearHUDClientRpc();
         currentIndex++;
 
         if (currentIndex >= steps.Length)
         {
-            TutorialActive.Value = false;
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[TUTORIAL] Finished all steps.");
+
             stepActive = false;
+            TutorialActive.Value = false;
             return;
         }
+
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[TUTORIAL] Next step index={currentIndex} stepId={Current.stepId} cond={Current.conditionType}");
 
         stepActive = true;
         conditionSatisfied = false;
@@ -168,21 +174,19 @@ public class TutorialManager : NetworkBehaviour
         travellerMoved = navigatorMoved = false;
         travellerLooked = navigatorLooked = false;
 
-        // מחכה פריים אחד — כל האובייקטים יספיקו לעבור Awake
-        StartCoroutine(DelayedColliderStep(Current.stepId));
+        StartCoroutine(DelayedColliderStep(Current.stepId, 0.2f));
 
         ApplyLocks(Current);
         ShowStepHUD(Current);
         Current.onStepStart?.Invoke();
-
-        Debug.Log($"[Tutorial] Step started: index={currentIndex} id={Current.stepId} condition={Current.conditionType}");
     }
 
-    private IEnumerator DelayedColliderStep(string id)
+    private IEnumerator DelayedColliderStep(string id, float delay)
     {
-        yield return null;
+        yield return new WaitForSeconds(delay);
         StepStartedCollidersClientRpc(id);
     }
+
 
     [ClientRpc]
     private void StepStartedCollidersClientRpc(string stepId)
@@ -194,8 +198,10 @@ public class TutorialManager : NetworkBehaviour
         }
     }
 
+
+
     // ============================================================
-    // LOCK SYSTEM – SERVER SIDE
+    // LOCKS
     // ============================================================
 
     private void ApplyLocks(TutorialStep s)
@@ -208,10 +214,6 @@ public class TutorialManager : NetworkBehaviour
         );
     }
 
-    // ============================================================
-    // LOCK SYSTEM – CLIENT RPC
-    // ============================================================
-
     [ClientRpc]
     private void ApplyLocksClientRpc(
         bool travellerLockMovement,
@@ -220,48 +222,35 @@ public class TutorialManager : NetworkBehaviour
         bool navigatorLockCamera,
         ClientRpcParams rpcParams = default)
     {
-        // Host = מטייל, Client = נווט
         bool iAmTraveller = IsHost;
         bool iAmNavigator = !IsHost;
 
-        Debug.Log($"[TutorialManager] ApplyLocks on {(IsHost ? "HOST" : "CLIENT")} | " +
-                  $"Trav(M:{travellerLockMovement},C:{travellerLockCamera}) " +
-                  $"Nav(M:{navigatorLockMovement},C:{navigatorLockCamera})");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[TUTORIAL] ApplyLocks  {(IsHost ? "HOST/Traveller" : "CLIENT/Navigator")} " +
+            $"Trav(M:{travellerLockMovement},C:{travellerLockCamera}) Nav(M:{navigatorLockMovement},C:{navigatorLockCamera})");
 
-        // ---- Movement ----
         foreach (var m in Object.FindObjectsByType<PlayerMovement1P>(FindObjectsSortMode.None))
         {
             if (!m.IsOwner) continue;
 
             if (iAmTraveller)
-            {
                 m.SetFrozen(travellerLockMovement);
-                Debug.Log("[TutorialManager] Movement lock applied to TRAVELLER local player");
-            }
-            else if (iAmNavigator)
-            {
+            else
                 m.SetFrozen(navigatorLockMovement);
-                Debug.Log("[TutorialManager] Movement lock applied to NAVIGATOR local player");
-            }
         }
 
-        // ---- Camera ----
         foreach (var c in Object.FindObjectsByType<PlayerCamera1P>(FindObjectsSortMode.None))
         {
             if (!c.IsOwner) continue;
 
             if (iAmTraveller)
-            {
                 c.SetCameraFrozen(travellerLockCamera);
-                Debug.Log("[TutorialManager] Camera lock applied to TRAVELLER local player");
-            }
-            else if (iAmNavigator)
-            {
+            else
                 c.SetCameraFrozen(navigatorLockCamera);
-                Debug.Log("[TutorialManager] Camera lock applied to NAVIGATOR local player");
-            }
         }
     }
+
+
 
     // ============================================================
     // HUD
@@ -296,21 +285,34 @@ public class TutorialManager : NetworkBehaviour
             navigatorHUD?.ShowMessage(msg);
     }
 
+
+
     // ============================================================
-    // COMPLETE CURRENT STEP
+    // COMPLETE STEP
     // ============================================================
 
     private void MarkConditionSatisfiedInternal()
     {
-        Debug.Log($"[Tutorial] Condition satisfied on step {currentIndex} ({Current.stepId})");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,"reached markconditionsatisfiedinternal()");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[TUTORIAL] Condition satisfied for step '{Current.stepId}'");
+
         conditionSatisfied = true;
     }
 
+
     private void CompleteCurrentStep()
     {
-        if (!IsServer || !stepActive) return;
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[TUTORIAL] Step COMPLETE  {Current.stepId}");
 
-        Debug.Log($"[Tutorial] Completing step {currentIndex} ({Current.stepId})");
+        if (!IsServer || !stepActive)
+        {
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[TUTORIAL] Step complete aborted: not server or not active");
+            return;
+        }
+
         stepActive = false;
         Current.onStepComplete?.Invoke();
         StartCoroutine(GoNext());
@@ -322,8 +324,10 @@ public class TutorialManager : NetworkBehaviour
         NextStep();
     }
 
+
+
     // ============================================================
-    // MOVEMENT + LOOK EVENTS
+    // MOVEMENT + LOOK
     // ============================================================
 
     public void NotifyTravellerMoved() => HandleMovement(ref travellerMoved, true);
@@ -334,6 +338,7 @@ public class TutorialManager : NetworkBehaviour
         if (!IsServer || !stepActive) return;
 
         flag = true;
+
         var step = Current;
 
         if (step.conditionType == TutorialConditionType.TravellerMoved && isTraveller)
@@ -342,13 +347,9 @@ public class TutorialManager : NetworkBehaviour
         if (step.conditionType == TutorialConditionType.NavigatorMoved && !isTraveller)
             MarkConditionSatisfiedInternal();
 
-        if (step.conditionType == TutorialConditionType.BothMoved)
-        {
-            if (travellerMoved && navigatorMoved)
-            {
-                MarkConditionSatisfiedInternal();
-            }
-        }
+        if (step.conditionType == TutorialConditionType.BothMoved &&
+            travellerMoved && navigatorMoved)
+            MarkConditionSatisfiedInternal();
     }
 
     public void NotifyTravellerLooked() => HandleLook(ref travellerLooked, true);
@@ -359,6 +360,7 @@ public class TutorialManager : NetworkBehaviour
         if (!IsServer || !stepActive) return;
 
         flag = true;
+
         var step = Current;
 
         if (step.conditionType == TutorialConditionType.TravellerLookedAround && isTraveller)
@@ -367,18 +369,14 @@ public class TutorialManager : NetworkBehaviour
         if (step.conditionType == TutorialConditionType.NavigatorLookedAround && !isTraveller)
             MarkConditionSatisfiedInternal();
 
-        if (step.conditionType == TutorialConditionType.BothLookedAround)
-        {
-            if (travellerLooked && navigatorLooked)
-            {
-                MarkConditionSatisfiedInternal();
-            }
-        }
+        if (step.conditionType == TutorialConditionType.BothLookedAround &&
+            travellerLooked && navigatorLooked)
+            MarkConditionSatisfiedInternal();
     }
-
     public bool IsTutorialRunningForStep(string stepId)
     {
-        if (!TutorialActive.Value) return false;
+        if (!TutorialActive.Value)
+            return false;
 
         if (currentIndex < 0 || currentIndex >= steps.Length)
             return false;
@@ -386,36 +384,76 @@ public class TutorialManager : NetworkBehaviour
         return steps[currentIndex].stepId == stepId;
     }
 
+
+
     // ============================================================
     // CONDITION EVENTS
     // ============================================================
 
-    public void NotifyNavigatorRemovedBomb()
+    public void NotifyNavigatorRemovedBomb() => NotifyNavigatorCondition(TutorialConditionType.NavigatorRemoveBomb);
+    public void NotifyNavigatorOpenedNormalDoor()
     {
-        Debug.Log($"[Tutorial] NotifyNavigatorRemovedBomb received | server={IsServer} stepActive={stepActive} index={currentIndex} cond={(currentIndex >= 0 && currentIndex < steps.Length ? Current.conditionType.ToString() : "N/A")}");
-        Check(TutorialConditionType.NavigatorRemoveBomb);
-    }
+NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenNormalDoor);
 
-    public void NotifyNavigatorOpenedNormalDoor() => Check(TutorialConditionType.NavigatorOpenNormalDoor);
-    public void NotifyNavigatorOpenedPuzzleDoor() => Check(TutorialConditionType.NavigatorOpenPuzzleDoor);
-    public void NotifyNavigatorOpenedExitDoor() => Check(TutorialConditionType.NavigatorOpenExitDoor);
-    public void NotifyNavigatorPlacedHeart() => Check(TutorialConditionType.NavigatorPlaceHeart);
-    public void NotifyNavigatorGaveLifebuoy() => Check(TutorialConditionType.NavigatorGiveLifebuoy);
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,"reached NotifyNavigatorOpenedNormalDoor");
+    } 
+    public void NotifyNavigatorOpenedPuzzleDoor() => NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenPuzzleDoor);
+    public void NotifyNavigatorOpenedExitDoor() => NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenExitDoor);
+    public void NotifyNavigatorPlacedHeart() => NotifyNavigatorCondition(TutorialConditionType.NavigatorPlaceHeart);
+    public void NotifyNavigatorGaveLifebuoy() => NotifyNavigatorCondition(TutorialConditionType.NavigatorGiveLifebuoy);
 
     public void NotifyTravellerPickedKey() => Check(TutorialConditionType.TravellerPickedKey);
     public void NotifyTravellerPickedHeart() => Check(TutorialConditionType.TravellerPickedHeart);
-
     public void NotifyPuzzleSolved() => Check(TutorialConditionType.PuzzleSolved);
     public void NotifyBothReachedExit() => Check(TutorialConditionType.BothReachedExit);
     public void NotifyCustomEvent() => Check(TutorialConditionType.CustomEvent);
 
-    private void Check(TutorialConditionType t)
+
+    private void NotifyNavigatorCondition(TutorialConditionType condition)
     {
-        if (!IsServer || !stepActive) return;
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "reached NotifyNavigatorCondition");
 
-        Debug.Log($"[Tutorial] Check() called with {t} | Current={Current.conditionType}");
-
-        if (Current.conditionType == t)
-            MarkConditionSatisfiedInternal();
+        if (IsServer)
+        {
+            Check(condition);
+        }
+        else
+        {
+            NotifyNavigatorConditionServerRpc(condition);
+        }
     }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void NotifyNavigatorConditionServerRpc(TutorialConditionType condition)
+    {
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "reached NotifyNavigatorConditionServerRpc(");
+
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[TUTORIAL] Server received navigator condition: {condition}");
+
+        Check(condition);
+    }
+
+
+        private void Check(TutorialConditionType t)
+        {
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,"Reached check()");
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                $"[TUTORIAL][CHECK] cond={t} step={Current.stepId} expect={Current.conditionType} active={stepActive}");
+
+            if (!IsServer) return;
+            if (!stepActive) return;
+
+            if (Current.conditionType != t)
+            {
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                    "[TUTORIAL][CHECK] Condition mismatch — ignored");
+                return;
+            }
+
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                $"[TUTORIAL][CHECK] MATCH!  Step '{Current.stepId}' satisfied");
+
+            MarkConditionSatisfiedInternal();
+        }
 }

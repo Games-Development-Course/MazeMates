@@ -233,6 +233,19 @@ public class DoorController : NetworkBehaviour
     public void RequestOpenDoorRpc()
     {
         if (!IsServer) return;
+        var tutorial = FindAnyObjectByType<TutorialManager>();
+
+        if (tutorial != null && pad != null && pad.IsPlayerOnPad())
+        {
+            if (doorType == DoorType.Normal)
+            {
+                tutorial.NotifyNavigatorOpenedNormalDoor();
+            }
+            else if (doorType == DoorType.Exit)
+            {
+                tutorial.NotifyNavigatorOpenedExitDoor();
+            }
+        }
 
         StartCoroutine(OpenRoutine(openAngle));
         OpenDoorRpc();
@@ -260,6 +273,7 @@ public class DoorController : NetworkBehaviour
         }
 
         pivot.localRotation = target;
+
     }
 
     // =====================================================================

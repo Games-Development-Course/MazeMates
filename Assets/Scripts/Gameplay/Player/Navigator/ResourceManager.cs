@@ -24,7 +24,8 @@ public class ResourceManager : NetworkBehaviour
         Instance = this;
         tutorial = FindFirstObjectByType<TutorialManager>();
 
-        Debug.Log($"[ResourceManager] NetworkSpawn  Server={IsServer}  Client={IsClient}");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[ResourceManager] NetworkSpawn | Server={IsServer} | Client={IsClient}");
     }
 
     private void Awake()
@@ -41,7 +42,8 @@ public class ResourceManager : NetworkBehaviour
     {
         if (!IsServer)
         {
-            Debug.Log("[CLIENT] Sending RequestRemoveBombRpc");
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[CLIENT] Sending RequestRemoveBombRpc");
             RequestRemoveBombRpc();
             return;
         }
@@ -53,6 +55,8 @@ public class ResourceManager : NetworkBehaviour
     {
         if (!IsServer)
         {
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[CLIENT] Sending RequestPlaceHeartRpc");
             RequestPlaceHeartRpc();
             return;
         }
@@ -64,6 +68,8 @@ public class ResourceManager : NetworkBehaviour
     {
         if (!IsServer)
         {
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[CLIENT] Sending RequestUseLifebuoyRpc");
             RequestUseLifebuoyRpc();
             return;
         }
@@ -77,19 +83,22 @@ public class ResourceManager : NetworkBehaviour
 
     private void ServerRemoveBomb()
     {
-        Debug.Log("[SERVER] ServerRemoveBomb called");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            "[SERVER] ServerRemoveBomb called");
 
         GameManager gm = GameManager.Instance;
         if (gm == null || gm.traveller == null)
         {
-            Debug.Log("[SERVER] Traveller missing");
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                "[SERVER] Traveller missing");
             NavNoTravellerRpc();
             return;
         }
 
         if (gm.BombRemovals <= 0)
         {
-            Debug.Log("[SERVER] No BombRemovals left");
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                "[SERVER] No BombRemovals left");
             NavNoBombAttemptsRpc();
             return;
         }
@@ -99,22 +108,20 @@ public class ResourceManager : NetworkBehaviour
 
         if (bombObj == null)
         {
-            Debug.Log("[SERVER] No bomb found near traveller");
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                "[SERVER] No bomb found near traveller");
             NavNoBombFoundRpc();
             return;
         }
 
-        Debug.Log("[SERVER] Removing bomb: " + bombObj.name);
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[SERVER] Removing bomb: {bombObj.name}");
 
         NetworkObject no = bombObj.GetComponent<NetworkObject>();
         if (no != null)
-        {
             no.Despawn(true);
-        }
         else
-        {
             Destroy(bombObj);
-        }
 
         gm.BombRemovals--;
         SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
@@ -131,7 +138,8 @@ public class ResourceManager : NetworkBehaviour
         GameObject closest = null;
         float best = Mathf.Infinity;
 
-        Debug.Log("[SERVER] Scanning bombs...");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            "[SERVER] Scanning bombs...");
 
         // 1) Bomb prefabs with tag
         GameObject[] tagged = GameObject.FindGameObjectsWithTag("Bomb");
@@ -163,9 +171,15 @@ public class ResourceManager : NetworkBehaviour
         }
 
         if (closest == null)
-            Debug.Log("[SERVER] No bomb found");
+        {
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                "[SERVER] No bomb found");
+        }
         else
-            Debug.Log("[SERVER] Closest bomb = " + closest.name);
+        {
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                $"[SERVER] Closest bomb = {closest.name}");
+        }
 
         return closest;
     }
@@ -226,27 +240,30 @@ public class ResourceManager : NetworkBehaviour
     }
 
     // ============================================================
-    // RPC – CLIENT → SERVER  (RequireOwnership = false!)
+    // RPC – CLIENT → SERVER
     // ============================================================
 
-    [Rpc(SendTo.Server, RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestRemoveBombRpc()
     {
-        Debug.Log("[SERVER] RequestRemoveBombRpc received");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            "[SERVER] RequestRemoveBombRpc received");
         ServerRemoveBomb();
     }
 
-    [Rpc(SendTo.Server, RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestPlaceHeartRpc()
     {
-        Debug.Log("[SERVER] RequestPlaceHeartRpc received");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            "[SERVER] RequestPlaceHeartRpc received");
         ServerPlaceHeart();
     }
 
-    [Rpc(SendTo.Server, RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestUseLifebuoyRpc()
     {
-        Debug.Log("[SERVER] RequestUseLifebuoyRpc received");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            "[SERVER] RequestUseLifebuoyRpc received");
         ServerUseLifebuoy();
     }
 
