@@ -12,6 +12,10 @@ public class TutorialManager : NetworkBehaviour
     public TutorialHUD travellerHUD;
     public TutorialHUD navigatorHUD;
 
+    [Header("Scene References")]
+    [SerializeField] private Transform travellerRoot;
+    [SerializeField] private Camera travellerCamera;
+
     [Header("Waiting Messages")]
     [TextArea] public string travellerWaitingForNavigator = "ממתין לנווט…";
     [TextArea] public string navigatorWaitingForTraveller = "ממתין למטייל…";
@@ -178,6 +182,10 @@ public class TutorialManager : NetworkBehaviour
 
         ApplyLocks(Current);
         ShowStepHUD(Current);
+
+        // סיבוב המטייל והכיוון של המבט לפי ה-Target של השלב (אם מוגדר)
+        AlignTravellerForStep(Current);
+
         Current.onStepStart?.Invoke();
     }
 
@@ -293,7 +301,7 @@ public class TutorialManager : NetworkBehaviour
 
     private void MarkConditionSatisfiedInternal()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,"reached markconditionsatisfiedinternal()");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "reached markconditionsatisfiedinternal()");
         Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
             $"[TUTORIAL] Condition satisfied for step '{Current.stepId}'");
 
@@ -373,6 +381,7 @@ public class TutorialManager : NetworkBehaviour
             travellerLooked && navigatorLooked)
             MarkConditionSatisfiedInternal();
     }
+
     public bool IsTutorialRunningForStep(string stepId)
     {
         if (!TutorialActive.Value)
@@ -391,12 +400,13 @@ public class TutorialManager : NetworkBehaviour
     // ============================================================
 
     public void NotifyNavigatorRemovedBomb() => NotifyNavigatorCondition(TutorialConditionType.NavigatorRemoveBomb);
+
     public void NotifyNavigatorOpenedNormalDoor()
     {
-NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenNormalDoor);
+        NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenNormalDoor);
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "reached NotifyNavigatorOpenedNormalDoor");
+    }
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,"reached NotifyNavigatorOpenedNormalDoor");
-    } 
     public void NotifyNavigatorOpenedPuzzleDoor() => NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenPuzzleDoor);
     public void NotifyNavigatorOpenedExitDoor() => NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenExitDoor);
     public void NotifyNavigatorPlacedHeart() => NotifyNavigatorCondition(TutorialConditionType.NavigatorPlaceHeart);
@@ -435,25 +445,106 @@ NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenNormalDoor);
     }
 
 
-        private void Check(TutorialConditionType t)
+    private void Check(TutorialConditionType t)
+    {
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "Reached check()");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[TUTORIAL][CHECK] cond={t} step={Current.stepId} expect={Current.conditionType} active={stepActive}");
+
+        if (!IsServer) return;
+        if (!stepActive) return;
+
+        if (Current.conditionType != t)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,"Reached check()");
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                $"[TUTORIAL][CHECK] cond={t} step={Current.stepId} expect={Current.conditionType} active={stepActive}");
-
-            if (!IsServer) return;
-            if (!stepActive) return;
-
-            if (Current.conditionType != t)
-            {
-                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                    "[TUTORIAL][CHECK] Condition mismatch — ignored");
-                return;
-            }
-
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                $"[TUTORIAL][CHECK] MATCH!  Step '{Current.stepId}' satisfied");
-
-            MarkConditionSatisfiedInternal();
+                "[TUTORIAL][CHECK] Condition mismatch — ignored");
+            return;
         }
+
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[TUTORIAL][CHECK] MATCH!  Step '{Current.stepId}' satisfied");
+
+        MarkConditionSatisfiedInternal();
+    }
+
+
+    // ============================================================
+    // TRAVELLER ROTATION / LOOK
+    // ============================================================
+
+    private void AlignTravellerForStep(TutorialStep step)
+    {
+        if (!step.rotateTravellerOnStepStart)
+            return;
+
+        if (string.IsNullOrEmpty(step.travellerLookTargetId))
+            return;
+
+        // שרת שולח לכולם את ה-ID של ה-Target
+        RotateTravellerClientRpc(step.travellerLookTargetId);
+    }
+
+    [ClientRpc]
+    private void RotateTravellerClientRpc(string targetId)
+    {
+        // המטייל הוא ה-Host
+        if (!IsHost) return;
+
+        if (travellerRoot == null)
+        {
+            var gm = GameManager.Instance;
+            if (gm != null && gm.traveller != null)
+                travellerRoot = gm.traveller.transform;
+        }
+
+        if (travellerRoot == null)
+        {
+            Debug.LogWarning("[TUTORIAL] travellerRoot is null – cannot rotate");
+            return;
+        }
+
+        Transform target = TutorialLookTarget.Get(targetId);
+        if (target == null)
+        {
+            Debug.LogWarning($"[TUTORIAL] No TutorialLookTarget with id '{targetId}'");
+            return;
+        }
+
+        Vector3 dir = target.position - travellerRoot.position;
+        dir.y = 0f;
+
+        if (dir.sqrMagnitude < 0.0001f)
+            return;
+
+        Quaternion rot = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        travellerRoot.rotation = rot;
+
+        if (travellerCamera == null)
+        {
+            var cam = travellerRoot.GetComponentInChildren<Camera>();
+            if (cam != null)
+                travellerCamera = cam;
+        }
+
+        if (travellerCamera != null)
+        {
+            Vector3 euler = travellerCamera.transform.eulerAngles;
+            euler.y = rot.eulerAngles.y;
+            travellerCamera.transform.eulerAngles = euler;
+        }
+    }
+    // ============================================================
+    // REGISTER TRAVELLER
+    // ============================================================
+
+    public void RegisterTraveller(Transform root)
+    {
+        travellerRoot = root;
+    }
+
+    public void RegisterTravellerCamera(Camera cam)
+    {
+        travellerCamera = cam;
+    }
+
 }

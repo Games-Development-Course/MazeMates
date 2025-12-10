@@ -22,6 +22,34 @@ public class PlayerMovement1P : NetworkBehaviour
     {
         controller = GetComponent<CharacterController>();
     }
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        // רק הבעלים צריך לעשות את זה
+        if (!IsOwner)
+            return;
+
+        // המטייל = ה־Host
+        if (IsHost)
+        {
+            isTraveller = true;
+
+            var tm = Object.FindFirstObjectByType<TutorialManager>();
+            if (tm != null)
+            {
+                tm.RegisterTraveller(transform);
+
+                Camera cam = GetComponentInChildren<Camera>();
+                if (cam != null)
+                    tm.RegisterTravellerCamera(cam);
+            }
+        }
+        else
+        {
+            isTraveller = false;
+        }
+    }
 
     void Start()
     {

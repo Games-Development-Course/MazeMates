@@ -105,21 +105,44 @@ public class PuzzleDoor : IDoor
 
     public void TryOpen()
     {
-        Debug.Log("TRY OPEN PUZZLE DOOR! (Traveller should see puzzle UI)");
+        Debug.Log($"[PUZZLE] TryOpen called on door {controller.name} | solved={solved}");
 
         if (solved)
+        {
+            Debug.Log("[PUZZLE] Already solved, ignoring TryOpen");
             return;
+        }
+
+        if (HUDManager.Instance == null || HUDManager.Instance.TravellerHUD == null)
+        {
+            Debug.LogError("[PUZZLE] HUDManager.Instance או TravellerHUD הם NULL – אי אפשר להציג את הפאזל");
+            return;
+        }
+
+        if (controller.puzzlePrefab == null)
+        {
+            Debug.LogError("[PUZZLE] puzzlePrefab is NULL על הדלת – אין מה ליצור");
+            return;
+        }
 
         if (puzzleInstance == null)
+        {
+            Debug.Log("[PUZZLE] puzzleInstance is null → InstantiatePuzzle()");
             InstantiatePuzzle();
+        }
+
+        if (puzzleInstance == null)
+        {
+            Debug.LogError("[PUZZLE] puzzleInstance עדיין NULL אחרי InstantiatePuzzle – משהו בהייררכיה של הפריפב לא תקין");
+            return;
+        }
 
         HUDManager.Instance.TravellerHUD.ShowPuzzle();
         puzzleInstance.SetActive(true);
 
-        // לוודא שיש לנו Sprite למסך:
+        // לוודא שיש לנו Sprite למסך
         if (controller.navigatorPreview == null)
         {
-            // ניסיון נוסף לגבות מה-OriginalImage במופע שרק יצרנו
             Transform original = puzzleInstance.transform.Find("OriginalImage");
             if (original != null)
             {
@@ -129,7 +152,6 @@ public class PuzzleDoor : IDoor
             }
         }
 
-        // שליחת התמונה למסך הטלוויזיה (או רעש אם אין)
         controller.ShowNavigatorPreviewOnScreen(controller.navigatorPreview);
 
         GameManager.Instance.inPuzzle = true;
@@ -137,6 +159,8 @@ public class PuzzleDoor : IDoor
 
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
+
+        Debug.Log("[PUZZLE] Puzzle UI should now be visible for Traveller");
     }
 
     // ---------------------------------------------------------

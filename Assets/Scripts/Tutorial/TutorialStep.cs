@@ -60,6 +60,10 @@ public class TutorialStep : ScriptableObject
     public bool navigatorLockMovement = true;
     public bool navigatorLockCamera = true;
 
+    [Header("Traveller Rotation / Look")]
+    public bool rotateTravellerOnStepStart = false;
+    public string travellerLookTargetId;        // למשל "DoorLook"
+
     // ===========================================================
     [Header("Timing")]
     public bool completeOnCondition = true;

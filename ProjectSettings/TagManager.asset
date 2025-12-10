@@ -13,6 +13,7 @@ TagManager:
   - Tutorial_OpenDoor
   - Tutorial_PlaceHeart
   - Tutorial_ShowHint
+  - NavigatorScreenTV
   layers:
   - Default
   - TransparentFX

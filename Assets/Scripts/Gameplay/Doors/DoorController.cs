@@ -1,5 +1,4 @@
-﻿// DoorController.cs
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
@@ -14,48 +13,37 @@ public class DoorController : NetworkBehaviour
 
     [Header("Puzzle Settings")]
     public GameObject puzzlePrefab;
-    public Sprite navigatorPreview;          // ימולא אוטומטית מ-OriginalImage אם ריק
+    public Sprite navigatorPreview; // auto-filled from OriginalImage if null
 
     [Header("Navigator TV Screen")]
-    public MeshRenderer navigatorScreen;           // לא חובה – רק אם אתה רוצה גם זכוכית וכו'
-    public MeshRenderer navigatorScreenQuad;       // ✅ ה-Quad שעליו נציג את התמונה
-    public int navigatorScreenMaterialIndex = 0;   // בדרך כלל 0 ב-Quad
+    [Tooltip("MeshRenderer של ה-Quad שעליו מוצגת התמונה בחדר הנווט")]
+    public MeshRenderer navigatorScreenQuad;          // אפשר להשאיר ריק ולהסתמך על Tag
+    public int navigatorScreenMaterialIndex = 0;
     [Range(0.3f, 1f)]
-    public float tvZoom = 1f;                      // 1 = מלא, <1 = קצת זום־אאוט
+    public float tvZoom = 1f;
 
-    // אינסטנס של המטריאל ושל שם הפרופרטי לטקסטורה
-    private Material navigatorMatInstance;
-    private string colorMapProperty = "_BaseMap"; // אם השיידר לא URP Lit נעבור ל-_MainTex
+    [Tooltip("Tag של ה-Quad של הטלוויזיה בחדר הנווט (למשל NavigatorScreenTV)")]
+    [SerializeField] private string navigatorScreenTag = "NavigatorScreenTV";
 
-    // OLD SYSTEM SUPPORT
     public List<GameObject> spawnedHints = new List<GameObject>();
 
     private Transform pivot;
     private IDoor door;
     private PadTrigger pad;
 
-    // =====================================================================
-    // LIFECYCLE
-    // =====================================================================
+    // אינסטנס של המטריאל שניצור בזמן ריצה
+    private Material navigatorScreenMaterialInstance;
+
     private void Awake()
     {
-        // נסה למצוא את ה-Quad בשם ScreenQuad אם לא חיברת ידנית
-        if (navigatorScreenQuad == null)
-        {
-            navigatorScreenQuad = GetComponentsInChildren<MeshRenderer>(true)
-                .FirstOrDefault(m => m.name == "ScreenQuad");
-        }
-
-        // fallback ישן – לא חובה אבל לא מזיק
-        if (navigatorScreen == null)
-        {
-            navigatorScreen = GetComponentInChildren<MeshRenderer>();
-        }
+        // אם לא שויך Quad ביד – ננסה למצוא אחד לפי Tag
+        TryFindNavigatorScreenQuad();
     }
 
     public override void OnNetworkSpawn()
     {
-        Debug.Log($"[DOOR SPAWN] {name} | NetId={NetworkObjectId}");
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[DOOR SPAWN] {name} | NetId={NetworkObjectId}");
 
         pad = GetComponentInChildren<PadTrigger>();
 
@@ -65,111 +53,83 @@ public class DoorController : NetworkBehaviour
         InitDoorLogic();
     }
 
-    // =====================================================================
-    // MATERIAL INSTANCE HELPERS
-    // =====================================================================
-    private void EnsureNavigatorMaterial()
+    // ============================================================
+    // FIND NAVIGATOR SCREEN QUAD
+    // ============================================================
+
+    private void TryFindNavigatorScreenQuad()
     {
-        if (navigatorMatInstance != null)
+        if (navigatorScreenQuad != null)
             return;
 
-        // קודם כל נעדיף את ה-Quad, אחרת ניפול ל-navigatorScreen
-        MeshRenderer targetRenderer = navigatorScreenQuad != null ? navigatorScreenQuad : navigatorScreen;
-
-        if (targetRenderer == null)
+        if (!string.IsNullOrEmpty(navigatorScreenTag))
         {
-            Debug.LogWarning($"[DoorController] No screen renderer found on {name}");
-            return;
+            GameObject tvObj = GameObject.FindGameObjectWithTag(navigatorScreenTag);
+            if (tvObj != null)
+            {
+                navigatorScreenQuad = tvObj.GetComponent<MeshRenderer>();
+            }
         }
 
-        var mats = targetRenderer.materials; // materials מחזיר כבר instances
-
-        if (mats == null || mats.Length == 0)
+        if (navigatorScreenQuad == null)
         {
-            Debug.LogWarning($"[DoorController] Renderer {targetRenderer.name} has NO materials");
-            return;
+            Debug.LogWarning(
+                $"[PUZZLE-TV] navigatorScreenQuad is NULL on {name} – " +
+                "תוודא של-Quad של המסך יש Tag '" + navigatorScreenTag + "' " +
+                "או שגררת אותו ידנית ל-Inspector.",
+                this);
         }
-
-        int idx = Mathf.Clamp(navigatorScreenMaterialIndex, 0, mats.Length - 1);
-
-        navigatorMatInstance = mats[idx];   // עובדים על האינסטנס הקיים
-        mats[idx] = navigatorMatInstance;
-        targetRenderer.materials = mats;
-
-        // קובעים איזה property הוא ה"צבע" המרכזי של השיידר
-        if (!navigatorMatInstance.HasProperty(colorMapProperty))
-        {
-            if (navigatorMatInstance.HasProperty("_BaseMap"))
-                colorMapProperty = "_BaseMap";
-            else if (navigatorMatInstance.HasProperty("_MainTex"))
-                colorMapProperty = "_MainTex";
-        }
-
-        Debug.Log($"[DoorController] Using material '{navigatorMatInstance.name}' on {targetRenderer.name}, property={colorMapProperty}");
     }
 
-    private void ApplyTextureToNavigatorScreen(Texture tex)
+    // ============================================================
+    // MATERIAL HANDLING
+    // ============================================================
+
+    /// <summary>
+    /// מחליף את המטריאל של המסך ל-URP/Unlit ומכניס לתוכו את ה-Texture של הפאזל.
+    /// נקרא בצד הלקוח אחרי שהשרת החליט להציג את הפאזל.
+    /// </summary>
+    private void ApplyUnlitMaterial(Texture tex)
     {
         if (tex == null)
+            return;
+
+        if (navigatorScreenQuad == null)
         {
-            Debug.LogWarning($"[DoorController] texture is NULL on {name}");
+            // נסיון נוסף למצוא את המסך בזמן ריצה
+            TryFindNavigatorScreenQuad();
+        }
+
+        if (navigatorScreenQuad == null)
+        {
+            Debug.LogWarning("[PUZZLE-TV] ApplyUnlitMaterial: navigatorScreenQuad עדיין NULL על " + name, this);
             return;
         }
 
-        EnsureNavigatorMaterial();
-        if (navigatorMatInstance == null)
+        var mr = navigatorScreenQuad;
+
+        // יוצרים מטריאל חדש מבוסס URP/Unlit
+        Shader unlitShader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (unlitShader == null)
+        {
+            Debug.LogError("[PUZZLE-TV] לא נמצא Shader 'Universal Render Pipeline/Unlit'", mr);
             return;
-
-        // --- סט טקסטורה עיקרית (BaseMap / MainTex) ---
-        if (navigatorMatInstance.HasProperty(colorMapProperty))
-        {
-            navigatorMatInstance.SetTexture(colorMapProperty, tex);
-
-            // פליפ ב-Y (כמו קודם) + אפשרות זום־אאוט
-            float s = Mathf.Clamp(tvZoom, 0.3f, 1f); // 1 = ממלא את כל ה-Quad
-            Vector2 scale = new Vector2(1f * s, -1f * s);
-            Vector2 offset = new Vector2(
-                0.5f - 0.5f * s,
-                0.5f + 0.5f * s
-            );
-
-            navigatorMatInstance.SetTextureScale(colorMapProperty, scale);
-            navigatorMatInstance.SetTextureOffset(colorMapProperty, offset);
-        }
-        else
-        {
-            // fallback גנרי
-            navigatorMatInstance.mainTexture = tex;
-
-            float s = Mathf.Clamp(tvZoom, 0.3f, 1f);
-            navigatorMatInstance.mainTextureScale = new Vector2(1f * s, -1f * s);
-            navigatorMatInstance.mainTextureOffset = new Vector2(
-                0.5f - 0.5f * s,
-                0.5f + 0.5f * s
-            );
         }
 
-        // --- Emission כדי שלא יהיה כהה ---
-        if (navigatorMatInstance.HasProperty("_EmissionMap"))
-        {
-            navigatorMatInstance.SetTexture("_EmissionMap", tex);
-        }
+        navigatorScreenMaterialInstance = new Material(unlitShader);
+        navigatorScreenMaterialInstance.SetTexture("_BaseMap", tex);
 
-        if (navigatorMatInstance.HasProperty("_EmissionColor"))
-        {
-            navigatorMatInstance.EnableKeyword("_EMISSION");
-            navigatorMatInstance.SetColor("_EmissionColor", Color.white);
-        }
+        // אפשר פשוט להחליף את המטריאל (לא משנה לנו שאר הסלוטים במקרה הזה)
+        mr.material = navigatorScreenMaterialInstance;
 
-        if (navigatorMatInstance.HasProperty("_Metallic"))
-            navigatorMatInstance.SetFloat("_Metallic", 0f);
-        if (navigatorMatInstance.HasProperty("_Smoothness"))
-            navigatorMatInstance.SetFloat("_Smoothness", 0f);
+        Debug.Log("[PUZZLE-TV] Applied UNLIT material with puzzle texture on navigator screen (" +
+                  mr.gameObject.name + ")", mr);
     }
 
-    // =====================================================================
-    // DOOR LOGIC
-    // =====================================================================
+    // ============================================================
+    // DOOR INITIALIZATION
+    // ============================================================
+
     private void InitDoorLogic()
     {
         switch (doorType)
@@ -177,7 +137,6 @@ public class DoorController : NetworkBehaviour
             case DoorType.Puzzle:
                 if (navigatorPreview == null)
                     navigatorPreview = ExtractPreviewFromPrefab();
-
                 door = new PuzzleDoor(this);
                 break;
 
@@ -191,14 +150,14 @@ public class DoorController : NetworkBehaviour
         }
     }
 
-    // =====================================================================
+    // ============================================================
     // INTERACTION
-    // =====================================================================
+    // ============================================================
+
     public void Interact()
     {
         if (doorType == DoorType.Puzzle)
-            return; // פאזל נפתח רק ע"י הנווט
-
+            return;
         RequestOpenDoorRpc();
     }
 
@@ -216,35 +175,35 @@ public class DoorController : NetworkBehaviour
         var img = original.GetComponentInChildren<UnityEngine.UI.Image>();
         if (img != null && img.sprite != null)
         {
-            Debug.Log($"[DoorController] Extracted preview sprite '{img.sprite.name}' from puzzle prefab '{puzzlePrefab.name}'");
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                $"[DoorController] Extracted preview sprite '{img.sprite.name}' from puzzle '{puzzlePrefab.name}'");
         }
         else
         {
-            Debug.LogWarning($"[DoorController] OriginalImage exists but has no sprite on prefab '{puzzlePrefab.name}'");
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                $"[DoorController] OriginalImage found but no sprite in '{puzzlePrefab.name}'");
         }
 
         return img != null ? img.sprite : null;
     }
 
-    // =====================================================================
-    // RPC SYSTEM
-    // =====================================================================
+    // ============================================================
+    // RPC — OPEN NORMAL/EXIT DOOR
+    // ============================================================
+
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void RequestOpenDoorRpc()
     {
         if (!IsServer) return;
+
         var tutorial = FindAnyObjectByType<TutorialManager>();
 
         if (tutorial != null && pad != null && pad.IsPlayerOnPad())
         {
             if (doorType == DoorType.Normal)
-            {
                 tutorial.NotifyNavigatorOpenedNormalDoor();
-            }
             else if (doorType == DoorType.Exit)
-            {
                 tutorial.NotifyNavigatorOpenedExitDoor();
-            }
         }
 
         StartCoroutine(OpenRoutine(openAngle));
@@ -273,12 +232,12 @@ public class DoorController : NetworkBehaviour
         }
 
         pivot.localRotation = target;
-
     }
 
-    // =====================================================================
-    // PIVOT יצירת
-    // =====================================================================
+    // ============================================================
+    // GENERATE DOOR PIVOT
+    // ============================================================
+
     private void FindOrCreatePivot()
     {
         MeshFilter mf = GetComponentsInChildren<MeshFilter>(true)
@@ -298,7 +257,7 @@ public class DoorController : NetworkBehaviour
         Vector3 pivotWorld = doorModel.TransformPoint(leftLocal);
 
         GameObject pivotObj = new GameObject("Pivot");
-        pivotObj.transform.SetParent(transform, worldPositionStays: true);
+        pivotObj.transform.SetParent(transform, true);
         pivotObj.transform.position = pivotWorld;
         pivotObj.transform.rotation = doorModel.rotation;
 
@@ -314,15 +273,13 @@ public class DoorController : NetworkBehaviour
         pivot = pivotObj.transform;
     }
 
-    // =====================================================================
-    // STATIC HELPERS לשימוש מהנווט
-    // =====================================================================
+    // ============================================================
+    // STATIC DOOR LOOKUP HELPERS
+    // ============================================================
 
-    // גרסה ללא פרמטר – תואמת קריאה כמו DoorController.FindDoorPlayerIsOn()
     public static DoorController FindDoorPlayerIsOn()
     {
-        var doors = Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None);
-        foreach (var door in doors)
+        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
             if (door.TravellerIsOnPad())
                 return door;
@@ -330,77 +287,81 @@ public class DoorController : NetworkBehaviour
         return null;
     }
 
-    // גרסה עם פרמטר GameObject – אם אי פעם יקראו עם player, עדיין יעבוד
-    public static DoorController FindDoorPlayerIsOn(GameObject player)
+    public static DoorController FindDoorPlayerIsOn(GameObject _) =>
+        FindDoorPlayerIsOn();
+
+    public static DoorController FindDoorPlayerIsOn(DoorType type)
     {
-        // כרגע אנחנו לא מסננים לפי השחקן, רק לפי האם יש שחקן על הפד
-        return FindDoorPlayerIsOn();
+        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
+        {
+            if (door.doorType == type && door.TravellerIsOnPad())
+                return door;
+        }
+        return null;
     }
 
-    // גרסה כללית – לפי מיקום בלבד
     public static DoorController FindNearestDoorOnPad(Vector3 position, float maxDistance = 5f)
     {
         DoorController nearest = null;
         float minDist = float.MaxValue;
 
-        var doors = Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None);
-        foreach (var door in doors)
+        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
-            if (!door.TravellerIsOnPad())
-                continue;
+            if (!door.TravellerIsOnPad()) continue;
 
             float dist = Vector3.Distance(position, door.transform.position);
             if (dist < minDist && dist <= maxDistance)
             {
-                minDist = dist;
                 nearest = door;
+                minDist = dist;
             }
         }
-
         return nearest;
     }
 
-    // גרסה תואמת ל-NavigatorActions: DoorType + מיקום
     public static DoorController FindNearestDoorOnPad(DoorType type, Vector3 position, float maxDistance = 5f)
     {
         DoorController nearest = null;
         float minDist = float.MaxValue;
 
-        var doors = Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None);
-        foreach (var door in doors)
+        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
-            if (door.doorType != type)
-                continue;
-
-            if (!door.TravellerIsOnPad())
-                continue;
+            if (door.doorType != type) continue;
+            if (!door.TravellerIsOnPad()) continue;
 
             float dist = Vector3.Distance(position, door.transform.position);
             if (dist < minDist && dist <= maxDistance)
             {
-                minDist = dist;
                 nearest = door;
+                minDist = dist;
             }
         }
-
         return nearest;
     }
 
-    // =====================================================================
-    // PUBLIC API מהפאזל
-    // =====================================================================
+    public static DoorController FindPuzzleDoorWithTravellerOnPad()
+    {
+        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
+        {
+            if (door.doorType == DoorType.Puzzle && door.TravellerIsOnPad())
+                return door;
+        }
+        return null;
+    }
+
+    // ============================================================
+    // PUBLIC API FOR PUZZLE
+    // ============================================================
+
     public void ShowNavigatorPreviewOnScreen(Sprite sprite)
     {
+        navigatorPreview = sprite;
         bool showPuzzle = sprite != null && sprite.texture != null;
 
         if (!IsServer)
-        {
             RequestSetNavigatorScreenServerRpc(showPuzzle);
-        }
         else
-        {
             SetNavigatorScreenClientRpc(showPuzzle);
-        }
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -412,12 +373,90 @@ public class DoorController : NetworkBehaviour
     [Rpc(SendTo.Everyone)]
     private void SetNavigatorScreenClientRpc(bool showPuzzle)
     {
-        // כרגע תמיד מציגים את ה-preview אם קיים (או נשארים על הישן אם null)
+        if (!showPuzzle)
+        {
+            // פה בעתיד אפשר להחזיר Noise למסך
+            return;
+        }
+
+        if (navigatorPreview == null || navigatorPreview.texture == null)
+        {
+            var extracted = ExtractPreviewFromPrefab();
+            if (extracted != null)
+                navigatorPreview = extracted;
+        }
+
         if (navigatorPreview != null && navigatorPreview.texture != null)
         {
-            Texture texToShow = navigatorPreview.texture;
-            ApplyTextureToNavigatorScreen(texToShow);
+            ApplyUnlitMaterial(navigatorPreview.texture);
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                $"[DoorController] Applied UNLIT puzzle texture '{navigatorPreview.name}' on '{name}'");
         }
-        // אחרת לא עושים כלום – נשאר הטקסטורה האחרונה (ל-noise תשתמש בפתרון שלך אם יש)
+        else
+        {
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                $"[DoorController] Cannot apply puzzle texture — no valid sprite on {name}");
+        }
+    }
+
+    // ============================================================
+    // PUZZLE OPEN — RPC
+    // ============================================================
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    public void RequestOpenPuzzleDoorRpc()
+    {
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[PUZZLE-RPC] RequestOpenPuzzleDoorRpc CALLED on {(IsServer ? "SERVER" : "CLIENT")} | door={name}");
+
+        if (!IsServer) return;
+
+        OpenPuzzleForTravellerClientRpc(NetworkObjectId);
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void OpenPuzzleForTravellerClientRpc(ulong doorId)
+    {
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            $"[PUZZLE-RPC] OpenPuzzleForTravellerClientRpc on {(IsServer ? "SERVER" : "CLIENT")} | doorId={doorId}");
+
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(doorId, out NetworkObject obj))
+        {
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                $"[PUZZLE-RPC] doorId {doorId} not found in SpawnedObjects");
+            return;
+        }
+
+        DoorController door = obj.GetComponent<DoorController>();
+        if (door == null)
+        {
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                "[PUZZLE-RPC] NetworkObject has no DoorController");
+            return;
+        }
+
+        var gm = GameManager.Instance;
+        if (gm == null || gm.traveller == null)
+        {
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                "[PUZZLE-RPC] traveller uninitialized");
+            return;
+        }
+
+        var travellerNet = gm.traveller.GetComponent<NetworkObject>();
+        if (travellerNet == null)
+        {
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+                "[PUZZLE-RPC] traveller has no NetworkObject");
+            return;
+        }
+
+        // Puzzle can only open on the traveller's client
+        if (travellerNet.IsOwner)
+        {
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[PUZZLE-RPC] Traveller owns this client — opening puzzle");
+            door.GetPuzzle()?.TryOpen();
+        }
     }
 }

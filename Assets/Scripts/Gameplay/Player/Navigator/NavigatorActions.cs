@@ -50,9 +50,6 @@ public class NavigatorActions : NetworkBehaviour
 
         DoorController door = DoorController.FindDoorPlayerIsOn();
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NAV-ACT] UI_OpenDoor pressed | door={(door == null ? "null" : door.name)} | type={door?.doorType}");
-
         if (door == null)
         {
             HUDManager.Instance?.ShowMessageForNavigator("אין דלת כאן");
@@ -65,17 +62,6 @@ public class NavigatorActions : NetworkBehaviour
             return;
         }
 
-        // Notify tutorial
-        if (door.doorType == DoorType.Normal)
-        {
-            tutorial?.NotifyNavigatorOpenedNormalDoor();
-            
-
-        }
-
-        if (door.doorType == DoorType.Exit)
-            tutorial?.NotifyNavigatorOpenedExitDoor();
-
         door.Interact();
     }
 
@@ -85,7 +71,10 @@ public class NavigatorActions : NetworkBehaviour
     {
         if (!IsLocalNavigator()) return;
 
-        DoorController door = DoorController.FindNearestDoorOnPad(DoorType.Puzzle, transform.position);
+        // במקום FindNearestDoorOnPad לפי מיקום הנווט:
+        // DoorController door = DoorController.FindNearestDoorOnPad(DoorType.Puzzle, transform.position);
+
+        DoorController door = DoorController.FindDoorPlayerIsOn(DoorType.Puzzle);
 
         Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
             $"[NAV-ACT] UI_ShowPuzzle | door={(door == null ? "null" : door.name)}");
@@ -96,9 +85,11 @@ public class NavigatorActions : NetworkBehaviour
             return;
         }
 
-        RequestOpenPuzzleRpc(door.NetworkObjectId);
+        door.RequestOpenPuzzleDoorRpc();
         tutorial?.NotifyNavigatorOpenedPuzzleDoor();
     }
+
+
 
 
     private bool IsLocalNavigator()
@@ -152,38 +143,6 @@ public class NavigatorActions : NetworkBehaviour
     }
 
 
-    // =====================================================================
-    // PUZZLE OPEN — RPC
-    // =====================================================================
 
-    [Rpc(SendTo.Server)]
-    private void RequestOpenPuzzleRpc(ulong doorId)
-    {
-        Server_OpenPuzzleRpc(doorId);
-    }
 
-    [Rpc(SendTo.Everyone)]
-    private void Server_OpenPuzzleRpc(ulong doorId)
-    {
-        OpenPuzzleForTravellerRpc(doorId);
-    }
-
-    [Rpc(SendTo.Everyone)]
-    private void OpenPuzzleForTravellerRpc(ulong doorId)
-    {
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(doorId, out NetworkObject obj))
-            return;
-
-        DoorController door = obj.GetComponent<DoorController>();
-        if (door == null) return;
-
-        var gm = GameManager.Instance;
-        if (gm == null || gm.traveller == null) return;
-
-        var travellerNet = gm.traveller.GetComponent<NetworkObject>();
-        if (travellerNet != null && travellerNet.IsOwner)
-        {
-            door.GetPuzzle()?.TryOpen();
-        }
-    }
 }
