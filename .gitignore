@@ -4,7 +4,12 @@
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
+[Mm]emoryCaptures/
 [Uu]ser[Ss]ettings/
+
+
+# Never ignore Asset meta data
+![Aa]ssets/**/*.meta
 
 # Visual Studio cache
 .vs/
@@ -31,6 +36,56 @@
 *.opendb
 *.VC.db
 
+# Unity3D generated file on crash reports
+sysinfo.txt
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+
+# Crashlytics generated file
+crashlytics-build.properties
+
+# Packed Addressables
+/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
+
+# Temporary auto-generated Android Assets
+/[Aa]ssets/[Ss]treamingAssets/aa.meta
+/[Aa]ssets/[Ss]treamingAssets/aa/*
+
 # OS crap
 .DS_Store
+
+# Windows thumbnail cache files
 Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+# Dump file
+*.stackdump
+
+# Folder config file
+[Dd]esktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows Installer files
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+# Office temporary files
+~*
+
+
+# Pycharm project
+.idea
+.vsconfig
