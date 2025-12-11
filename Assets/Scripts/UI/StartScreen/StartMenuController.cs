@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class StartMenuController : MonoBehaviour
 {
@@ -12,6 +13,16 @@ public class StartMenuController : MonoBehaviour
     public string travelerScene = "TravelerScene";
     public string navigatorScene = "NavigatorScene";
 
+public Button startTutorialButton;
+    // In your UI script (e.g., HUDManager or StartScreen)
+public void SetupStartTutorialButton()
+{
+    var spawnManager = FindFirstObjectByType<PlayerSpawnManager>();
+    if (spawnManager != null)
+    {
+        startTutorialButton.onClick.AddListener(() => spawnManager.OnStartTutorialButtonPressed());
+    }
+}
     public void OnStartButtonPressed()
     {
         // 1) Validate names

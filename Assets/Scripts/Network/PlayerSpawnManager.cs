@@ -145,6 +145,19 @@ public class PlayerSpawnManager : MonoBehaviour
         if (!navigatorSpawned || gm.traveller == null)
             return;
 
+        // Don't start tutorial automatically
+        // StartCoroutine(StartTutorialDelayed());
+        
+        Debug.Log("[PlayerSpawnManager] Both players connected. Waiting for tutorial start button...");
+    }
+
+    // New public method for button to call
+    public void OnStartTutorialButtonPressed()
+    {
+        StartCoroutine(StartTutorialDelayed());
+    }
+public void StartTutorialFromButton()
+    {
         StartCoroutine(StartTutorialDelayed());
     }
 
@@ -161,5 +174,5 @@ public class PlayerSpawnManager : MonoBehaviour
         if (t != null)
             t.StartTutorial();
     }
-}
     
+}
