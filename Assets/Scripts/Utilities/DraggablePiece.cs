@@ -72,7 +72,8 @@ public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
             rectTransform.anchoredPosition = target.anchoredPosition;
             placed = true;
 
-            // כאן התיקון החשוב:
+            var tm = Object.FindFirstObjectByType<TutorialManager>();
+            tm?.NotifyTravellerPlacedPuzzlePiece();
             GameManager.Instance.activePuzzleDoor?.GetPuzzle()?.PuzzleSolved();
         }
         else

@@ -139,6 +139,9 @@ public class PuzzleDoor : IDoor
 
         HUDManager.Instance.TravellerHUD.ShowPuzzle();
         puzzleInstance.SetActive(true);
+        // ⭐ הטוטוריאל צריך לדעת שהחידה נפתחה
+        var tm = Object.FindFirstObjectByType<TutorialManager>();
+        tm?.NotifyNavigatorOpenedPuzzleDoor();
 
         // לוודא שיש לנו Sprite למסך
         if (controller.navigatorPreview == null)

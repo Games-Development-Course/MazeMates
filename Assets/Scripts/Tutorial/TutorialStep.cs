@@ -27,6 +27,7 @@ public enum TutorialConditionType
     TravellerPickedHeart,
 
     // פאזלים
+    TravellerPlacedPuzzlePiece,
     PuzzleSolved,
 
     // סוף מבוך

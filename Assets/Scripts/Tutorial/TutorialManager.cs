@@ -411,6 +411,7 @@ public class TutorialManager : NetworkBehaviour
     public void NotifyNavigatorOpenedExitDoor() => NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenExitDoor);
     public void NotifyNavigatorPlacedHeart() => NotifyNavigatorCondition(TutorialConditionType.NavigatorPlaceHeart);
     public void NotifyNavigatorGaveLifebuoy() => NotifyNavigatorCondition(TutorialConditionType.NavigatorGiveLifebuoy);
+    public void NotifyTravellerPlacedPuzzlePiece() => NotifyNavigatorCondition(TutorialConditionType.TravellerPlacedPuzzlePiece);
 
     public void NotifyTravellerPickedKey() => Check(TutorialConditionType.TravellerPickedKey);
     public void NotifyTravellerPickedHeart() => Check(TutorialConditionType.TravellerPickedHeart);

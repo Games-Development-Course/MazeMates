@@ -233,11 +233,20 @@ public class ResourceManager : NetworkBehaviour
             return;
         }
 
+        // טותוריאל
         tutorial?.NotifyNavigatorGaveLifebuoy();
 
+        // רמז – תמיד רק על השרת
+        gm.activePuzzleDoor?.GetPuzzle()?.RevealRandomHint();
+
+        // שליחת רמז גם ללקוח של המטייל
+        RevealHintClientRpc();
+
+        // הורדת כמות
         gm.lifebuoys--;
         SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
     }
+
 
     // ============================================================
     // RPC – CLIENT → SERVER
@@ -250,6 +259,20 @@ public class ResourceManager : NetworkBehaviour
             "[SERVER] RequestRemoveBombRpc received");
         ServerRemoveBomb();
     }
+
+    [Rpc(SendTo.ClientsAndHost)]
+    private void RevealHintClientRpc()
+    {
+        GameManager gm = GameManager.Instance;
+        if (gm == null) return;
+
+        // רק המטייל צריך לראות חלקי פאזל
+        if (gm.traveller != null && gm.traveller.GetComponent<NetworkObject>().IsOwner)
+        {
+            gm.activePuzzleDoor?.GetPuzzle()?.RevealRandomHint();
+        }
+    }
+
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestPlaceHeartRpc()
