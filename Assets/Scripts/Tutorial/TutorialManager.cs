@@ -408,8 +408,12 @@ public class TutorialManager : NetworkBehaviour
     }
 
     public void NotifyNavigatorOpenedPuzzleDoor() => NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenPuzzleDoor);
-    public void NotifyNavigatorOpenedExitDoor() => NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenExitDoor);
-    public void NotifyNavigatorPlacedHeart() => NotifyNavigatorCondition(TutorialConditionType.NavigatorPlaceHeart);
+    public void NotifyNavigatorOpenedExitDoor()
+    {
+        NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenExitDoor);
+        ActivateDiscoMode();
+    }
+        public void NotifyNavigatorPlacedHeart() => NotifyNavigatorCondition(TutorialConditionType.NavigatorPlaceHeart);
     public void NotifyNavigatorGaveLifebuoy() => NotifyNavigatorCondition(TutorialConditionType.NavigatorGiveLifebuoy);
     public void NotifyTravellerPlacedPuzzlePiece() => NotifyNavigatorCondition(TutorialConditionType.TravellerPlacedPuzzlePiece);
 
@@ -534,6 +538,17 @@ public class TutorialManager : NetworkBehaviour
             travellerCamera.transform.eulerAngles = euler;
         }
     }
+    public void ActivateDiscoMode()
+    {
+        var disco = FindObjectOfType<DiscoTime>();
+        if (disco != null)
+        {
+            disco.EnableDisco();
+            Debug.Log("🎉 Disco Mode Activated!");
+        }
+    }
+
+
     // ============================================================
     // REGISTER TRAVELLER
     // ============================================================

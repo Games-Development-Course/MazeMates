@@ -29,11 +29,13 @@ MonoBehaviour:
   travellerLockCamera: 0
   navigatorLockMovement: 0
   navigatorLockCamera: 0
+  rotateTravellerOnStepStart: 0
+  travellerLookTargetId: 
   completeOnCondition: 1
-  minDuration: 10
+  minDuration: 0
   autoCompleteAfter: 1000
-  minHUDDuration: 5
-  minWaitMessageDuration: 5
+  minHUDDuration: 0
+  minWaitMessageDuration: 0
   onStepStart:
     m_PersistentCalls:
       m_Calls: []

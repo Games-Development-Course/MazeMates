@@ -27,6 +27,8 @@ MonoBehaviour:
   travellerLockCamera: 1
   navigatorLockMovement: 1
   navigatorLockCamera: 1
+  rotateTravellerOnStepStart: 0
+  travellerLookTargetId: 
   completeOnCondition: 0
   minDuration: 0
   autoCompleteAfter: 6

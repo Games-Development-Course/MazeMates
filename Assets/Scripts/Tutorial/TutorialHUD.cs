@@ -6,8 +6,7 @@ public class TutorialHUD : MonoBehaviour
 {
     [Header("Tutorial Message")]
     [SerializeField] private TextMeshProUGUI messageText;
-
-    [SerializeField] private GameObject messageRoot;
+    [SerializeField] private GameObject messageRoot; // הבועה עצמה (Image + Layout)
 
     [SerializeField] private float messageDuration = 999f;
 
@@ -15,56 +14,54 @@ public class TutorialHUD : MonoBehaviour
 
     private void Awake()
     {
-        // ניסיון אוטומטי למצוא את הרכיבים
+        // Auto-find TMP
         if (messageText == null)
             messageText = GetComponentInChildren<TextMeshProUGUI>(true);
 
-        if (messageRoot == null && messageText != null)
-            messageRoot = messageText.gameObject;
+        // Auto-find bubble root
+        if (messageRoot == null)
+        {
+            if (messageText != null)
+                messageRoot = messageText.transform.parent.gameObject;
+            else
+                Debug.LogWarning("TutorialHUD: messageRoot לא הוגדר!");
+        }
 
         if (messageText != null)
-            defaultColor = messageText.color;   // שמירת הצבע המקורי
+            defaultColor = messageText.color;
+
+        // אל תציג את החלון בהתחלה
+        if (messageRoot != null)
+            messageRoot.SetActive(false);
     }
 
-    /// <summary>
-    /// הצגת הודעה רגילה
-    /// </summary>
     public void ShowMessage(string message)
     {
-        if (messageText == null)
-            return;
+        if (messageText == null) return;
 
         // הפעלה
         messageRoot.SetActive(true);
 
-        // RTL + ALIGN RIGHT
         messageText.isRightToLeftText = true;
         messageText.alignment = TextAlignmentOptions.Right;
-
-        // צבע רגיל
         messageText.color = defaultColor;
 
-        // טקסט
         messageText.text = message;
 
         StopAllCoroutines();
         StartCoroutine(HideAfterDelay());
     }
 
-    /// <summary>
-    /// הצגת הודעת הצלחה (מעולה!)
-    /// </summary>
     public void ShowSuccess(string message = "מעולה!")
     {
-        if (messageText == null)
-            return;
+        if (messageText == null) return;
 
         messageRoot.SetActive(true);
 
         messageText.isRightToLeftText = true;
         messageText.alignment = TextAlignmentOptions.Right;
 
-        // ירוק יפה
+        // צבע הצלחה
         messageText.color = new Color(0.2f, 1f, 0.2f);
 
         messageText.text = message;

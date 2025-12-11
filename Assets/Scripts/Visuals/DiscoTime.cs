@@ -1,60 +1,70 @@
-using UnityEngine;
+ן»¿using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-public class DiscoCamera : MonoBehaviour
+public class DiscoTime : MonoBehaviour
 {
-    public float speed = 2f;
-    public float intensity = 0.6f; // כמה חזק הצבע משפיע
+    public float hueSpeed = 2f;
+    public float intensity = 0.5f;
+    public bool active = false;   // ׳ ׳“׳׳™׳§ ׳׳× ׳–׳” ׳׳”׳˜׳•׳˜׳•׳¨׳™׳׳
 
     private Volume volume;
     private ColorAdjustments colorAdjust;
 
-    void Start()
+    void Awake()
     {
         volume = GetComponent<Volume>();
-
         if (volume == null)
-        {
             volume = gameObject.AddComponent<Volume>();
-            volume.isGlobal = true;
-            volume.priority = 100;
-        }
 
-        // לייצר Color Adjustments
-        colorAdjust = ScriptableObject.CreateInstance<ColorAdjustments>();
+        volume.isGlobal = true;
+        volume.priority = 100;
+
+        if (volume.profile == null)
+            volume.profile = ScriptableObject.CreateInstance<VolumeProfile>();
+
+        if (!volume.profile.TryGet(out colorAdjust))
+            colorAdjust = volume.profile.Add<ColorAdjustments>(true);
+
         colorAdjust.hueShift.overrideState = true;
         colorAdjust.colorFilter.overrideState = true;
-
-        // להוסיף ל-volume
-        var profile = volume.sharedProfile ?? volume.profile;
-        if (profile == null)
-        {
-            profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            volume.profile = profile;
-        }
-
-        profile.Add(colorAdjust);
     }
 
     void Update()
     {
-        // צבע דיסקו מתחלף חלק
-        float t = Mathf.Sin(Time.time * speed);
+        if (colorAdjust == null)
+            return;
 
-        // הזזה של Hue - מסובב את גלגל הצבעים
-        colorAdjust.hueShift.value = t * 180f;
+        if (!active)
+        {
+            // ׳׳¦׳‘ ׳¨׳’׳•׳¢ ׳›׳©׳׳™׳ ׳“׳™׳¡׳§׳•
+            colorAdjust.hueShift.value = 0;
+            colorAdjust.colorFilter.value = Color.white;
+            return;
+        }
 
-        // הפילטר שולט בחוזק הצבע על המסך
-        colorAdjust.colorFilter.value = Color.Lerp(Color.white, RandomColor(), intensity);
+        // ׳“׳™׳¡׳§׳• :)
+        float hue = Mathf.Sin(Time.time * hueSpeed) * 180f;
+        colorAdjust.hueShift.value = hue;
+        colorAdjust.colorFilter.value = GetSmoothRainbowColor() * intensity;
     }
 
-    private Color RandomColor()
+    private Color GetSmoothRainbowColor()
     {
         return new Color(
-            Mathf.Sin(Time.time * 1.3f) * 0.5f + 0.5f,
-            Mathf.Sin(Time.time * 1.7f) * 0.5f + 0.5f,
-            Mathf.Sin(Time.time * 2.1f) * 0.5f + 0.5f
+            Mathf.Sin(Time.time * 2f) * 0.5f + 0.5f,
+            Mathf.Sin(Time.time * 2.3f) * 0.5f + 0.5f,
+            Mathf.Sin(Time.time * 2.7f) * 0.5f + 0.5f
         );
+    }
+
+    public void EnableDisco()
+    {
+        active = true;
+    }
+
+    public void DisableDisco()
+    {
+        active = false;
     }
 }
