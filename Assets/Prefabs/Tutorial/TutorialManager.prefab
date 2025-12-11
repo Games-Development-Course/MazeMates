@@ -45,37 +45,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   targetId: Heart
---- !u!1 &503129522541188419
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 7620687456779808019}
-  m_Layer: 0
-  m_Name: LookTarget
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &7620687456779808019
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 503129522541188419}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.08, y: 0, z: 1.26}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 481893367848731920}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &776766641212511032
 GameObject:
   m_ObjectHideFlags: 0
@@ -107,7 +76,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7620687456779808019}
   - {fileID: 6782719769939139093}
   m_Father: {fileID: 8542499861621857944}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -211,6 +179,8 @@ Transform:
   - {fileID: 8625299130194926481}
   - {fileID: 2165852712549405321}
   - {fileID: 481893367848731920}
+  - {fileID: 5742954170385394939}
+  - {fileID: 1139974965950300018}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4922496235165310045
@@ -225,7 +195,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2181267922
+  GlobalObjectIdHash: 2610508818
   InScenePlacedSourceGlobalObjectIdHash: 3217684552
   DeferredDespawnTick: 0
   Ownership: 1
@@ -252,6 +222,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TutorialManager
   ShowTopMostFoldoutHeaderGroup: 1
   steps:
+  - {fileID: 11400000, guid: cec161149c60bcd4b9c48190f1df3d88, type: 2}
+  - {fileID: 11400000, guid: 7d7275038693e784eb959c3f3f67012d, type: 2}
+  - {fileID: 11400000, guid: d9faf7623b1a744c2bfcf88f72576eda, type: 2}
+  - {fileID: 11400000, guid: 2d0412b89280747fe8e3328367fee6c5, type: 2}
   - {fileID: 11400000, guid: fd9dcc598a2404f46b128306ec88127d, type: 2}
   - {fileID: 11400000, guid: cbb09311d812a4a5b81170a677d90d6e, type: 2}
   - {fileID: 11400000, guid: 5b4a84d4e2234487b87839adebc9d4c8, type: 2}
@@ -260,10 +234,15 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 28ec24f2d67b5c445a47c13324ba3e6e, type: 2}
   - {fileID: 11400000, guid: e655b4205e6bcd54f9f434d0ee22b892, type: 2}
   - {fileID: 11400000, guid: 2fbcbd1b41f03e94199f310c9f8aafc4, type: 2}
+  - {fileID: 11400000, guid: 3fae1b06d090fab488a6ad7c1fe642fc, type: 2}
+  - {fileID: 11400000, guid: 340453bc841b0bc4caf52c9fdc889e01, type: 2}
   - {fileID: 11400000, guid: 0b047e84f9c45bd41ac1b6537fdff6ff, type: 2}
   - {fileID: 11400000, guid: 3aed1c120f6766e4fa4b926f4befb08f, type: 2}
+  - {fileID: 11400000, guid: 2cd45b91566e9c44382df6f9abd01422, type: 2}
   travellerHUD: {fileID: 7036673641748627674}
   navigatorHUD: {fileID: 5321037367120155435}
+  travellerRoot: {fileID: 4641676686332425684, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
+  travellerCamera: {fileID: 0}
   travellerWaitingForNavigator: "\u05DE\u05D7\u05DB\u05D4 \u05E9\u05D4\u05E0\u05D5\u05D5\u05D8
     \u05D9\u05E1\u05D9\u05D9\u05DD \u05D0\u05EA \u05D4\u05E9\u05DC\u05D1..."
   navigatorWaitingForTraveller: "\u05DE\u05D7\u05DB\u05D4 \u05E9\u05D4\u05DE\u05D8\u05D9\u05D9\u05DC
@@ -271,6 +250,74 @@ MonoBehaviour:
   defaultAutoStepDelay: 0.15
   TutorialActive:
     m_InternalValue: 0
+--- !u!1 &2996653122697543967
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5742954170385394939}
+  - component: {fileID: 7829434719486862039}
+  - component: {fileID: 8712439279873698319}
+  m_Layer: 0
+  m_Name: BombBlockCollider
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5742954170385394939
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2996653122697543967}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 3.05, y: 0.539, z: 3.63}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8542499861621857944}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &7829434719486862039
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2996653122697543967}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1.82, z: 0.6939392}
+  m_Center: {x: 0, y: 0.42, z: 0.1530304}
+--- !u!114 &8712439279873698319
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2996653122697543967}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 293e4d2f3c551794f975b349aee5165e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TutorialColliderAuto
+  disableOnStepId: Door
+  targetCollider: {fileID: 7829434719486862039}
 --- !u!1 &3643670805236655347
 GameObject:
   m_ObjectHideFlags: 0
@@ -709,6 +756,51 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25cbdee50ceb7dd41a894d6d2b23eca0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+--- !u!1 &8931167505575514165
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1139974965950300018}
+  - component: {fileID: 7369878473886556969}
+  m_Layer: 0
+  m_Name: LookTarget
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1139974965950300018
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8931167505575514165}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8542499861621857944}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7369878473886556969
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8931167505575514165}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3835db5cf6e814a85aaeb366d7a624, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TutorialLookTarget
+  targetId: BombLook
 --- !u!1 &9106839695415150946
 GameObject:
   m_ObjectHideFlags: 0

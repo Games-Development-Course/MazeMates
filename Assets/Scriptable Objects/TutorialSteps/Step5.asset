@@ -25,6 +25,8 @@ MonoBehaviour:
   travellerLockCamera: 1
   navigatorLockMovement: 0
   navigatorLockCamera: 0
+  rotateTravellerOnStepStart: 1
+  travellerLookTargetId: BombLook
   completeOnCondition: 1
   minDuration: 0
   autoCompleteAfter: 1000

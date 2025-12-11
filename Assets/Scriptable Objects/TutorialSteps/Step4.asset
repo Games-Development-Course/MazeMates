@@ -27,8 +27,8 @@ MonoBehaviour:
   completeOnCondition: 1
   minDuration: 0
   autoCompleteAfter: 100
-  minHUDDuration: 5
-  minWaitMessageDuration: 5
+  minHUDDuration: 0
+  minWaitMessageDuration: 0
   onStepStart:
     m_PersistentCalls:
       m_Calls: []

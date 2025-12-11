@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 2309182035748745938}
   - component: {fileID: 3055123407200953416}
   - component: {fileID: 2963939447107871277}
+  - component: {fileID: 2138551508740852008}
   m_Layer: 8
   m_Name: TravellerCamera
   m_TagString: MainCamera
@@ -128,6 +129,18 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &2138551508740852008
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 703167820132432491}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0dbd731427995243900235810f2bb57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
 --- !u!1 &2181825650168428752
 GameObject:
   m_ObjectHideFlags: 0
@@ -255,7 +268,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2688652144
+  GlobalObjectIdHash: 4262373835
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
