@@ -1,4 +1,4 @@
-﻿using Unity.Netcode;
+﻿using Fusion;
 using UnityEngine;
 
 public class NavigatorActions : NetworkBehaviour
@@ -7,48 +7,70 @@ public class NavigatorActions : NetworkBehaviour
 
     private TutorialManager tutorial;
 
+    // ============================================================
+    // UNITY LIFECYCLE
+    // ============================================================
+
     private void Awake()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NavigatorActions][Awake] enabled={enabled} active={gameObject.activeSelf} hierarchyActive={gameObject.activeInHierarchy}");
+        Debug.Log($"[NavigatorActions][Awake] enabled={enabled} active={gameObject.activeSelf}");
     }
 
     private void Start()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NavigatorActions][Start] enabled={enabled} active={gameObject.activeSelf} hierarchyActive={gameObject.activeInHierarchy}");
+        Debug.Log($"[NavigatorActions][Start] enabled={enabled} active={gameObject.activeSelf}");
     }
 
-    public override void OnNetworkSpawn()
+    public override void Spawned()
     {
-        if (IsOwner)
+        // בדומה ל-NGO IsOwner
+        if (HasInputAuthority)
             Instance = this;
 
-        tutorial = Object.FindFirstObjectByType<TutorialManager>();
+        tutorial = FindFirstObjectByType<TutorialManager>();
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NavigatorActions][OnNetworkSpawn] IsOwner={IsOwner} IsHost={IsHost} IsServer={IsServer}");
+        Debug.Log($"[NavigatorActions][Spawned] InputAuth={HasInputAuthority} StateAuth={HasStateAuthority}");
     }
 
-    public override void OnDestroy()
+    public override void Despawned(NetworkRunner runner, bool hasState)
     {
         if (Instance == this)
             Instance = null;
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            "[NavigatorActions][OnDestroy] Instance cleared");
+        Debug.Log("[NavigatorActions][Despawned] Instance cleared");
     }
 
+    // ============================================================
+    // COMPATIBILITY HELPERS (להחליף IsOwner/IsHost/IsServer של NGO)
+    // ============================================================
 
-    // =====================================================================
-    // UI — BUTTON EVENTS
-    // =====================================================================
+    // ב-NGO: IsOwner → ב-Fusion: HasInputAuthority
+    public bool IsOwner_F => HasInputAuthority;
+
+    // ב-NGO: IsHost → ב-Fusion: HasStateAuthority + HasInputAuthority באותו שחקן
+    public bool IsHost_F => HasStateAuthority && HasInputAuthority;
+
+    // ב-NGO: IsServer → ב-Fusion: HasStateAuthority
+    public bool IsServer_F => HasStateAuthority;
+
+    // אצלך IsLocalNavigator חזר false לשחקן ה"Host"
+    // עכשיו ההיגיון מומר ל-Fusion בצורה תקינה:
+    private bool IsLocalNavigator()
+    {
+        // "Navigator" = תמיד ה-Client (אין StateAuthority)
+        return HasInputAuthority && !HasStateAuthority;
+    }
+
+    // ============================================================
+    // UI — ACTIONS
+    // ============================================================
 
     public void UI_OpenDoor()
     {
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
-        DoorController door = DoorController.FindDoorPlayerIsOn();
+        var door = DoorController.FindDoorPlayerIsOn();
 
         if (door == null)
         {
@@ -62,22 +84,17 @@ public class NavigatorActions : NetworkBehaviour
             return;
         }
 
-        door.Interact();
+        door.Interact(); // צריך להיות מתורגם ל-Fusion — זה תקין אם door עצמו כבר הומר
     }
-
-
 
     public void UI_ShowPuzzle()
     {
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
-        // במקום FindNearestDoorOnPad לפי מיקום הנווט:
-        // DoorController door = DoorController.FindNearestDoorOnPad(DoorType.Puzzle, transform.position);
+        var door = DoorController.FindDoorPlayerIsOn(DoorType.Puzzle);
 
-        DoorController door = DoorController.FindDoorPlayerIsOn(DoorType.Puzzle);
-
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NAV-ACT] UI_ShowPuzzle | door={(door == null ? "null" : door.name)}");
+        Debug.Log($"[NAV-ACT] UI_ShowPuzzle | door={(door ? door.name : "null")}");
 
         if (door == null)
         {
@@ -85,25 +102,18 @@ public class NavigatorActions : NetworkBehaviour
             return;
         }
 
+        // NGO RPC → Fusion RPC
         door.RequestOpenPuzzleDoorRpc();
+
         tutorial?.NotifyNavigatorOpenedPuzzleDoor();
     }
 
-
-
-
-    private bool IsLocalNavigator()
-    {
-        return !IsHost;
-    }
-
-
     public void UI_RemoveBomb()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NAV] RemoveBomb pressed | Owner={IsOwner} Server={IsServer} Host={IsHost}");
+        Debug.Log($"[NAV] RemoveBomb pressed | InputAuth={HasInputAuthority} StateAuth={HasStateAuthority}");
 
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
         if (ResourceManager.Instance == null)
         {
@@ -114,10 +124,10 @@ public class NavigatorActions : NetworkBehaviour
         ResourceManager.Instance.TryRemoveBomb();
     }
 
-
     public void UI_UseLifebuoy()
     {
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
         if (ResourceManager.Instance == null)
         {
@@ -128,10 +138,10 @@ public class NavigatorActions : NetworkBehaviour
         ResourceManager.Instance.TryUseLifebuoy();
     }
 
-
     public void UI_PlaceHeart()
     {
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
         if (ResourceManager.Instance == null)
         {
@@ -141,8 +151,4 @@ public class NavigatorActions : NetworkBehaviour
 
         ResourceManager.Instance.TryPlaceHeart();
     }
-
-
-
-
 }

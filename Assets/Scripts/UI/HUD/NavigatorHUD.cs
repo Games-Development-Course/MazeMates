@@ -30,16 +30,12 @@ public class NavigatorHUD : MonoBehaviour
 
     private IEnumerator WaitForNavigator()
     {
+        // מחכים ש־NavigatorActions.Instance יהיה מוכן
         while (NavigatorActions.Instance == null)
             yield return null;
 
-        var nav = NavigatorActions.Instance;
-
-        while (!nav.IsSpawned)
-            yield return null;
-
-        while (!nav.IsOwner)
-            yield return null;
+        // נותנים פריים אחד "אקסטרה" ביטחון אחרי הספון
+        yield return null;
 
         foreach (var b in actionButtons)
             b.interactable = true;

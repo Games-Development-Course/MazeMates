@@ -1,10 +1,11 @@
 ﻿// PlayerMovement1P.cs
-using Unity.Netcode;
+using Fusion;
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement1P : NetworkBehaviour
 {
+    [Header("Movement")]
     public float speed = 6f;
     public float gravity = -9.81f;
 
@@ -12,30 +13,35 @@ public class PlayerMovement1P : NetworkBehaviour
     private Vector3 velocity;
 
     private TutorialManager tutorial;
+
     private bool isTraveller;
     private bool isNavigator;
 
     private bool movementFrozen = false;   // Default state
 
-    // ------------- IMPORTANT: Awake עבור ה-Controller -------------
-    void Awake()
+    public bool IsTraveller => CompareTag("Traveller");
+    public bool IsNavigator => CompareTag("Navigator");
+
+    // -------------------------------------------------------
+    // LIFECYCLE
+    // -------------------------------------------------------
+
+    private void Awake()
     {
         controller = GetComponent<CharacterController>();
     }
-    public override void OnNetworkSpawn()
+
+    public override void Spawned()
     {
-        base.OnNetworkSpawn();
+        base.Spawned();
 
-        // רק הבעלים צריך לעשות את זה
-        if (!IsOwner)
-            return;
+        // זיהוי תפקיד לפי שם האובייקט (Traveller/Nav) – כמו בקוד המקורי
+        DetectRoleByName();
 
-        // המטייל = ה־Host
-        if (IsHost)
+        // המטייל נרשם ל-TutorialManager בקליינט שיש לו InputAuthority עליו
+        if (HasInputAuthority && isTraveller)
         {
-            isTraveller = true;
-
-            var tm = Object.FindFirstObjectByType<TutorialManager>();
+            var tm = FindFirstObjectByType<TutorialManager>();
             if (tm != null)
             {
                 tm.RegisterTraveller(transform);
@@ -45,20 +51,28 @@ public class PlayerMovement1P : NetworkBehaviour
                     tm.RegisterTravellerCamera(cam);
             }
         }
-        else
-        {
-            isTraveller = false;
-        }
     }
 
-    void Start()
+    private void Start()
     {
-        tutorial = Object.FindFirstObjectByType<TutorialManager>();
-        isTraveller = name.Contains("Trav");
-        isNavigator = name.Contains("Nav");
+        tutorial = FindFirstObjectByType<TutorialManager>();
+
+        // גיבוי – אם משום מה Spawned לא רץ לפני Start
+        if (!isTraveller && !isNavigator)
+            DetectRoleByName();
     }
 
-    // =====================  API  =====================
+    private void DetectRoleByName()
+    {
+        string n = gameObject.name;
+        isTraveller = n.Contains("Trav");
+        isNavigator = n.Contains("Nav");
+    }
+
+    // -------------------------------------------------------
+    // PUBLIC API
+    // -------------------------------------------------------
+
     public void SetFrozen(bool freeze)
     {
         movementFrozen = freeze;
@@ -72,14 +86,32 @@ public class PlayerMovement1P : NetworkBehaviour
 
     public bool IsFrozen => movementFrozen;
 
-    // =====================  UPDATE  =====================
-    void Update()
+    /// <summary>
+    /// Teleport בטוח לנקודת התחלה (משתמש ב-CharacterController כמו קודם).
+    /// </summary>
+    public void TeleportToStart(Vector3 pos)
     {
-        if (!IsOwner) return;
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
+
+        velocity = Vector3.zero;
+        controller.enabled = false;
+        transform.position = pos;
+        controller.enabled = true;
+    }
+
+    // -------------------------------------------------------
+    // UPDATE (LOCAL INPUT)
+    // -------------------------------------------------------
+
+    private void Update()
+    {
+        // רק מי שיש לו InputAuthority קורא קלט ומזיז את הדמות שלו
+        if (!HasInputAuthority) return;
         if (controller == null) return;
         if (GameManager.Instance == null) return;
 
-        // --- STOP ---
+        // --- עצירה מוחלטת (טוטוריאל/לוקים) ---
         if (movementFrozen)
         {
             controller.Move(Vector3.zero);
@@ -91,13 +123,13 @@ public class PlayerMovement1P : NetworkBehaviour
 
         bool moved = Mathf.Abs(h) > 0.01f || Mathf.Abs(v) > 0.01f;
 
-        // ---- שליחת אירוע תנועה לסרבר (טוטוריאל) ----
-        if (moved && tutorial != null && tutorial.TutorialActive.Value)
+        // ---- שליחת אירוע תנועה ל-StateAuthority (טוטוריאל) ----
+        if (moved && tutorial != null && tutorial.TutorialActive)
         {
             if (isTraveller)
-                NotifyMovementServerRpc(true);   // Traveller
+                NotifyMovementRpc(true);   // Traveller
             else if (isNavigator)
-                NotifyMovementServerRpc(false);  // Navigator
+                NotifyMovementRpc(false);  // Navigator
         }
 
         // ---- תנועה רגילה ----
@@ -112,29 +144,23 @@ public class PlayerMovement1P : NetworkBehaviour
         controller.Move(velocity * Time.deltaTime);
     }
 
-    // =====================  ServerRpc לתנועה  =====================
+    // -------------------------------------------------------
+    // RPC – תנועת שחקן לצורך טוטוריאל
+    // -------------------------------------------------------
 
-    [ServerRpc]
-    private void NotifyMovementServerRpc(bool isTraveller)
+    /// <summary>
+    /// נקרא מהקליינט שבבעלותו השחקן, ומגיע ל-StateAuthority בלבד.
+    /// שם אנחנו מעדכנים את ה-TutorialManager.
+    /// </summary>
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    private void NotifyMovementRpc(bool traveller, RpcInfo info = default)
     {
-        var tm = Object.FindFirstObjectByType<TutorialManager>();
+        var tm = FindFirstObjectByType<TutorialManager>();
         if (tm == null) return;
 
-        if (isTraveller)
+        if (traveller)
             tm.NotifyTravellerMoved();
         else
             tm.NotifyNavigatorMoved();
-    }
-
-    // Teleport safe
-    public void TeleportToStart(Vector3 pos)
-    {
-        if (controller == null)
-            controller = GetComponent<CharacterController>();
-
-        velocity = Vector3.zero;
-        controller.enabled = false;
-        transform.position = pos;
-        controller.enabled = true;
     }
 }

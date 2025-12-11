@@ -1,6 +1,6 @@
-﻿    using System.Collections;
-    using TMPro;
-    using UnityEngine;
+﻿using System.Collections;
+using TMPro;
+using UnityEngine;
 
 public class HUDManager : MonoBehaviour
 {
@@ -24,7 +24,7 @@ public class HUDManager : MonoBehaviour
     private void ShowAndHide(string travellerMsg, string navigatorMsg, float duration)
     {
         var tm = FindFirstObjectByType<TutorialManager>();
-        if (tm != null && tm.TutorialActive.Value)
+        if (tm != null && tm.TutorialActive)
             return; // בזמן טוטוריאל לא נוגעים בהודעות הרגילות
 
         if (!string.IsNullOrEmpty(travellerMsg) && Traveller != null)
@@ -116,7 +116,6 @@ public class HUDManager : MonoBehaviour
             Traveller.HidePuzzle();
     }
 
-
     public void UpdateHUDs() => UpdateHUD();
     public void FlashLifeIcons() => FlashTravellerLife();
 
@@ -149,6 +148,7 @@ public class HUDManager : MonoBehaviour
 
         UpdateHUD();
     }
+
     public void NavWorldNotReady()
     {
         ShowMessageForNavigator("עולם המשחק לא מוכן");
@@ -208,6 +208,4 @@ public class HUDManager : MonoBehaviour
     {
         ShowMessageForNavigator("ניתן להשתמש במצוף רק כשהחידה פתוחה");
     }
-
-
 }

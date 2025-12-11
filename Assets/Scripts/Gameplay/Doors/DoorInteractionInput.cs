@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-
+using Fusion;
 public class DoorInteractionInput : MonoBehaviour
 {
     private DoorController currentDoor;

@@ -1,18 +1,23 @@
+// PlayerRoleComponent.cs  (Fusion 2)
+using Fusion;
 using UnityEngine;
-using Unity.Netcode;
 
 public class PlayerRoleComponent : NetworkBehaviour
 {
-    public PlayerRole Role;
+    // Enum קיים אצלך איפשהו בפרויקט
+    // public enum PlayerRole { Traveller, Navigator }
 
-    // כדי שהשרת יוכל לזהות מי זה מי
-    public override void OnNetworkSpawn()
+    [Networked]
+    public PlayerRole Role { get; set; }
+
+    public override void Spawned()
     {
-        base.OnNetworkSpawn();
+        base.Spawned();
 
-        // רק דוגמא — אתה תגדיר את זה בזמן הספאון
-        // Role = RoleManager.Role; 
+        // את Role עצמם תגדיר בשלב הספאון, למשל:
+        // Runner.Spawn(prefab, pos, rot, player, (runner, obj) =>
+        // {
+        //     obj.GetComponent<PlayerRoleComponent>().Role = PlayerRole.Traveller;
+        // });
     }
 }
-
-

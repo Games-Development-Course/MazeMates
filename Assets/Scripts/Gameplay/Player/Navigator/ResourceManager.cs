@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
-using Unity.Netcode;
+﻿// ResourceManager.cs (Fusion 2)
+using System.Collections.Generic;
+using Fusion;
 using UnityEngine;
 
 public class ResourceManager : NetworkBehaviour
@@ -9,9 +10,9 @@ public class ResourceManager : NetworkBehaviour
     [Header("Bomb Settings")]
     public float bombRemoveRange = 4f;
 
-    [Header("Prefabs")]
-    public GameObject heartPrefab;
-    public GameObject lifebuoyEffectPrefab;
+    [Header("Prefabs (Fusion NetworkPrefabRef)")]
+    public NetworkPrefabRef heartPrefab;
+    public NetworkPrefabRef lifebuoyEffectPrefab;
 
     private TutorialManager tutorial;
 
@@ -19,13 +20,15 @@ public class ResourceManager : NetworkBehaviour
     // INITIALIZATION
     // ============================================================
 
-    public override void OnNetworkSpawn()
+    public override void Spawned()
     {
+        base.Spawned();
+
         Instance = this;
         tutorial = FindFirstObjectByType<TutorialManager>();
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[ResourceManager] NetworkSpawn | Server={IsServer} | Client={IsClient}");
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            $"[ResourceManager] Spawned | StateAuthority={Object.HasStateAuthority} | RunnerMode={Runner.GameMode}");
     }
 
     private void Awake()
@@ -40,10 +43,10 @@ public class ResourceManager : NetworkBehaviour
 
     public void TryRemoveBomb()
     {
-        if (!IsServer)
+        if (!Object.HasStateAuthority)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                "[CLIENT] Sending RequestRemoveBombRpc");
+            Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+                "[CLIENT] TryRemoveBomb → RequestRemoveBombRpc");
             RequestRemoveBombRpc();
             return;
         }
@@ -53,10 +56,10 @@ public class ResourceManager : NetworkBehaviour
 
     public void TryPlaceHeart()
     {
-        if (!IsServer)
+        if (!Object.HasStateAuthority)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                "[CLIENT] Sending RequestPlaceHeartRpc");
+            Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+                "[CLIENT] TryPlaceHeart → RequestPlaceHeartRpc");
             RequestPlaceHeartRpc();
             return;
         }
@@ -66,10 +69,10 @@ public class ResourceManager : NetworkBehaviour
 
     public void TryUseLifebuoy()
     {
-        if (!IsServer)
+        if (!Object.HasStateAuthority)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                "[CLIENT] Sending RequestUseLifebuoyRpc");
+            Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+                "[CLIENT] TryUseLifebuoy → RequestUseLifebuoyRpc");
             RequestUseLifebuoyRpc();
             return;
         }
@@ -83,22 +86,22 @@ public class ResourceManager : NetworkBehaviour
 
     private void ServerRemoveBomb()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            "[SERVER] ServerRemoveBomb called");
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            "[STATE] ServerRemoveBomb called");
 
         GameManager gm = GameManager.Instance;
         if (gm == null || gm.traveller == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                "[SERVER] Traveller missing");
+            Debug.LogFormat(UnityEngine.LogType.Warning, LogOption.NoStacktrace, null,
+                "[STATE] Traveller missing");
             NavNoTravellerRpc();
             return;
         }
 
         if (gm.BombRemovals <= 0)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                "[SERVER] No BombRemovals left");
+            Debug.LogFormat(UnityEngine.LogType.Warning, LogOption.NoStacktrace, null,
+                "[STATE] No BombRemovals left");
             NavNoBombAttemptsRpc();
             return;
         }
@@ -108,18 +111,18 @@ public class ResourceManager : NetworkBehaviour
 
         if (bombObj == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                "[SERVER] No bomb found near traveller");
+            Debug.LogFormat(UnityEngine.LogType.Warning, LogOption.NoStacktrace, null,
+                "[STATE] No bomb found near traveller");
             NavNoBombFoundRpc();
             return;
         }
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[SERVER] Removing bomb: {bombObj.name}");
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            $"[STATE] Removing bomb: {bombObj.name}");
 
-        NetworkObject no = bombObj.GetComponent<NetworkObject>();
-        if (no != null)
-            no.Despawn(true);
+        var no = bombObj.GetComponent<NetworkObject>();
+        if (no != null && Runner != null)
+            Runner.Despawn(no);
         else
             Destroy(bombObj);
 
@@ -138,8 +141,8 @@ public class ResourceManager : NetworkBehaviour
         GameObject closest = null;
         float best = Mathf.Infinity;
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            "[SERVER] Scanning bombs...");
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            "[STATE] Scanning bombs...");
 
         // 1) Bomb prefabs with tag
         GameObject[] tagged = GameObject.FindGameObjectsWithTag("Bomb");
@@ -172,13 +175,13 @@ public class ResourceManager : NetworkBehaviour
 
         if (closest == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                "[SERVER] No bomb found");
+            Debug.LogFormat(UnityEngine.LogType.Warning, LogOption.NoStacktrace, null,
+                "[STATE] No bomb found");
         }
         else
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                $"[SERVER] Closest bomb = {closest.name}");
+            Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+                $"[STATE] Closest bomb = {closest.name}");
         }
 
         return closest;
@@ -191,7 +194,7 @@ public class ResourceManager : NetworkBehaviour
     private void ServerPlaceHeart()
     {
         GameManager gm = GameManager.Instance;
-        if (gm == null || gm.traveller == null) return;
+        if (gm == null || gm.traveller == null || Runner == null) return;
 
         if (gm.HeartPlacements <= 0)
         {
@@ -199,12 +202,11 @@ public class ResourceManager : NetworkBehaviour
             return;
         }
 
-        Vector3 pos = gm.traveller.transform.position + gm.traveller.transform.forward * 1f;
+        Vector3 pos = gm.traveller.transform.position +
+                      gm.traveller.transform.forward * 1f;
 
-        GameObject h = Instantiate(heartPrefab, pos, Quaternion.identity);
-        NetworkObject no = h.GetComponent<NetworkObject>();
-        if (no != null)
-            no.Spawn();
+        // Fusion spawn
+        Runner.Spawn(heartPrefab, pos, Quaternion.identity, Object.StateAuthority);
 
         gm.HeartPlacements--;
         SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
@@ -233,69 +235,75 @@ public class ResourceManager : NetworkBehaviour
             return;
         }
 
-        // טותוריאל
+        // טוטוריאל
         tutorial?.NotifyNavigatorGaveLifebuoy();
 
-        // רמז – תמיד רק על השרת
+        // רמז – תמיד רק על ה-StateAuthority
         gm.activePuzzleDoor?.GetPuzzle()?.RevealRandomHint();
 
         // שליחת רמז גם ללקוח של המטייל
-        RevealHintClientRpc();
+        RevealHintRpc();
 
         // הורדת כמות
         gm.lifebuoys--;
         SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
     }
 
-
     // ============================================================
-    // RPC – CLIENT → SERVER
+    // RPC – CLIENT → STATEAUTHORITY
     // ============================================================
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestRemoveBombRpc()
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RequestRemoveBombRpc(RpcInfo info = default)
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            "[SERVER] RequestRemoveBombRpc received");
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            "[STATE] RequestRemoveBombRpc received");
         ServerRemoveBomb();
     }
 
-    [Rpc(SendTo.ClientsAndHost)]
-    private void RevealHintClientRpc()
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RequestPlaceHeartRpc(RpcInfo info = default)
+    {
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            "[STATE] RequestPlaceHeartRpc received");
+        ServerPlaceHeart();
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RequestUseLifebuoyRpc(RpcInfo info = default)
+    {
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            "[STATE] RequestUseLifebuoyRpc received");
+        ServerUseLifebuoy();
+    }
+
+    // ============================================================
+    // RPC – STATEAUTHORITY → ALL — Hint
+    // ============================================================
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RevealHintRpc(RpcInfo info = default)
     {
         GameManager gm = GameManager.Instance;
         if (gm == null) return;
 
         // רק המטייל צריך לראות חלקי פאזל
-        if (gm.traveller != null && gm.traveller.GetComponent<NetworkObject>().IsOwner)
+        if (gm.traveller != null)
         {
-            gm.activePuzzleDoor?.GetPuzzle()?.RevealRandomHint();
+            var travellerNo = gm.traveller.GetComponent<NetworkObject>();
+            if (travellerNo != null && travellerNo.HasInputAuthority)
+            {
+                gm.activePuzzleDoor?.GetPuzzle()?.RevealRandomHint();
+            }
         }
     }
 
-
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestPlaceHeartRpc()
-    {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            "[SERVER] RequestPlaceHeartRpc received");
-        ServerPlaceHeart();
-    }
-
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestUseLifebuoyRpc()
-    {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            "[SERVER] RequestUseLifebuoyRpc received");
-        ServerUseLifebuoy();
-    }
-
     // ============================================================
-    // RPC – SERVER → CLIENTS — Resource Sync
+    // RPC – STATEAUTHORITY → ALL — Resource Sync
     // ============================================================
 
-    [Rpc(SendTo.Everyone)]
-    private void SyncResourceCountsRpc(int lifebuoys, int hearts, int bombs)
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void SyncResourceCountsRpc(int lifebuoys, int hearts, int bombs, RpcInfo info = default)
     {
         GameManager gm = GameManager.Instance;
         if (gm == null) return;
@@ -308,13 +316,30 @@ public class ResourceManager : NetworkBehaviour
     }
 
     // ============================================================
-    // RPC – SERVER → CLIENTS — HUD messages
+    // RPC – STATEAUTHORITY → ALL — HUD messages
     // ============================================================
 
-    [Rpc(SendTo.Everyone)] private void NavNoHeartsLeftRpc() => HUDManager.Instance?.NavNoHeartsLeft();
-    [Rpc(SendTo.Everyone)] private void NavNoTravellerRpc() => HUDManager.Instance?.NavNoTraveller();
-    [Rpc(SendTo.Everyone)] private void NavNoBombAttemptsRpc() => HUDManager.Instance?.NavNoBombAttempts();
-    [Rpc(SendTo.Everyone)] private void NavNoBombFoundRpc() => HUDManager.Instance?.NavNoBombFound();
-    [Rpc(SendTo.Everyone)] private void NavNoLifebuoysRpc() => HUDManager.Instance?.NavNoLifebuoys();
-    [Rpc(SendTo.Everyone)] private void NavLifebuoyOnlyInPuzzleRpc() => HUDManager.Instance?.NavLifebuoyOnlyInPuzzle();
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void NavNoHeartsLeftRpc(RpcInfo info = default)
+        => HUDManager.Instance?.NavNoHeartsLeft();
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void NavNoTravellerRpc(RpcInfo info = default)
+        => HUDManager.Instance?.NavNoTraveller();
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void NavNoBombAttemptsRpc(RpcInfo info = default)
+        => HUDManager.Instance?.NavNoBombAttempts();
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void NavNoBombFoundRpc(RpcInfo info = default)
+        => HUDManager.Instance?.NavNoBombFound();
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void NavNoLifebuoysRpc(RpcInfo info = default)
+        => HUDManager.Instance?.NavNoLifebuoys();
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void NavLifebuoyOnlyInPuzzleRpc(RpcInfo info = default)
+        => HUDManager.Instance?.NavLifebuoyOnlyInPuzzle();
 }

@@ -1,141 +1,112 @@
-﻿// PlayerCamera1P.cs
-using Unity.Netcode;
+﻿// PlayerCamera1P.cs  (Fusion 2)
+using Fusion;
 using UnityEngine;
 
+[RequireComponent(typeof(Camera))]
 public class PlayerCamera1P : NetworkBehaviour
 {
-    public float mouseSensitivity = 200f;
-    public Transform playerBody;
+    [Header("Mouse Look")]
+    public float sensitivityX = 180f;
+    public float sensitivityY = 180f;
+    public float minY = -80f;
+    public float maxY = 80f;
 
-    float xRotation = 0f;
+    [Header("Links")]
+    [SerializeField] private Transform bodyRoot; // אם ריק – ניקח parent
+    [SerializeField] private AudioListener audioListener;
 
-    private bool cameraFrozen = false;
-    private float autoUnlockIn = -1f;
+    private Camera cam;
+    private float rotX;
+    private bool cameraFrozen;
 
-    private TutorialManager tutorial;
-    private bool isTraveller;
-    private bool isNavigator;
+    public bool IsTraveller => CompareTag("Traveller");
+    public bool IsNavigator => CompareTag("Navigator");
 
-    void Start()
+    private void Awake()
     {
-        if (!IsOwner)
-        {
+        cam = GetComponent<Camera>();
+        if (bodyRoot == null && transform.parent != null)
+            bodyRoot = transform.parent;
+
+        if (audioListener == null)
+            audioListener = GetComponent<AudioListener>();
+    }
+
+    public override void Spawned()
+    {
+        base.Spawned();
+
+        bool isMine = Object.HasInputAuthority;
+
+        if (cam != null)
+            cam.enabled = isMine;
+
+        if (audioListener != null)
+            audioListener.enabled = isMine;
+
+        // לא מגלגלים מצלמה של שחקנים אחרים
+        if (!isMine)
             enabled = false;
-            return;
-        }
-
-        Cursor.lockState = CursorLockMode.Locked;
-
-        tutorial = Object.FindFirstObjectByType<TutorialManager>();
-
-        // 🔴 במקום name של המצלמה – לוקחים את השם של האב (השחקן)
-        var rootMovement = GetComponentInParent<PlayerMovement1P>();
-        if (rootMovement != null)
-        {
-            string rootName = rootMovement.gameObject.name;
-            isTraveller = rootName.Contains("Trav");
-            isNavigator = rootName.Contains("Nav");
-        }
-        else
-        {
-            // fallback – במקרה קצה
-            isTraveller = name.Contains("Trav");
-            isNavigator = name.Contains("Nav");
-        }
     }
 
-    void Update()
-    {
-        if (!IsOwner) return;
-        if (GameManager.Instance == null) return;
-        if (playerBody == null) return;
-        if (GameManager.Instance.inPuzzle) return;
-
-        // ====== FREEZE CAMERA ======
-        if (cameraFrozen)
-        {
-            transform.localRotation = Quaternion.identity;
-
-            if (autoUnlockIn > 0)
-            {
-                autoUnlockIn -= Time.deltaTime;
-                if (autoUnlockIn <= 0)
-                    cameraFrozen = false;
-            }
-
-            return;
-        }
-
-        // ====== RAW INPUT ======
-        float mouseX = Input.GetAxis("Mouse X");
-        float mouseY = Input.GetAxis("Mouse Y");
-
-        bool looked = Mathf.Abs(mouseX) > 0.01f || Mathf.Abs(mouseY) > 0.01f;
-
-        // ====== שליחת אירוע מבט לסרבר (טוטוריאל) ======
-        if (looked && tutorial != null && tutorial.TutorialActive.Value)
-        {
-            if (isTraveller)
-            {
-                SendLookServerRpc(true);   // Traveller
-            }
-            else if (isNavigator)
-            {
-                SendLookServerRpc(false);  // Navigator
-            }
-        }
-
-        // ====== CAMERA MOVEMENT ======
-        mouseX *= mouseSensitivity * Time.deltaTime;
-        mouseY *= mouseSensitivity * Time.deltaTime;
-
-        xRotation -= mouseY;
-        xRotation = Mathf.Clamp(xRotation, -90f, 90f);
-
-        transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-        playerBody.Rotate(Vector3.up * mouseX);
-    }
-
-    // ====== API ======
+    // ============================================================
+    // API מבחוץ (TutorialManager / PickupObject משתמשים בזה)
+    // ============================================================
 
     public void SetCameraFrozen(bool freeze)
     {
         cameraFrozen = freeze;
-        autoUnlockIn = -1f;
-
-        if (freeze)
-        {
-            // נועל מבט ואיפוס תזוזה
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-        }
-        else
-        {
-            // השחקנים בטוטוריאל צריכים להיות תמיד במצב נעול עכבר (FPS)
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-        }
     }
 
-    public void LockCameraForSeconds(float sec)
+    public void LockCameraForSeconds(float seconds)
+    {
+        if (!Object.HasInputAuthority)
+            return;
+
+        StopAllCoroutines();
+        StartCoroutine(LockRoutine(seconds));
+    }
+
+    private System.Collections.IEnumerator LockRoutine(float seconds)
     {
         cameraFrozen = true;
-        autoUnlockIn = sec;
+        yield return new WaitForSeconds(seconds);
+        cameraFrozen = false;
     }
 
-    public bool IsFrozen => cameraFrozen;
+    // ============================================================
+    // UPDATE – תנועת מצלמה לוקאלית
+    // ============================================================
 
-    // ====== SERVER RPC ======
-
-    [ServerRpc]
-    private void SendLookServerRpc(bool traveller)
+    private void Update()
     {
-        var tm = Object.FindFirstObjectByType<TutorialManager>();
-        if (tm == null) return;
+        if (!Object.HasInputAuthority)
+            return;
 
-        if (traveller)
-            tm.NotifyTravellerLooked();
+        if (cameraFrozen)
+            return;
+
+        float mouseX = Input.GetAxis("Mouse X") * sensitivityX * Time.deltaTime;
+        float mouseY = Input.GetAxis("Mouse Y") * sensitivityY * Time.deltaTime;
+
+        rotX -= mouseY;
+        rotX = Mathf.Clamp(rotX, minY, maxY);
+
+        // סיבוב גוף על ציר Y
+        if (bodyRoot != null)
+        {
+            bodyRoot.Rotate(Vector3.up * mouseX);
+        }
         else
-            tm.NotifyNavigatorLooked();
+        {
+            transform.parent?.Rotate(Vector3.up * mouseX);
+        }
+
+        // סיבוב המצלמה על ציר X
+        Vector3 euler = transform.localEulerAngles;
+        euler.x = rotX;
+        euler.y = 0f;
+        euler.z = 0f;
+        transform.localEulerAngles = euler;
     }
 }

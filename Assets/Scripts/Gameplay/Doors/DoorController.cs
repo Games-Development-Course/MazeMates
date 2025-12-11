@@ -1,8 +1,10 @@
-﻿using System.Collections;
+﻿// DoorController.cs
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Netcode;
+using Fusion;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class DoorController : NetworkBehaviour
 {
@@ -25,6 +27,7 @@ public class DoorController : NetworkBehaviour
     [Tooltip("Tag של ה-Quad של הטלוויזיה בחדר הנווט (למשל NavigatorScreenTV)")]
     [SerializeField] private string navigatorScreenTag = "NavigatorScreenTV";
 
+    // OLD SYSTEM SUPPORT
     public List<GameObject> spawnedHints = new List<GameObject>();
 
     private Transform pivot;
@@ -40,10 +43,12 @@ public class DoorController : NetworkBehaviour
         TryFindNavigatorScreenQuad();
     }
 
-    public override void OnNetworkSpawn()
+    public override void Spawned()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[DOOR SPAWN] {name} | NetId={NetworkObjectId}");
+        base.Spawned();
+
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            $"[DOOR SPAWN] {name} | NetId={Object.Id}");
 
         pad = GetComponentInChildren<PadTrigger>();
 
@@ -87,7 +92,7 @@ public class DoorController : NetworkBehaviour
 
     /// <summary>
     /// מחליף את המטריאל של המסך ל-URP/Unlit ומכניס לתוכו את ה-Texture של הפאזל.
-    /// נקרא בצד הלקוח אחרי שהשרת החליט להציג את הפאזל.
+    /// נקרא בצד הלקוח אחרי שה-StateAuthority החליט להציג את הפאזל.
     /// </summary>
     private void ApplyUnlitMaterial(Texture tex)
     {
@@ -158,6 +163,8 @@ public class DoorController : NetworkBehaviour
     {
         if (doorType == DoorType.Puzzle)
             return;
+
+        // כל קליינט יכול לבקש, אבל הביצוע אצל StateAuthority
         RequestOpenDoorRpc();
     }
 
@@ -172,15 +179,15 @@ public class DoorController : NetworkBehaviour
         Transform original = puzzlePrefab.transform.Find("OriginalImage");
         if (original == null) return null;
 
-        var img = original.GetComponentInChildren<UnityEngine.UI.Image>();
+        var img = original.GetComponentInChildren<Image>();
         if (img != null && img.sprite != null)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
                 $"[DoorController] Extracted preview sprite '{img.sprite.name}' from puzzle '{puzzlePrefab.name}'");
         }
         else
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+            Debug.LogFormat(UnityEngine.LogType.Warning, LogOption.NoStacktrace, null,
                 $"[DoorController] OriginalImage found but no sprite in '{puzzlePrefab.name}'");
         }
 
@@ -191,10 +198,11 @@ public class DoorController : NetworkBehaviour
     // RPC — OPEN NORMAL/EXIT DOOR
     // ============================================================
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    public void RequestOpenDoorRpc()
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    public void RequestOpenDoorRpc(RpcInfo info = default)
     {
-        if (!IsServer) return;
+        if (!Object.HasStateAuthority)
+            return;
 
         var tutorial = FindAnyObjectByType<TutorialManager>();
 
@@ -206,18 +214,21 @@ public class DoorController : NetworkBehaviour
                 tutorial.NotifyNavigatorOpenedExitDoor();
         }
 
-        StartCoroutine(OpenRoutine(openAngle));
+        // StateAuthority מפעיל את האנימציה לכולם
         OpenDoorRpc();
     }
 
-    [Rpc(SendTo.Everyone)]
-    private void OpenDoorRpc()
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void OpenDoorRpc(RpcInfo info = default)
     {
         StartCoroutine(OpenRoutine(openAngle));
     }
 
     private IEnumerator OpenRoutine(float angle)
     {
+        if (pivot == null)
+            yield break;
+
         Quaternion target = Quaternion.Euler(0, angle, 0);
 
         while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
@@ -279,7 +290,7 @@ public class DoorController : NetworkBehaviour
 
     public static DoorController FindDoorPlayerIsOn()
     {
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
+        foreach (var door in UnityEngine.Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
             if (door.TravellerIsOnPad())
                 return door;
@@ -292,7 +303,7 @@ public class DoorController : NetworkBehaviour
 
     public static DoorController FindDoorPlayerIsOn(DoorType type)
     {
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
+        foreach (var door in UnityEngine.Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
             if (door.doorType == type && door.TravellerIsOnPad())
                 return door;
@@ -305,7 +316,7 @@ public class DoorController : NetworkBehaviour
         DoorController nearest = null;
         float minDist = float.MaxValue;
 
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
+        foreach (var door in UnityEngine.Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
             if (!door.TravellerIsOnPad()) continue;
 
@@ -324,7 +335,7 @@ public class DoorController : NetworkBehaviour
         DoorController nearest = null;
         float minDist = float.MaxValue;
 
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
+        foreach (var door in UnityEngine.Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
             if (door.doorType != type) continue;
             if (!door.TravellerIsOnPad()) continue;
@@ -341,7 +352,7 @@ public class DoorController : NetworkBehaviour
 
     public static DoorController FindPuzzleDoorWithTravellerOnPad()
     {
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
+        foreach (var door in UnityEngine.Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
             if (door.doorType == DoorType.Puzzle && door.TravellerIsOnPad())
                 return door;
@@ -358,20 +369,20 @@ public class DoorController : NetworkBehaviour
         navigatorPreview = sprite;
         bool showPuzzle = sprite != null && sprite.texture != null;
 
-        if (!IsServer)
-            RequestSetNavigatorScreenServerRpc(showPuzzle);
+        if (!Object.HasStateAuthority)
+            RequestSetNavigatorScreenRpc(showPuzzle);
         else
-            SetNavigatorScreenClientRpc(showPuzzle);
+            SetNavigatorScreenRpc(showPuzzle);
     }
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestSetNavigatorScreenServerRpc(bool showPuzzle)
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RequestSetNavigatorScreenRpc(bool showPuzzle, RpcInfo info = default)
     {
-        SetNavigatorScreenClientRpc(showPuzzle);
+        SetNavigatorScreenRpc(showPuzzle);
     }
 
-    [Rpc(SendTo.Everyone)]
-    private void SetNavigatorScreenClientRpc(bool showPuzzle)
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void SetNavigatorScreenRpc(bool showPuzzle, RpcInfo info = default)
     {
         if (!showPuzzle)
         {
@@ -389,12 +400,12 @@ public class DoorController : NetworkBehaviour
         if (navigatorPreview != null && navigatorPreview.texture != null)
         {
             ApplyUnlitMaterial(navigatorPreview.texture);
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
                 $"[DoorController] Applied UNLIT puzzle texture '{navigatorPreview.name}' on '{name}'");
         }
         else
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+            Debug.LogFormat(UnityEngine.LogType.Warning, LogOption.NoStacktrace, null,
                 $"[DoorController] Cannot apply puzzle texture — no valid sprite on {name}");
         }
     }
@@ -403,42 +414,27 @@ public class DoorController : NetworkBehaviour
     // PUZZLE OPEN — RPC
     // ============================================================
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    public void RequestOpenPuzzleDoorRpc()
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    public void RequestOpenPuzzleDoorRpc(RpcInfo info = default)
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[PUZZLE-RPC] RequestOpenPuzzleDoorRpc CALLED on {(IsServer ? "SERVER" : "CLIENT")} | door={name}");
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            $"[PUZZLE-RPC] RequestOpenPuzzleDoorRpc CALLED on {(Object.HasStateAuthority ? "STATE-AUTHORITY" : "CLIENT")} | door={name}");
 
-        if (!IsServer) return;
+        if (!Object.HasStateAuthority) return;
 
-        OpenPuzzleForTravellerClientRpc(NetworkObjectId);
+        OpenPuzzleForTravellerRpc();
     }
 
-    [Rpc(SendTo.Everyone)]
-    private void OpenPuzzleForTravellerClientRpc(ulong doorId)
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void OpenPuzzleForTravellerRpc(RpcInfo info = default)
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[PUZZLE-RPC] OpenPuzzleForTravellerClientRpc on {(IsServer ? "SERVER" : "CLIENT")} | doorId={doorId}");
-
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(doorId, out NetworkObject obj))
-        {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[PUZZLE-RPC] doorId {doorId} not found in SpawnedObjects");
-            return;
-        }
-
-        DoorController door = obj.GetComponent<DoorController>();
-        if (door == null)
-        {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                "[PUZZLE-RPC] NetworkObject has no DoorController");
-            return;
-        }
+        Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
+            $"[PUZZLE-RPC] OpenPuzzleForTravellerRpc on {(Object.HasStateAuthority ? "STATE-AUTHORITY" : "CLIENT")} | door={name}");
 
         var gm = GameManager.Instance;
         if (gm == null || gm.traveller == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+            Debug.LogFormat(UnityEngine.LogType.Warning, LogOption.NoStacktrace, null,
                 "[PUZZLE-RPC] traveller uninitialized");
             return;
         }
@@ -446,18 +442,17 @@ public class DoorController : NetworkBehaviour
         var travellerNet = gm.traveller.GetComponent<NetworkObject>();
         if (travellerNet == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
+            Debug.LogFormat(UnityEngine.LogType.Warning, LogOption.NoStacktrace, null,
                 "[PUZZLE-RPC] traveller has no NetworkObject");
             return;
         }
 
-        // Puzzle can only open on the traveller's client
-        if (travellerNet.IsOwner)
+        // הפאזל נפתח רק בלקוח שהטרוולר שלו מחזיק InputAuthority
+        if (travellerNet.HasInputAuthority)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+            Debug.LogFormat(UnityEngine.LogType.Log, LogOption.NoStacktrace, null,
                 "[PUZZLE-RPC] Traveller owns this client — opening puzzle");
-            door.GetPuzzle()?.TryOpen();
+            GetPuzzle()?.TryOpen();
         }
     }
 }
-    

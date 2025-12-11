@@ -1,23 +1,21 @@
+using Fusion;
 using UnityEngine;
-using Unity.Netcode;
 
 public class BombSpawner : NetworkBehaviour
 {
-    public GameObject bombPrefab;
+    public NetworkPrefabRef bombPrefab;
 
-    // מיקומים קבועים שאתה הכנסת
     public Vector3[] bombPositions;
 
-    public override void OnNetworkSpawn()
+    public override void Spawned()
     {
-        if (!IsServer) return;
+        // רק StateAuthority (בד"כ השרת) יוצר את הפצצות
+        if (!Object.HasStateAuthority)
+            return;
 
         foreach (var pos in bombPositions)
         {
-            var bomb = Instantiate(bombPrefab, pos, Quaternion.identity);
-
-            // חשוב לבצע spawn כדי שהשרת ינהל את האובייקט!
-            bomb.GetComponent<NetworkObject>().Spawn();
+            Runner.Spawn(bombPrefab, pos, Quaternion.identity);
         }
     }
 }

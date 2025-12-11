@@ -138,7 +138,6 @@ GameObject:
   m_Component:
   - component: {fileID: 586005464936740142}
   - component: {fileID: 4390649412359879759}
-  - component: {fileID: 4259433336141929157}
   m_Layer: 0
   m_Name: CameraRoot
   m_TagString: Untagged
@@ -177,23 +176,6 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   mouseSensitivity: 180
   playerBody: {fileID: 2257739788848215996}
-  lockDuration: 0.5
---- !u!114 &4259433336141929157
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2240195108116748787}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 46fe7968bf786aa4a865044445b29521, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FlyMovement
-  ShowTopMostFoldoutHeaderGroup: 1
-  speed: 10
-  fastSpeed: 25
-  verticalSpeed: 8
 --- !u!1 &7330188986425036585
 GameObject:
   m_ObjectHideFlags: 0
@@ -205,7 +187,6 @@ GameObject:
   - component: {fileID: 2257739788848215996}
   - component: {fileID: 585259377647973728}
   - component: {fileID: 3287058589265171847}
-  - component: {fileID: 7166125040148008634}
   - component: {fileID: 6341227320825677324}
   - component: {fileID: 6043512733424595472}
   - component: {fileID: 8866325411287206903}
@@ -247,7 +228,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1491307302
+  GlobalObjectIdHash: 3698802883
   InScenePlacedSourceGlobalObjectIdHash: 2688652144
   DeferredDespawnTick: 0
   Ownership: 1
@@ -272,19 +253,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 41589e89775d45e48ae7808d94037ead, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavigatorInteractionManager
-  ShowTopMostFoldoutHeaderGroup: 1
---- !u!114 &7166125040148008634
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7330188986425036585}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ae0c4d88ea884c74ab7a9c0cb04213e2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NavigatorActions
   ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &6341227320825677324
 MonoBehaviour:

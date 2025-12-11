@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.Collections;
 
 public class TutorialColliderAuto : MonoBehaviour
 {
@@ -7,10 +8,9 @@ public class TutorialColliderAuto : MonoBehaviour
 
     private bool hasDisabled = false;
 
-    private void Awake()
+    private IEnumerator Start()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[AUTO][Awake] Register collider on {name} | stepId={disableOnStepId}");
+        Debug.Log($"[AUTO][Start] Register collider on {name} | stepId={disableOnStepId}");
 
         TutorialManager.RegisterAutoCollider(this);
 
@@ -19,35 +19,31 @@ public class TutorialColliderAuto : MonoBehaviour
 
         if (targetCollider == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[AUTO] No collider found on {name}");
-            return;
+            Debug.LogWarning($"[AUTO] No collider found on {name}");
+            yield break;
         }
 
-        var tm = Object.FindFirstObjectByType<TutorialManager>();
+        // ⛔ מחכים עד שה-TutorialManager קיים
+        while (TutorialManager.Instance == null)
+            yield return null;
 
-        if (tm == null)
-        {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[AUTO] TutorialManager NOT FOUND in Awake on {name}");
-            return;
-        }
+        // ⛔ מחכים עד שה-TutorialManager עבר Spawned() (Object.IsValid == true)
+        while (!TutorialManager.Instance.Object || !TutorialManager.Instance.Object.IsValid)
+            yield return null;
 
-        bool isRunning = tm.IsTutorialRunningForStep(disableOnStepId);
+        // ⛔ עכשיו מותר לקרוא Networked properly
+        bool isRunning = TutorialManager.Instance.IsTutorialRunningForStep(disableOnStepId);
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[AUTO][Awake] {name}: IsTutorialRunningForStep({disableOnStepId}) = {isRunning}");
+        Debug.Log($"[AUTO][Start] {name}: IsTutorialRunningForStep({disableOnStepId}) = {isRunning}");
 
         if (isRunning)
-        {
             DisableCollider();
-        }
     }
 
+    // נקרא מה-RPC כששלב מתחיל
     public void OnStepStarted(string currentStepId)
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[AUTO][OnStepStarted] {name}: step started={currentStepId} | myStep={disableOnStepId}");
+        Debug.Log($"[AUTO][OnStepStarted] {name}: step started={currentStepId} | myStep={disableOnStepId}");
 
         if (!string.IsNullOrEmpty(disableOnStepId) &&
             currentStepId == disableOnStepId)
@@ -60,22 +56,19 @@ public class TutorialColliderAuto : MonoBehaviour
     {
         if (targetCollider == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[AUTO] DisableCollider FAILED on {name}: collider=null");
+            Debug.LogWarning($"[AUTO] DisableCollider FAILED on {name}: collider=null");
             return;
         }
 
         if (hasDisabled)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                $"[AUTO] {name}: collider already disabled previously.");
+            Debug.Log($"[AUTO] {name}: collider already disabled previously.");
             return;
         }
 
         targetCollider.enabled = false;
         hasDisabled = true;
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[AUTO] Disabled collider on {targetCollider.gameObject.name}");
+        Debug.Log($"[AUTO] Disabled collider on {targetCollider.gameObject.name}");
     }
 }

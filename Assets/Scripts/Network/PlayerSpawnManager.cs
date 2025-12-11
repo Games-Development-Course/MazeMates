@@ -1,120 +1,111 @@
-﻿using Unity.Netcode;
+﻿using Fusion;
+using Fusion.Sockets;
 using UnityEngine;
 using System.Collections;
+using System;
+using System.Collections.Generic;
 
-public class PlayerSpawnManager : MonoBehaviour
+public class PlayerSpawnManager : MonoBehaviour, INetworkRunnerCallbacks
 {
     [Header("Fallback spawn points")]
     public Transform travSpawn;
     public Transform navSpawn;
 
     [Header("Prefabs")]
-    public GameObject travellerPrefab;
-    public GameObject navigatorPrefab;
+    public NetworkPrefabRef travellerPrefab;
+    public NetworkPrefabRef navigatorPrefab;
 
     private bool navigatorSpawned = false;
+    private NetworkRunner runner;
+    private int joinCount = 0;
 
-    private void Awake()
+    private void Start()
     {
-        if (NetworkManager.Singleton != null)
-            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+        runner = FindObjectOfType<NetworkRunner>();
+        if (runner != null)
+            runner.AddCallbacks(this);
     }
 
-    private void OnDestroy()
-    {
-        if (NetworkManager.Singleton != null)
-            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
-    }
+    // =====================================================
+    // PLAYER JOIN LOGIC
+    // =====================================================
 
-    private void OnClientConnected(ulong clientId)
+    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        if (!NetworkManager.Singleton.IsServer)
-            return;
+        joinCount++;
 
-        // השחקן הראשון (Host) = מטייל
-        if (clientId == NetworkManager.Singleton.LocalClientId)
+        if (joinCount == 1)
         {
-            SpawnTraveller(clientId);
+            SpawnTraveller(player);
         }
-        else
+        else if (joinCount == 2)
         {
-            // שחקן נוסף = נווט
-            SpawnNavigator(clientId);
+            SpawnNavigator(player);
             OnNavigatorSpawned();
         }
     }
 
-    // ==========================================
+    // =====================================================
     // TRAVELLER
-    // ==========================================
+    // =====================================================
 
-    private void SpawnTraveller(ulong clientId)
+    private void SpawnTraveller(PlayerRef player)
     {
         var gm = GameManager.Instance;
 
         Vector3 pos = travSpawn.position;
         Quaternion rot = travSpawn.rotation;
 
-        var obj = Instantiate(travellerPrefab, pos, rot);
-        var netObj = obj.GetComponent<NetworkObject>();
-        netObj.SpawnAsPlayerObject(clientId);
+        var obj = runner.Spawn(
+            travellerPrefab,
+            pos,
+            rot,
+            player
+        );
 
-        EnableAllNetworkBehaviours(obj);
-
-        gm.traveller = obj;
+        gm.traveller = obj.gameObject;
         gm.travellerMove = obj.GetComponent<PlayerMovement1P>();
         gm.travellerCam = obj.GetComponentInChildren<PlayerCamera1P>();
 
-        Freeze(obj);
+        Freeze(obj.gameObject);
 
         HUDManager.Instance?.Traveller?.ShowMessage("ממתין להתחברות הנווט…");
 
         Debug.Log($"[Spawn] Traveller at {pos}");
     }
 
-    // ==========================================
+    // =====================================================
     // NAVIGATOR
-    // ==========================================
+    // =====================================================
 
-    private void SpawnNavigator(ulong clientId)
+    private void SpawnNavigator(PlayerRef player)
     {
         var gm = GameManager.Instance;
 
         Vector3 pos = navSpawn.position;
         Quaternion rot = navSpawn.rotation;
 
-        var obj = Instantiate(navigatorPrefab, pos, rot);
-        var netObj = obj.GetComponent<NetworkObject>();
-        netObj.SpawnAsPlayerObject(clientId);
+        var obj = runner.Spawn(
+            navigatorPrefab,
+            pos,
+            rot,
+            player
+        );
 
-        EnableAllNetworkBehaviours(obj);
-
-        gm.navigator = obj;
+        gm.navigator = obj.gameObject;
         gm.navigatorMove = obj.GetComponent<PlayerMovement1P>();
         gm.navigatorCam = obj.GetComponentInChildren<PlayerCamera1P>();
 
-        Freeze(obj);
+        Freeze(obj.gameObject);
 
         navigatorSpawned = true;
 
         Debug.Log($"[Spawn] Navigator at {pos}");
     }
 
-    // ==========================================
-    // ENABLE NETWORK BEHAVIOURS (FIX)
-    // ==========================================
-
-    private void EnableAllNetworkBehaviours(GameObject obj)
-    {
-        foreach (var nb in obj.GetComponentsInChildren<NetworkBehaviour>(true))
-        {
-            nb.enabled = true;
-        }
-    }
-
-    // ==========================================
+    // =====================================================
     // FREEZE / UNFREEZE
-    // ==========================================
+    // =====================================================
 
     private void Freeze(GameObject obj)
     {
@@ -134,9 +125,9 @@ public class PlayerSpawnManager : MonoBehaviour
         if (cam != null) cam.SetCameraFrozen(false);
     }
 
-    // ==========================================
-    // BOTH CONNECTED → START TUTORIAL
-    // ==========================================
+    // =====================================================
+    // TUTORIAL START
+    // =====================================================
 
     private void OnNavigatorSpawned()
     {
@@ -152,14 +143,33 @@ public class PlayerSpawnManager : MonoBehaviour
     {
         yield return new WaitForSeconds(0.2f);
 
-        if (HUDManager.Instance != null && HUDManager.Instance.Traveller != null)
-        {
-            HUDManager.Instance.Traveller.Clear();
-        }
+        HUDManager.Instance?.Traveller?.Clear();
 
         var t = FindFirstObjectByType<TutorialManager>();
         if (t != null)
             t.StartTutorial();
     }
+
+    // =====================================================
+    // REQUIRED EMPTY CALLBACKS (Fusion 2.x)
+    // =====================================================
+
+    public void OnConnectedToServer(NetworkRunner runner) { }
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
+    public void OnShutdown(NetworkRunner runner, ShutdownReason reason) { }
+    public void OnInput(NetworkRunner runner, NetworkInput input) { }
+    public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
+    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
+    public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
+    public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+    public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr msg) { }
+    public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
+    public void OnHostMigration(NetworkRunner runner, HostMigrationToken token) { }
+    public void OnSceneLoadStart(NetworkRunner runner) { }
+    public void OnSceneLoadDone(NetworkRunner runner) { }
+    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
 }
-    

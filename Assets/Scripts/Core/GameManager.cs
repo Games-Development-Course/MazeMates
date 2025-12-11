@@ -1,5 +1,5 @@
+// GameManager.cs
 using UnityEngine;
-using Unity.Netcode; // חשוב!
 
 public class GameManager : MonoBehaviour
 {
@@ -8,13 +8,13 @@ public class GameManager : MonoBehaviour
     [HideInInspector] public GameObject traveller;
     [HideInInspector] public GameObject navigator;
 
-    // השדות האלה כבר לא קריטיים ללוגיקה, אבל נשאיר למקרה שתשתמש בהם בעתיד
     [HideInInspector] public PlayerMovement1P travellerMove;
     [HideInInspector] public PlayerMovement1P navigatorMove;
 
     [HideInInspector] public PlayerCamera1P travellerCam;
     [HideInInspector] public PlayerCamera1P navigatorCam;
 
+    [Header("Gameplay State")]
     public int lives = 3;
     public int keys;
     public bool inPuzzle = false;
@@ -23,15 +23,22 @@ public class GameManager : MonoBehaviour
     public int HeartPlacements = 1;
     public int BombRemovals = 1;
 
+    [Header("Puzzle State")]
     public DoorController activePuzzleDoor;
     public int totalKeysInLevel = 0;
 
     private void Awake()
     {
         if (Instance == null)
+        {
             Instance = this;
+            // אם את רוצה שיישאר גם בין סצנות:
+            // DontDestroyOnLoad(gameObject);
+        }
         else
+        {
             Destroy(gameObject);
+        }
     }
 
     private void Start()
@@ -44,21 +51,45 @@ public class GameManager : MonoBehaviour
         return keys >= totalKeysInLevel;
     }
 
-    // ============================
-    // NETWORK START HELPERS
-    // ============================
+    // ============================================================
+    // FUSION START HELPERS (עוטפים את NetworkButtons)
+    // ============================================================
 
+    /// <summary>
+    /// נקרא מכפתורי UI / סקריפטים ישנים שעשו StartHost דרך GameManager.
+    /// עכשיו מעביר את הבקשה ל-NetworkButtons שעובד עם Fusion.
+    /// </summary>
     public void StartHost()
     {
-        Debug.Log("[GameManager] Starting Host…");
-        NetworkCleanup.Cleanup();
-        NetworkManager.Singleton.StartHost();
+        Debug.Log("[GameManager] Starting Host via Fusion…");
+
+        NetworkButtons buttons = FindObjectOfType<NetworkButtons>();
+        if (buttons == null)
+        {
+            Debug.LogError("[GameManager] No NetworkButtons found in scene – cannot StartHost");
+            return;
+        }
+
+        buttons.modeChoice = NetworkButtons.NetworkModeChoice.HostClient;
+        buttons.StartHost();
     }
 
+    /// <summary>
+    /// נקרא מכפתורי UI / סקריפטים ישנים שעשו StartClient דרך GameManager.
+    /// עכשיו מעביר את הבקשה ל-NetworkButtons שעובד עם Fusion.
+    /// </summary>
     public void StartClient()
     {
-        Debug.Log("[GameManager] Starting Client…");
-        NetworkCleanup.Cleanup();
-        NetworkManager.Singleton.StartClient();
+        Debug.Log("[GameManager] Starting Client via Fusion…");
+
+        NetworkButtons buttons = FindObjectOfType<NetworkButtons>();
+        if (buttons == null)
+        {
+            Debug.LogError("[GameManager] No NetworkButtons found in scene – cannot StartClient");
+            return;
+        }
+
+        buttons.modeChoice = NetworkButtons.NetworkModeChoice.HostClient;
+        buttons.StartClient();
     }
 }

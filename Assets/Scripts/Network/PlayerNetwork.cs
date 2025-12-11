@@ -1,56 +1,53 @@
-using Unity.Netcode;
+// PlayerNetwork.cs  (Fusion 2 demo script)
+using Fusion;
 using UnityEngine;
 
 public class PlayerNetwork : NetworkBehaviour
 {
-        
     public Camera playerCamera;
-    private void Start()
+
+    private MeshRenderer rend;
+    private AudioListener listener;
+
+    private void Awake()
     {
-        if (IsOwner)
-        {
-            GetComponent<MeshRenderer>().material.color = Color.green;
-        }
-        else
-        {
-            GetComponent<MeshRenderer>().material.color = Color.blue;
-        }
+        rend = GetComponent<MeshRenderer>();
+        if (playerCamera != null)
+            listener = playerCamera.GetComponent<AudioListener>();
     }
 
-
-    public override void OnNetworkSpawn()
+    public override void Spawned()
     {
-        var renderer = GetComponent<MeshRenderer>();
-        renderer.material = new Material(renderer.material);
+        base.Spawned();
 
-        if (IsOwner)
+        if (rend != null)
         {
-            renderer.material.color = Color.green;
-            playerCamera.enabled = true;
-
-            var listener = playerCamera.GetComponent<AudioListener>();
-            if (listener) listener.enabled = true;
+            // שיהיה מטריאל ייחודי לכל אובייקט
+            rend.material = new Material(rend.material);
         }
-        else
-        {
-            renderer.material.color = Color.blue;
-            playerCamera.enabled = false;
 
-            var listener = playerCamera.GetComponent<AudioListener>();
-            if (listener) listener.enabled = false;
-        }
+        bool isMine = Object.HasInputAuthority;
+
+        if (rend != null)
+            rend.material.color = isMine ? Color.green : Color.blue;
+
+        if (playerCamera != null)
+            playerCamera.enabled = isMine;
+
+        if (listener != null)
+            listener.enabled = isMine;
     }
 
-
-
-    void Update()
+    private void Update()
     {
-        if (!IsOwner) return;
+        if (!Object.HasInputAuthority)
+            return;
 
-        // תנועה פושטית רק לבדיקה
+        // תנועה פשוטה לבדיקה
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
 
-        transform.Translate(new Vector3(h, 0, v) * Time.deltaTime * 5f);
+        Vector3 move = new Vector3(h, 0f, v) * 5f * Time.deltaTime;
+        transform.Translate(move, Space.World);
     }
 }

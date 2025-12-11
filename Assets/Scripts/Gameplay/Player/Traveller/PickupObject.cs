@@ -1,5 +1,6 @@
+// PickupObject.cs (Fusion 2)
+using Fusion;
 using TMPro;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -27,8 +28,8 @@ public class PickupObject : NetworkBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // כל הלוגיקה מתבצעת רק על השרת
-        if (!IsServer)
+        // לוגיקת איסוף — רק על ה-StateAuthority (ה"שרת" בפיוז׳ן)
+        if (!Object.HasStateAuthority)
             return;
 
         if (!other.CompareTag("Player"))
@@ -43,11 +44,11 @@ public class PickupObject : NetworkBehaviour
         string finalMessage = customMessage;
         bool gameOver = false;
 
-        // נשלוף טוטוריאל פעם אחת
-        var tm = Object.FindFirstObjectByType<TutorialManager>();
+        // טוטוריאל פעם אחת
+        var tm = FindFirstObjectByType<TutorialManager>();
 
         // ---------------------------------------------------------
-        // עדכון ערכי משחק (רק בשרת)
+        // עדכון ערכי משחק (רק בסמכות)
         // ---------------------------------------------------------
         switch (type)
         {
@@ -56,7 +57,6 @@ public class PickupObject : NetworkBehaviour
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "אספת לב! קיבלת חיים נוספים.";
 
-                // ⭐ הטוטוריאל – המטייל אסף לב
                 tm?.NotifyTravellerPickedHeart();
                 break;
 
@@ -65,7 +65,6 @@ public class PickupObject : NetworkBehaviour
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "אספת מפתח!";
 
-                // ⭐ הטוטוריאל – המטייל אסף מפתח
                 tm?.NotifyTravellerPickedKey();
                 break;
 
@@ -95,9 +94,6 @@ public class PickupObject : NetworkBehaviour
 
                     var move = other.GetComponent<PlayerMovement1P>();
 
-                    // -------------------------------
-                    // תיקון חשוב – Traveller StartPoint
-                    // -------------------------------
                     if (move != null && PlayerStartPoint.TravellerPoint != null)
                     {
                         Vector3 resetPos = PlayerStartPoint.TravellerPoint.startPosition;
@@ -111,9 +107,9 @@ public class PickupObject : NetworkBehaviour
         }
 
         // ---------------------------------------------------------
-        // שולחים ל־Clients לעדכן HUD ולהציג הודעה
+        // שולחים לכל הקליינטים לעדכן HUD ולהציג הודעה
         // ---------------------------------------------------------
-        ApplyPickupClientRpc(
+        ApplyPickupRpc(
             type,
             finalMessage,
             messageColor,
@@ -126,17 +122,17 @@ public class PickupObject : NetworkBehaviour
 
         // השמדת האובייקט מהרשת
         var netObj = GetComponent<NetworkObject>();
-        if (netObj != null)
-            netObj.Despawn(true);
+        if (netObj != null && Runner != null)
+            Runner.Despawn(netObj);
         else
             Destroy(gameObject);
     }
 
     // ================================================================
-    //  CLIENT RPC – מציג הודעה ומעדכן HUD
+    //  RPC – מציג הודעה ומעדכן HUD אצל כולם
     // ================================================================
-    [ClientRpc]
-    private void ApplyPickupClientRpc(
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void ApplyPickupRpc(
         PickupType pickupType,
         string msg,
         Color color,
@@ -144,7 +140,8 @@ public class PickupObject : NetworkBehaviour
         int lives,
         int keys,
         int lifebuoys,
-        bool gameOver)
+        bool gameOver,
+        RpcInfo info = default)
     {
         HUDManager hud = HUDManager.Instance;
         GameManager gm = GameManager.Instance;
