@@ -13,16 +13,30 @@ public class StartMenuController : MonoBehaviour
     public string travelerScene = "TravelerScene";
     public string navigatorScene = "NavigatorScene";
 
-public Button startTutorialButton;
-    // In your UI script (e.g., HUDManager or StartScreen)
-public void SetupStartTutorialButton()
-{
-    var spawnManager = FindFirstObjectByType<PlayerSpawnManager>();
-    if (spawnManager != null)
+    public Button startTutorialButton;
+    public void SetupStartTutorialButton()
     {
-        startTutorialButton.onClick.AddListener(() => spawnManager.OnStartTutorialButtonPressed());
+        if (startTutorialButton == null) return;
+
+        // avoid duplicate listeners
+        startTutorialButton.onClick.RemoveAllListeners();
+
+        var spawnManager = FindFirstObjectByType<PlayerSpawnManager>();
+        if (spawnManager != null)
+        {
+            startTutorialButton.onClick.AddListener(() => spawnManager.OnStartTutorialButtonPressed());
+        }
+        else
+        {
+            Debug.Log("[StartMenu] PlayerSpawnManager not found in scene. Ensure managers are available or load them before using the Start Tutorial button.");
+        }
     }
-}
+
+    void Start()
+    {
+        SetupStartTutorialButton();
+    }
+
     public void OnStartButtonPressed()
     {
         // 1) Validate names

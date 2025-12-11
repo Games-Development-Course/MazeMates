@@ -135,7 +135,7 @@ public class PlayerSpawnManager : MonoBehaviour
     }
 
     // ==========================================
-    // BOTH CONNECTED → START TUTORIAL
+    // BOTH CONNECTED dont START TUTORIAL automatically
     // ==========================================
 
     private void OnNavigatorSpawned()
