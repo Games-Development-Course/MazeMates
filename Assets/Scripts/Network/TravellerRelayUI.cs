@@ -7,6 +7,8 @@ public class TravellerRelayUI : MonoBehaviour
 
     public async void OnStartHostClicked()
     {
+        Debug.Log("[TravellerRelayUI] >>> OnStartHostClicked pressed");
+
         // ???? Host ??? Relay ?????? Join Code
         string joinCode = await RelayManager.Instance.StartHostWithRelayAsync();
 

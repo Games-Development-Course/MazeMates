@@ -17,7 +17,7 @@ public class PlayerMovement1P : NetworkBehaviour
 
     private bool movementFrozen = false;   // Default state
 
-    // ------------- IMPORTANT: Awake עבור ה-Controller -------------
+    // ------------- IMPORTANT: Awake עבור ה-Controller -------------עןא
     void Awake()
     {
         controller = GetComponent<CharacterController>();

@@ -4,16 +4,12 @@ using Unity.Netcode;
 public class RoleHUDManager : MonoBehaviour
 {
     [Header("Root HUD objects")]
-    [SerializeField] private GameObject travellerHUD;   // TravellerHUD מההיררכיה
-    [SerializeField] private GameObject navigatorHUD;   // NavigatorHUD מההיררכיה
-
-    [Header("Environment objects")]
-    [SerializeField] private GameObject travEnvironment; // TravEnvironment
-    [SerializeField] private GameObject navEnvironment;  // NavEnvironment
+    [SerializeField] private GameObject travellerHUD; // TravellerHUD מההיררכיה
+    [SerializeField] private GameObject navigatorHUD; // NavigatorHUD מההיררכיה
 
     private void Start()
     {
-        RefreshHUDAndEnvironment();
+        RefreshHUD();
         TrySubscribeToNetworkEvents();
     }
 
@@ -47,7 +43,7 @@ public class RoleHUDManager : MonoBehaviour
 
     private void OnNetworkStateChanged()
     {
-        RefreshHUDAndEnvironment();
+        RefreshHUD();
     }
 
     private void OnClientConnected(ulong clientId)
@@ -55,7 +51,7 @@ public class RoleHUDManager : MonoBehaviour
         if (NetworkManager.Singleton != null &&
             clientId == NetworkManager.Singleton.LocalClientId)
         {
-            RefreshHUDAndEnvironment();
+            RefreshHUD();
         }
     }
 
@@ -64,24 +60,20 @@ public class RoleHUDManager : MonoBehaviour
         if (NetworkManager.Singleton != null &&
             clientId == NetworkManager.Singleton.LocalClientId)
         {
-            RefreshHUDAndEnvironment();
+            RefreshHUD();
         }
     }
 
-    private void RefreshHUDAndEnvironment()
+    private void RefreshHUD()
     {
         var nm = NetworkManager.Singleton;
 
         // אם אין NetworkManager או שעדיין לא התחברנו – מצב בחירה:
-        // שני ה-HUDים פעילים, שני ה-Envs כבויים.
+        // שני ה-HUDים פעילים.
         if (nm == null || (!nm.IsClient && !nm.IsServer))
         {
             SetActiveSafe(travellerHUD, true);
             SetActiveSafe(navigatorHUD, true);
-
-            SetActiveSafe(travEnvironment, false);
-            SetActiveSafe(navEnvironment, false);
-
             return;
         }
 
@@ -90,27 +82,18 @@ public class RoleHUDManager : MonoBehaviour
         {
             SetActiveSafe(travellerHUD, true);
             SetActiveSafe(navigatorHUD, false);
-
-            SetActiveSafe(travEnvironment, true);
-            SetActiveSafe(navEnvironment, false);
         }
         // Client רגיל = Navigator
         else if (nm.IsClient)
         {
             SetActiveSafe(travellerHUD, false);
             SetActiveSafe(navigatorHUD, true);
-
-            SetActiveSafe(travEnvironment, false);
-            SetActiveSafe(navEnvironment, true);
         }
         else
         {
-            // fallback במקרה קצה
+            // fallback במקרה קצה – להדליק את שניהם
             SetActiveSafe(travellerHUD, true);
             SetActiveSafe(navigatorHUD, true);
-
-            SetActiveSafe(travEnvironment, true);
-            SetActiveSafe(navEnvironment, true);
         }
     }
 
@@ -121,4 +104,6 @@ public class RoleHUDManager : MonoBehaviour
             go.SetActive(active);
         }
     }
+
+
 }

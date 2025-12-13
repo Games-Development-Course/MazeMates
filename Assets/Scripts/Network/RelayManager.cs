@@ -10,21 +10,19 @@ using Unity.Services.Authentication;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
 
-using Unity.Networking.Transport.Relay;
+using Unity.Networking.Transport.Relay;  // RelayServerData
 
 public class RelayManager : MonoBehaviour
 {
-    [Header("Relay settings")]
-    [Tooltip("Total players in the session (Host + Clients).")]
-    [SerializeField] private int maxPlayers = 2;
-
-    // For WebGL use secured WebSockets
-    private const string ConnectionType = "wss";
-
     public static RelayManager Instance { get; private set; }
 
+    [Header("Relay Settings")]
+    [SerializeField] private int maxConnections = 2;
+
+    // ל-WebGL חייבים WSS (במקום dtls / udp)
+    private const string ConnectionType = "wss";
+
     private bool _servicesInitialized;
-    private bool _servicesInitializing;
 
     private void Awake()
     {
@@ -40,30 +38,27 @@ public class RelayManager : MonoBehaviour
 
     private async void Start()
     {
-        // אפשרי להתחיל את האתחול כבר בשלב Start
         await EnsureUnityServicesInitializedAsync();
+        Debug.Log("[Relay] Unity Services ready.");
     }
 
-    // מבטיח ש-Unity Services ואת ה-Authentication יעלו פעם אחת בלבד
     private async Task EnsureUnityServicesInitializedAsync()
     {
-        if (_servicesInitialized || _servicesInitializing)
+        if (_servicesInitialized)
             return;
-
-        _servicesInitializing = true;
 
         try
         {
-            if (UnityServices.State != ServicesInitializationState.Initialized &&
-                UnityServices.State != ServicesInitializationState.Initializing)
+            if (UnityServices.State == ServicesInitializationState.Uninitialized)
             {
                 await UnityServices.InitializeAsync();
+                Debug.Log("[Relay] Unity Services initialized.");
             }
 
             if (!AuthenticationService.Instance.IsSignedIn)
             {
                 await AuthenticationService.Instance.SignInAnonymouslyAsync();
-                Debug.Log($"[Relay] Signed in. PlayerID = {AuthenticationService.Instance.PlayerId}");
+                Debug.Log($"[Relay] Signed in as player {AuthenticationService.Instance.PlayerId}");
             }
 
             _servicesInitialized = true;
@@ -72,69 +67,63 @@ public class RelayManager : MonoBehaviour
         {
             Debug.LogError($"[Relay] Failed to initialize Unity Services: {e}");
         }
-        finally
-        {
-            _servicesInitializing = false;
-        }
     }
 
-    private UnityTransport GetUnityTransport()
+    private UnityTransport GetTransport()
     {
-        var transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
-        if (transport == null)
+        var nm = NetworkManager.Singleton;
+        if (nm == null)
         {
-            transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            Debug.LogError("[Relay] NetworkManager.Singleton not found in scene.");
+            return null;
         }
 
+        var transport = nm.GetComponent<UnityTransport>();
         if (transport == null)
         {
-            Debug.LogError("[Relay] UnityTransport not found on NetworkManager.");
+            Debug.LogError("[Relay] UnityTransport component not found on NetworkManager.");
+            return null;
         }
 
         return transport;
     }
 
-    // מניח ש-maxPlayers כולל את ה-Host, אז connections = maxPlayers - 1
-    private int GetMaxConnections()
-    {
-        return Mathf.Max(1, maxPlayers - 1);
-    }
-
-    /// <summary>
-    /// יוצר allocation ב-Relay, מחזיר Join Code ומפעיל Host דרך Netcode.
-    /// </summary>
+    // ============================
+    // HOST
+    // ============================
     public async Task<string> StartHostWithRelayAsync()
     {
         await EnsureUnityServicesInitializedAsync();
 
+        var transport = GetTransport();
+        if (transport == null)
+            return null;
+
         try
         {
-            int maxConnections = GetMaxConnections();
-
-            // יצירת allocation ל-Host
+            // 1. יצירת Allocation ל-Host
             Allocation allocation =
                 await RelayService.Instance.CreateAllocationAsync(maxConnections);
 
-            // הגדרת נתוני השרת עבור UnityTransport באמצעות RelayServerData
-            var relayServerData = new RelayServerData(allocation, ConnectionType);
+            // 2. יצירת RelayServerData עם "wss" (חשוב ל-WebGL)
+            RelayServerData relayServerData =
+                new RelayServerData(allocation, ConnectionType);
 
-            var transport = GetUnityTransport();
-            if (transport == null)
-            {
-                return null; // או false בפונקציה של ה-Client
-            }
-
+            // 3. החלת ההגדרות על UnityTransport
             transport.SetRelayServerData(relayServerData);
 
-            // תמיד לעבוד עם WebSockets, גם באדיטור וגם בבילד
+            // חובה ל-WebGL
             transport.UseWebSockets = true;
 
-            // קבלת join code
+            // 4. קבלת Join Code
             string joinCode =
                 await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
+            Debug.Log($"[Relay] Host allocation created. JoinCode = {joinCode}");
+
+            // 5. StartHost של NGO
             bool started = NetworkManager.Singleton.StartHost();
-            Debug.Log($"[Relay] StartHost result = {started}, joinCode = {joinCode}");
+            Debug.Log($"[Relay] StartHost result = {started}");
 
             return started ? joinCode : null;
         }
@@ -145,45 +134,42 @@ public class RelayManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// מצטרף ל-Host לפי Join Code ומפעיל Client דרך Netcode.
-    /// </summary>
+    // ============================
+    // CLIENT
+    // ============================
     public async Task<bool> StartClientWithRelayAsync(string joinCode)
     {
-        if (string.IsNullOrWhiteSpace(joinCode))
-        {
-            Debug.LogWarning("[Relay] Join code is null or empty.");
-            return false;
-        }
-
         await EnsureUnityServicesInitializedAsync();
+
+        var transport = GetTransport();
+        if (transport == null)
+            return false;
 
         try
         {
-            // הצטרפות ל-allocation קיים לפי join code
+            // 1. JoinAllocation לפי Join Code
             JoinAllocation joinAllocation =
                 await RelayService.Instance.JoinAllocationAsync(joinCode);
 
-            // יצירת RelayServerData מתוך ה-JoinAllocation
-            var relayServerData = new RelayServerData(joinAllocation, ConnectionType);
+            // 2. RelayServerData עם "wss"
+            RelayServerData relayServerData =
+                new RelayServerData(joinAllocation, ConnectionType);
 
-            var transport = GetUnityTransport();
-            if (transport == null)
-            {
-                return false;
-            }
-
+            // 3. החלת ההגדרות על UnityTransport
             transport.SetRelayServerData(relayServerData);
+
+            // חובה ל-WebGL
             transport.UseWebSockets = true;
 
+            // 4. StartClient של NGO
             bool started = NetworkManager.Singleton.StartClient();
-            Debug.Log($"[Relay] StartClient result = {started} (joinCode = {joinCode})");
+            Debug.Log($"[Relay] StartClient result = {started}");
 
             return started;
         }
         catch (Exception e)
         {
-            Debug.LogError($"[Relay] Failed to start client with Relay: {e}");
+            Debug.LogError($"[Relay] Failed to start client with Relay (code={joinCode}): {e}");
             return false;
         }
     }
