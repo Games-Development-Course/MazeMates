@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿// ======================= TutorialManager.cs =======================
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -45,16 +46,24 @@ public class TutorialManager : NetworkBehaviour
             autoColliders.Add(c);
     }
 
-
     // ============================================================
     // NETWORK SPAWN
     // ============================================================
 
     public override void OnNetworkSpawn()
     {
+        base.OnNetworkSpawn();
+
         if (IsServer)
             TutorialActive.Value = false;
+
+        // ✅ במולטיפלייר פליי מוד יש היררכייה אחת -> לא מכבים HUD-ים פה
+        if (travellerHUD != null) travellerHUD.gameObject.SetActive(true);
+        if (navigatorHUD != null) navigatorHUD.gameObject.SetActive(true);
+
+        Debug.Log($"[TUTORIAL][OnNetworkSpawn] LocalClientId={NetworkManager.Singleton?.LocalClientId} IsHost={IsHost} IsClient={IsClient} IsServer={IsServer}");
     }
+
 
     private void OnEnable()
     {
@@ -67,7 +76,6 @@ public class TutorialManager : NetworkBehaviour
         if (NetworkManager.Singleton != null)
             NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
     }
-
 
     // ============================================================
     // CLIENT CONNECTED
@@ -100,8 +108,6 @@ public class TutorialManager : NetworkBehaviour
             p
         );
     }
-
-
 
     // ============================================================
     // START TUTORIAL
@@ -144,8 +150,6 @@ public class TutorialManager : NetworkBehaviour
         }
     }
 
-
-
     // ============================================================
     // STEP FLOW
     // ============================================================
@@ -158,16 +162,14 @@ public class TutorialManager : NetworkBehaviour
 
         if (currentIndex >= steps.Length)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                "[TUTORIAL] Finished all steps.");
+            Debug.Log("[TUTORIAL] Finished all steps.");
 
             stepActive = false;
             TutorialActive.Value = false;
             return;
         }
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[TUTORIAL] Next step index={currentIndex} stepId={Current.stepId} cond={Current.conditionType}");
+        Debug.Log($"[TUTORIAL] Next step index={currentIndex} stepId={Current.stepId} cond={Current.conditionType}");
 
         stepActive = true;
         conditionSatisfied = false;
@@ -183,7 +185,7 @@ public class TutorialManager : NetworkBehaviour
         ApplyLocks(Current);
         ShowStepHUD(Current);
 
-        // סיבוב המטייל והכיוון של המבט לפי ה-Target של השלב (אם מוגדר)
+        // סיבוב המטייל
         AlignTravellerForStep(Current);
 
         Current.onStepStart?.Invoke();
@@ -195,7 +197,6 @@ public class TutorialManager : NetworkBehaviour
         StepStartedCollidersClientRpc(id);
     }
 
-
     [ClientRpc]
     private void StepStartedCollidersClientRpc(string stepId)
     {
@@ -205,8 +206,6 @@ public class TutorialManager : NetworkBehaviour
                 c.OnStepStarted(stepId);
         }
     }
-
-
 
     // ============================================================
     // LOCKS
@@ -233,9 +232,9 @@ public class TutorialManager : NetworkBehaviour
         bool iAmTraveller = IsHost;
         bool iAmNavigator = !IsHost;
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[TUTORIAL] ApplyLocks  {(IsHost ? "HOST/Traveller" : "CLIENT/Navigator")} " +
-            $"Trav(M:{travellerLockMovement},C:{travellerLockCamera}) Nav(M:{navigatorLockMovement},C:{navigatorLockCamera})");
+        Debug.Log($"[TUTORIAL] ApplyLocks {(IsHost ? "HOST/Traveller" : "CLIENT/Navigator")} " +
+                  $"Trav(M:{travellerLockMovement},C:{travellerLockCamera}) " +
+                  $"Nav(M:{navigatorLockMovement},C:{navigatorLockCamera})");
 
         foreach (var m in Object.FindObjectsByType<PlayerMovement1P>(FindObjectsSortMode.None))
         {
@@ -258,14 +257,13 @@ public class TutorialManager : NetworkBehaviour
         }
     }
 
-
-
     // ============================================================
     // HUD
     // ============================================================
 
     private void ShowStepHUD(TutorialStep step)
     {
+        Debug.Log($"[TUTORIAL] ShowStepHUD stepId={step.stepId}");
         SetTravellerHUDMessageClientRpc(step.travellerMessage);
         SetNavigatorHUDMessageClientRpc(step.navigatorMessage);
     }
@@ -274,26 +272,48 @@ public class TutorialManager : NetworkBehaviour
     private void ClearHUDClientRpc()
     {
         if (IsHost)
+        {
+            Debug.Log("[TUTORIAL] ClearHUDClientRpc -> HOST clears travellerHUD");
             travellerHUD?.Clear();
+        }
         else
+        {
+            Debug.Log("[TUTORIAL] ClearHUDClientRpc -> CLIENT clears navigatorHUD");
             navigatorHUD?.Clear();
+        }
     }
 
     [ClientRpc]
     private void SetTravellerHUDMessageClientRpc(string msg)
     {
-        if (IsHost)
-            travellerHUD?.ShowMessage(msg);
+        Debug.Log($"[TUTORIAL][RPC] SetTravellerHUDMessageClientRpc side={(IsHost ? "HOST/Traveller" : "CLIENT/Navigator")} msg='{msg}'");
+
+        if (!IsHost) return; // רק ה-Host (מטייל)
+
+        if (travellerHUD == null)
+        {
+            Debug.LogWarning("[TUTORIAL] travellerHUD is NULL on host");
+            return;
+        }
+
+        travellerHUD.ShowMessage(msg);
     }
 
     [ClientRpc]
     private void SetNavigatorHUDMessageClientRpc(string msg)
     {
-        if (!IsHost)
-            navigatorHUD?.ShowMessage(msg);
+        Debug.Log($"[TUTORIAL][RPC] SetNavigatorHUDMessageClientRpc side={(IsHost ? "HOST/Traveller" : "CLIENT/Navigator")} msg='{msg}'");
+
+        if (IsHost) return; // רק ה-Client (נווט)
+
+        if (navigatorHUD == null)
+        {
+            Debug.LogWarning("[TUTORIAL] navigatorHUD is NULL on client");
+            return;
+        }
+
+        navigatorHUD.ShowMessage(msg);
     }
-
-
 
     // ============================================================
     // COMPLETE STEP
@@ -301,23 +321,19 @@ public class TutorialManager : NetworkBehaviour
 
     private void MarkConditionSatisfiedInternal()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "reached markconditionsatisfiedinternal()");
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[TUTORIAL] Condition satisfied for step '{Current.stepId}'");
+        Debug.Log("reached markconditionsatisfiedinternal()");
+        Debug.Log($"[TUTORIAL] Condition satisfied for step '{Current.stepId}'");
 
         conditionSatisfied = true;
     }
 
-
     private void CompleteCurrentStep()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[TUTORIAL] Step COMPLETE  {Current.stepId}");
+        Debug.Log($"[TUTORIAL] Step COMPLETE  {Current.stepId}");
 
         if (!IsServer || !stepActive)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                "[TUTORIAL] Step complete aborted: not server or not active");
+            Debug.Log("[TUTORIAL] Step complete aborted: not server or not active");
             return;
         }
 
@@ -331,8 +347,6 @@ public class TutorialManager : NetworkBehaviour
         yield return new WaitForSeconds(defaultAutoStepDelay);
         NextStep();
     }
-
-
 
     // ============================================================
     // MOVEMENT + LOOK
@@ -393,8 +407,6 @@ public class TutorialManager : NetworkBehaviour
         return steps[currentIndex].stepId == stepId;
     }
 
-
-
     // ============================================================
     // CONDITION EVENTS
     // ============================================================
@@ -404,16 +416,18 @@ public class TutorialManager : NetworkBehaviour
     public void NotifyNavigatorOpenedNormalDoor()
     {
         NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenNormalDoor);
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "reached NotifyNavigatorOpenedNormalDoor");
+        Debug.Log("reached NotifyNavigatorOpenedNormalDoor");
     }
 
     public void NotifyNavigatorOpenedPuzzleDoor() => NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenPuzzleDoor);
+
     public void NotifyNavigatorOpenedExitDoor()
     {
         NotifyNavigatorCondition(TutorialConditionType.NavigatorOpenExitDoor);
         ActivateDiscoMode();
     }
-        public void NotifyNavigatorPlacedHeart() => NotifyNavigatorCondition(TutorialConditionType.NavigatorPlaceHeart);
+
+    public void NotifyNavigatorPlacedHeart() => NotifyNavigatorCondition(TutorialConditionType.NavigatorPlaceHeart);
     public void NotifyNavigatorGaveLifebuoy() => NotifyNavigatorCondition(TutorialConditionType.NavigatorGiveLifebuoy);
     public void NotifyTravellerPlacedPuzzlePiece() => NotifyNavigatorCondition(TutorialConditionType.TravellerPlacedPuzzlePiece);
 
@@ -423,10 +437,9 @@ public class TutorialManager : NetworkBehaviour
     public void NotifyBothReachedExit() => Check(TutorialConditionType.BothReachedExit);
     public void NotifyCustomEvent() => Check(TutorialConditionType.CustomEvent);
 
-
     private void NotifyNavigatorCondition(TutorialConditionType condition)
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "reached NotifyNavigatorCondition");
+        Debug.Log("reached NotifyNavigatorCondition");
 
         if (IsServer)
         {
@@ -441,37 +454,30 @@ public class TutorialManager : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void NotifyNavigatorConditionServerRpc(TutorialConditionType condition)
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "reached NotifyNavigatorConditionServerRpc(");
-
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[TUTORIAL] Server received navigator condition: {condition}");
+        Debug.Log("reached NotifyNavigatorConditionServerRpc(");
+        Debug.Log($"[TUTORIAL] Server received navigator condition: {condition}");
 
         Check(condition);
     }
 
-
     private void Check(TutorialConditionType t)
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "Reached check()");
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[TUTORIAL][CHECK] cond={t} step={Current.stepId} expect={Current.conditionType} active={stepActive}");
+        Debug.Log("Reached check()");
+        Debug.Log($"[TUTORIAL][CHECK] cond={t} step={Current.stepId} expect={Current.conditionType} active={stepActive}");
 
         if (!IsServer) return;
         if (!stepActive) return;
 
         if (Current.conditionType != t)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                "[TUTORIAL][CHECK] Condition mismatch — ignored");
+            Debug.Log("[TUTORIAL][CHECK] Condition mismatch — ignored");
             return;
         }
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[TUTORIAL][CHECK] MATCH!  Step '{Current.stepId}' satisfied");
+        Debug.Log($"[TUTORIAL][CHECK] MATCH!  Step '{Current.stepId}' satisfied");
 
         MarkConditionSatisfiedInternal();
     }
-
 
     // ============================================================
     // TRAVELLER ROTATION / LOOK
@@ -485,15 +491,13 @@ public class TutorialManager : NetworkBehaviour
         if (string.IsNullOrEmpty(step.travellerLookTargetId))
             return;
 
-        // שרת שולח לכולם את ה-ID של ה-Target
         RotateTravellerClientRpc(step.travellerLookTargetId);
     }
 
     [ClientRpc]
     private void RotateTravellerClientRpc(string targetId)
     {
-        // המטייל הוא ה-Host
-        if (!IsHost) return;
+        if (!IsHost) return; // רק אצל המטייל
 
         if (travellerRoot == null)
         {
@@ -538,6 +542,7 @@ public class TutorialManager : NetworkBehaviour
             travellerCamera.transform.eulerAngles = euler;
         }
     }
+
     public void ActivateDiscoMode()
     {
         var disco = FindObjectOfType<DiscoTime>();
@@ -547,7 +552,6 @@ public class TutorialManager : NetworkBehaviour
             Debug.Log("🎉 Disco Mode Activated!");
         }
     }
-
 
     // ============================================================
     // REGISTER TRAVELLER
@@ -562,5 +566,4 @@ public class TutorialManager : NetworkBehaviour
     {
         travellerCamera = cam;
     }
-
 }

@@ -139,17 +139,16 @@ public class PlayerCamera1P : NetworkBehaviour
         {
             if (isTraveller)
             {
-                Debug.Log($"[CAMERA][LOOK] Traveller looked on client {NetworkManager.Singleton.LocalClientId}");
+                
                 SendLookServerRpc(true);
             }
             else if (isNavigator)
             {
-                Debug.Log($"[CAMERA][LOOK] Navigator looked on client {NetworkManager.Singleton.LocalClientId}");
+       
                 SendLookServerRpc(false);
             }
             else
             {
-                Debug.Log($"[CAMERA][LOOK] looked but role not detected on '{gameObject.name}'");
             }
         }
 
@@ -208,12 +207,12 @@ public class PlayerCamera1P : NetworkBehaviour
 
         if (traveller)
         {
-            Debug.Log("[CAMERA][ServerRpc] NotifyTravellerLooked()");
+         
             tm.NotifyTravellerLooked();
         }
         else
         {
-            Debug.Log("[CAMERA][ServerRpc] NotifyNavigatorLooked()");
+        
             tm.NotifyNavigatorLooked();
         }
     }
