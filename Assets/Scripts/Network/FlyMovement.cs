@@ -10,29 +10,30 @@ public class FlyMovement : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         if (!IsOwner)
-            enabled = false;  // шч бтм даебййчи щеми тм дъретд
+            enabled = false; // пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     }
 
     void Update()
     {
-        // ан ма дщзчп дочеой — ма жжйн
-        if (!IsOwner) return;
+        // пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ
+        if (!IsOwner)
+            return;
 
         float moveSpeed = Input.GetKey(KeyCode.LeftShift) ? fastSpeed : speed;
 
-        // ъретд аефчйъ
-        float h = Input.GetAxis("Horizontal");  // A D
-        float v = Input.GetAxis("Vertical");    // W S
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+        float h = Input.GetAxis("Horizontal"); // A D
+        float v = Input.GetAxis("Vertical"); // W S
 
         Vector3 dir = transform.right * h + transform.forward * v;
         transform.position += dir * moveSpeed * Time.deltaTime;
 
-        // тойгд бочен — оби тн дтлбш тгййп тебг
-        // ъретд мотмд
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
         if (Input.GetKey(KeyCode.E))
             transform.position += Vector3.up * verticalSpeed * Time.deltaTime;
 
-        // ъретд моид
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         if (Input.GetKey(KeyCode.Q))
             transform.position -= Vector3.up * verticalSpeed * Time.deltaTime;
     }

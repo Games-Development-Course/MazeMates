@@ -9,15 +9,17 @@ namespace CharacterCustomizationTool.Editor.FaceEditor
     {
         public static void AddFaces(GameObject gameObject)
         {
-            var faceMeshes = AssetLoader.LoadAssets<Mesh>("t:Mesh", AssetsPath.Folder.Faces).ToArray();
+            var faceMeshes = AssetLoader
+                .LoadAssets<Mesh>("t:Mesh", AssetsPath.Folder.Faces)
+                .ToArray();
             var maleFace = FilterBy("Male", faceMeshes);
             var femaleFace = FilterBy("Female", faceMeshes);
 
             var groupedMaleFaces = Group(maleFace);
             var groupedFemaleFaces = Group(femaleFace);
 
-            var skinnedMeshRenderer = gameObject.transform
-                .Cast<Transform>()
+            var skinnedMeshRenderer = gameObject
+                .transform.Cast<Transform>()
                 .First(t => t.name.StartsWith("Face"))
                 .GetComponent<SkinnedMeshRenderer>();
 
@@ -26,7 +28,8 @@ namespace CharacterCustomizationTool.Editor.FaceEditor
                 var facePicker = gameObject.AddComponent<FacePicker>();
 
                 var nameSections = skinnedMeshRenderer.sharedMesh.name.Split("_");
-                var groupedFaces = nameSections.First() == "Male" ? groupedMaleFaces : groupedFemaleFaces;
+                var groupedFaces =
+                    nameSections.First() == "Male" ? groupedMaleFaces : groupedFemaleFaces;
                 var faces = ChooseFaces(skinnedMeshRenderer.sharedMesh.name, groupedFaces);
 
                 facePicker.SetFaces(faces);

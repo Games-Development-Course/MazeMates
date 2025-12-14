@@ -6,7 +6,7 @@ public class DiscoTime : MonoBehaviour
 {
     public float hueSpeed = 2f;
     public float intensity = 0.5f;
-    public bool active = false;   // נדליק את זה מהטוטוריאל
+    public bool active = false; // נדליק את זה מהטוטוריאל
 
     private Volume volume;
     private ColorAdjustments colorAdjust;

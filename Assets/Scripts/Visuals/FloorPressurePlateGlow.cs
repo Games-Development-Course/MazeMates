@@ -7,19 +7,19 @@ using UnityEngine.Events;
 public class FloorPressurePlateGlow : MonoBehaviour
 {
     [Header("Press settings")]
-    public float pressDepth = 0.08f;     // כמה לשקוע למטה
-    public float pressSpeed = 8f;        // מהירות האנימציה
+    public float pressDepth = 0.08f; // כמה לשקוע למטה
+    public float pressSpeed = 8f; // מהירות האנימציה
 
     [Header("Glow settings")]
-    public Color idleColor = Color.gray;           // צבע רגיל
-    public Color pressedColor = Color.white;       // צבע כשהפלטה לחוצה
+    public Color idleColor = Color.gray; // צבע רגיל
+    public Color pressedColor = Color.white; // צבע כשהפלטה לחוצה
 
-    public Color idleEmissionColor = Color.black;  // Emission במצב רגיל
+    public Color idleEmissionColor = Color.black; // Emission במצב רגיל
     public Color pressedEmissionColor = Color.yellow; // Emission לחוץ
-    public float emissionIntensity = 2f;           // חוזק ה־Glow
+    public float emissionIntensity = 2f; // חוזק ה־Glow
 
     [Header("Events")]
-    public UnityEvent onPressed;                   // מה לעשות כשדורכים (פעם אחת)
+    public UnityEvent onPressed; // מה לעשות כשדורכים (פעם אחת)
     public string playerTag = "Player";
 
     private Vector3 startPos;
@@ -27,7 +27,7 @@ public class FloorPressurePlateGlow : MonoBehaviour
     private Material matInstance;
 
     private int objectsOnPlate = 0;
-    private bool isPressed = false;               // ✅ האם הפלטה כרגע לחוצה
+    private bool isPressed = false; // ✅ האם הפלטה כרגע לחוצה
     private Coroutine currentAnim;
 
     void Awake()
@@ -55,7 +55,8 @@ public class FloorPressurePlateGlow : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (!other.CompareTag(playerTag)) return;
+        if (!other.CompareTag(playerTag))
+            return;
 
         objectsOnPlate++;
 
@@ -70,10 +71,12 @@ public class FloorPressurePlateGlow : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
-        if (!other.CompareTag(playerTag)) return;
+        if (!other.CompareTag(playerTag))
+            return;
 
         objectsOnPlate--;
-        if (objectsOnPlate < 0) objectsOnPlate = 0;
+        if (objectsOnPlate < 0)
+            objectsOnPlate = 0;
 
         // ✅ רק כשהפלטה ננטשת לגמרי – חוזרים למעלה
         if (objectsOnPlate == 0 && isPressed)
@@ -101,10 +104,12 @@ public class FloorPressurePlateGlow : MonoBehaviour
         Color fromColor = pressingDown ? idleColor : pressedColor;
         Color toColor = pressingDown ? pressedColor : idleColor;
 
-        Color fromEmission = pressingDown ? idleEmissionColor * 0f
-                                            : pressedEmissionColor * emissionIntensity;
-        Color toEmission = pressingDown ? pressedEmissionColor * emissionIntensity
-                                            : idleEmissionColor * 0f;
+        Color fromEmission = pressingDown
+            ? idleEmissionColor * 0f
+            : pressedEmissionColor * emissionIntensity;
+        Color toEmission = pressingDown
+            ? pressedEmissionColor * emissionIntensity
+            : idleEmissionColor * 0f;
 
         float t = 0f;
         while (t < 1f)
@@ -126,15 +131,16 @@ public class FloorPressurePlateGlow : MonoBehaviour
 
         currentAnim = null;
     }
+
     public void RefreshStartPosition()
     {
         startPos = transform.localPosition;
     }
 
-
     private void SetMaterialColors(Color baseColor, Color emissionColor)
     {
-        if (matInstance == null) return;
+        if (matInstance == null)
+            return;
 
         if (matInstance.HasProperty("_BaseColor"))
             matInstance.SetColor("_BaseColor", baseColor);

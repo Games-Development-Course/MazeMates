@@ -1,17 +1,25 @@
-﻿using UnityEngine;
-using UnityEngine.UI;
+﻿using System.Collections;
 using TMPro;
-using System.Collections;
+using UnityEngine;
+using UnityEngine.UI;
 
 public class TutorialHUD : MonoBehaviour
 {
     [Header("Tutorial Message")]
-    [SerializeField] private TextMeshProUGUI messageText;   // הטקסט עצמו
-    [SerializeField] private GameObject messageRoot;        // הבועה (Container עם Image)
-    [SerializeField] private Image bubbleImage;             // ה-Image של הבועה (מומלץ)
+    [SerializeField]
+    private TextMeshProUGUI messageText; // הטקסט עצמו
 
-    [SerializeField] private float messageDuration = 999f;
-    [SerializeField] private bool hideOnStartButKeepActive = true; // מסתיר בלי לכבות SetActive
+    [SerializeField]
+    private GameObject messageRoot; // הבועה (Container עם Image)
+
+    [SerializeField]
+    private Image bubbleImage; // ה-Image של הבועה (מומלץ)
+
+    [SerializeField]
+    private float messageDuration = 999f;
+
+    [SerializeField]
+    private bool hideOnStartButKeepActive = true; // מסתיר בלי לכבות SetActive
 
     private Color defaultColor;
 
@@ -51,11 +59,13 @@ public class TutorialHUD : MonoBehaviour
     {
         WireIfNeeded();
 
-        if (messageRoot == null) return;
+        if (messageRoot == null)
+            return;
 
         // אל תכבה SetActive כדי לא לשבור רפרנסים/לייאאוט, רק תסתיר
         var cg = messageRoot.GetComponent<CanvasGroup>();
-        if (cg == null) cg = messageRoot.AddComponent<CanvasGroup>();
+        if (cg == null)
+            cg = messageRoot.AddComponent<CanvasGroup>();
 
         cg.alpha = visible ? 1f : 0f;
         cg.interactable = visible;
@@ -71,7 +81,8 @@ public class TutorialHUD : MonoBehaviour
     public void ShowMessage(string message)
     {
         WireIfNeeded();
-        if (messageText == null || messageRoot == null) return;
+        if (messageText == null || messageRoot == null)
+            return;
 
         messageText.isRightToLeftText = true;
         messageText.alignment = TextAlignmentOptions.Right;
@@ -81,7 +92,8 @@ public class TutorialHUD : MonoBehaviour
 
         // קריטי: להדליק הכל
         messageRoot.SetActive(true);
-        if (bubbleImage != null) bubbleImage.enabled = true;
+        if (bubbleImage != null)
+            bubbleImage.enabled = true;
         messageText.enabled = true;
 
         SetVisible(true);
@@ -99,7 +111,8 @@ public class TutorialHUD : MonoBehaviour
         if (messageRoot != null)
         {
             var rt = messageRoot.GetComponent<RectTransform>();
-            if (rt != null) LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+            if (rt != null)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
         }
     }
 

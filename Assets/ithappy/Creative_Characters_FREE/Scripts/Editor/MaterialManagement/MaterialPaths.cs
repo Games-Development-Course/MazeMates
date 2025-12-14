@@ -8,7 +8,9 @@ namespace CharacterCustomizationTool.Editor.MaterialManagement
         private static readonly string GlassName = "Glass";
         private static readonly string EmissionName = "Emission";
 
-        public static readonly string[] MainColorPaths = MainColorNames.Select(GetMaterialPath).ToArray();
+        public static readonly string[] MainColorPaths = MainColorNames
+            .Select(GetMaterialPath)
+            .ToArray();
         public static readonly string GlassPath = GetMaterialPath(GlassName);
         public static readonly string EmissionPath = GetMaterialPath(EmissionName);
 

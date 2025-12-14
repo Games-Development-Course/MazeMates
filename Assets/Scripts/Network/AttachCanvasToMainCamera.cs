@@ -1,10 +1,11 @@
-﻿using UnityEngine;
-using System.Collections;
+﻿using System.Collections;
+using UnityEngine;
 
 [RequireComponent(typeof(Canvas))]
 public class AttachCanvasToMainCamera : MonoBehaviour
 {
-    [SerializeField] private string targetCameraName; // "TravellerCamera" או "NavigatorCamera"
+    [SerializeField]
+    private string targetCameraName; // "TravellerCamera" או "NavigatorCamera"
 
     private void Start()
     {

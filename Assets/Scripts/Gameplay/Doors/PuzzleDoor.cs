@@ -11,7 +11,7 @@ public class PuzzleDoor : IDoor
 
     private DoorController controller;
 
-    private GameObject puzzleInstance;   // runtime instance
+    private GameObject puzzleInstance; // runtime instance
 
     private DraggablePiece[] pieces;
     private RectTransform[] targetSlots;
@@ -50,7 +50,10 @@ public class PuzzleDoor : IDoor
 
         if (piecesParent == null || targetsParent == null)
         {
-            Debug.LogError("PuzzleDoor: Pieces or Targets parent missing on puzzle prefab " + controller.puzzlePrefab.name);
+            Debug.LogError(
+                "PuzzleDoor: Pieces or Targets parent missing on puzzle prefab "
+                    + controller.puzzlePrefab.name
+            );
             return;
         }
 
@@ -93,7 +96,10 @@ public class PuzzleDoor : IDoor
         }
         else
         {
-            Debug.LogWarning("PuzzleDoor: no 'Hints' child found under puzzle prefab " + controller.puzzlePrefab.name);
+            Debug.LogWarning(
+                "PuzzleDoor: no 'Hints' child found under puzzle prefab "
+                    + controller.puzzlePrefab.name
+            );
             hintImages = new Image[0];
         }
 
@@ -115,7 +121,9 @@ public class PuzzleDoor : IDoor
 
         if (HUDManager.Instance == null || HUDManager.Instance.TravellerHUD == null)
         {
-            Debug.LogError("[PUZZLE] HUDManager.Instance או TravellerHUD הם NULL – אי אפשר להציג את הפאזל");
+            Debug.LogError(
+                "[PUZZLE] HUDManager.Instance או TravellerHUD הם NULL – אי אפשר להציג את הפאזל"
+            );
             return;
         }
 
@@ -133,7 +141,9 @@ public class PuzzleDoor : IDoor
 
         if (puzzleInstance == null)
         {
-            Debug.LogError("[PUZZLE] puzzleInstance עדיין NULL אחרי InstantiatePuzzle – משהו בהייררכיה של הפריפב לא תקין");
+            Debug.LogError(
+                "[PUZZLE] puzzleInstance עדיין NULL אחרי InstantiatePuzzle – משהו בהייררכיה של הפריפב לא תקין"
+            );
             return;
         }
 
@@ -251,7 +261,9 @@ public class PuzzleDoor : IDoor
 
         if (available.Count == 0)
         {
-            Debug.Log("PuzzleDoor.RevealRandomHint: no available hints (maybe puzzle almost/fully solved).");
+            Debug.Log(
+                "PuzzleDoor.RevealRandomHint: no available hints (maybe puzzle almost/fully solved)."
+            );
             return;
         }
 
@@ -266,9 +278,7 @@ public class PuzzleDoor : IDoor
 
             if (HUDManager.Instance != null)
             {
-                HUDManager.Instance.StartCoroutine(
-                    DisableHintAfterSeconds(chosenImg, 3f)
-                );
+                HUDManager.Instance.StartCoroutine(DisableHintAfterSeconds(chosenImg, 3f));
             }
         }
     }

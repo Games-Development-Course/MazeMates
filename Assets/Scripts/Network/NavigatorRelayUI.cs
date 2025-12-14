@@ -1,11 +1,14 @@
-﻿using UnityEngine;
-using TMPro;
+﻿using TMPro;
+using UnityEngine;
 using UnityEngine.UI;
 
 public class NavigatorRelayUI : MonoBehaviour
 {
-    [SerializeField] private TMP_InputField codeInput;  // "Code Input"
-    [SerializeField] private Button startClientButton;  // כפתור "StartClient"
+    [SerializeField]
+    private TMP_InputField codeInput; // "Code Input"
+
+    [SerializeField]
+    private Button startClientButton; // כפתור "StartClient"
 
     private void Awake()
     {
@@ -30,7 +33,8 @@ public class NavigatorRelayUI : MonoBehaviour
 
     private void OnCodeChanged(string newValue)
     {
-        if (startClientButton == null) return;
+        if (startClientButton == null)
+            return;
 
         // כלל אצבע: קוד לא ריק ובדרך כלל 6 תווים, אפשר לשנות אם צריך
         startClientButton.interactable = IsCodeValid(newValue);
@@ -45,7 +49,8 @@ public class NavigatorRelayUI : MonoBehaviour
 
     public async void OnStartClientClicked()
     {
-        if (codeInput == null) return;
+        if (codeInput == null)
+            return;
 
         string joinCode = codeInput.text.Trim();
         if (!IsCodeValid(joinCode))

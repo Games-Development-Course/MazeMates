@@ -41,11 +41,14 @@ public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
             return;
 
         Vector3 worldPos;
-        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
+        if (
+            RectTransformUtility.ScreenPointToWorldPointInRectangle(
                 rectTransform,
                 eventData.position,
                 eventData.pressEventCamera,
-                out worldPos))
+                out worldPos
+            )
+        )
         {
             rectTransform.position = worldPos;
         }

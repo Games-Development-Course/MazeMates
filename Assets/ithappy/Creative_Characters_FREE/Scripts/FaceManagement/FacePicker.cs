@@ -12,7 +12,8 @@ namespace CharacterCustomizationTool.FaceManagement
 
         private SkinnedMeshRenderer _faceRenderer;
 
-        public FaceType ActiveFace => Enum.Parse<FaceType>(_faceRenderer.sharedMesh.name.Split("_")[2].ToCapital());
+        public FaceType ActiveFace =>
+            Enum.Parse<FaceType>(_faceRenderer.sharedMesh.name.Split("_")[2].ToCapital());
 
         public void SetFaces(Mesh[] faceMeshes)
         {

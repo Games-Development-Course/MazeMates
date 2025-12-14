@@ -14,9 +14,11 @@ namespace CharacterCustomizationTool.Editor.Character
         public override GameObject Preview => _selected.PreviewObject;
         public override int SelectedIndex => _variants.FindIndex(v => v.Name == _selected.Name);
         public override int VariantsCount => _variants.Count;
-        public override (SlotType, Mesh)[] Meshes => _selected.Elements.Select(e => (e.Type, e.Mesh)).ToArray();
+        public override (SlotType, Mesh)[] Meshes =>
+            _selected.Elements.Select(e => (e.Type, e.Mesh)).ToArray();
 
-        public FullBodySlot(FullBodyEntry[] fullBodyEntries) : base(SlotType.FullBody)
+        public FullBodySlot(FullBodyEntry[] fullBodyEntries)
+            : base(SlotType.FullBody)
         {
             _variants = fullBodyEntries.Select(e => new FullBodyVariant(e)).ToList();
             _selected = _variants.First();
@@ -62,7 +64,12 @@ namespace CharacterCustomizationTool.Editor.Character
             return true;
         }
 
-        protected override void DrawSlot(Material material, int previewLayer, Camera camera, int submeshIndex)
+        protected override void DrawSlot(
+            Material material,
+            int previewLayer,
+            Camera camera,
+            int submeshIndex
+        )
         {
             foreach (var element in _selected.Elements)
             {

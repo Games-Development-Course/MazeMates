@@ -8,12 +8,12 @@ public class DoorDissolver : MonoBehaviour
 
     private void Awake()
     {
-        // ìùëôì instance ùì äçåîø ëãé ìà ìäøåñ àú ëì äãìúåú
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ instance ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         Renderer r = GetComponentInChildren<Renderer>();
         mat = new Material(r.material);
         r.material = mat;
 
-        // äãìú îúçéìä "îôåø÷ú" áòøê 1
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" ï¿½ï¿½ï¿½ï¿½ 1
         mat.SetFloat("_DissolveAmount", 1f);
     }
 
@@ -21,6 +21,7 @@ public class DoorDissolver : MonoBehaviour
     {
         StartCoroutine(DissolveReverseRoutine());
     }
+
     private IEnumerator DissolveReverseRoutine()
     {
         float t = 0f;
@@ -37,8 +38,6 @@ public class DoorDissolver : MonoBehaviour
 
         mat.SetFloat("_DissolveAmount", 0f);
 
-
         gameObject.SetActive(false);
     }
-
 }

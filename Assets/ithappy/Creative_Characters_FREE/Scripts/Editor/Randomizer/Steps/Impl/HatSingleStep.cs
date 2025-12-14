@@ -4,11 +4,7 @@ namespace CharacterCustomizationTool.Editor.Randomizer.Steps.Impl
     {
         public override GroupType GroupType => GroupType.HatSingle;
 
-        protected override GroupType[] CompatibleGroups => new[]
-        {
-            GroupType.FaceAccessories,
-            GroupType.Shoes,
-            GroupType.Gloves,
-        };
+        protected override GroupType[] CompatibleGroups =>
+            new[] { GroupType.FaceAccessories, GroupType.Shoes, GroupType.Gloves };
     }
 }

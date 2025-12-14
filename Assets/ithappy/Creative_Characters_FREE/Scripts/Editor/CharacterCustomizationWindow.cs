@@ -46,7 +46,10 @@ namespace CharacterCustomizationTool.Editor
             CreateRenderTexture();
             InitializeCamera();
             DrawCharacter();
-            _partsEditor.OnGUI(new Rect(330, 10, position.width - 330, position.height), _customizableCharacter);
+            _partsEditor.OnGUI(
+                new Rect(330, 10, position.width - 330, position.height),
+                _customizableCharacter
+            );
 
             GUI.DrawTexture(rect, _renderTexture, ScaleMode.StretchToFill, false);
 
@@ -97,7 +100,9 @@ namespace CharacterCustomizationTool.Editor
             {
                 foreach (var mesh in slot.Meshes)
                 {
-                    var child = character.transform.Cast<Transform>().First(t => t.name.StartsWith(mesh.Item1.ToString()));
+                    var child = character
+                        .transform.Cast<Transform>()
+                        .First(t => t.name.StartsWith(mesh.Item1.ToString()));
                     if (child.TryGetComponent<SkinnedMeshRenderer>(out var skinnedMeshRenderer))
                     {
                         skinnedMeshRenderer.sharedMesh = mesh.Item2;
@@ -120,7 +125,9 @@ namespace CharacterCustomizationTool.Editor
 
         private static void AddAnimator(GameObject character)
         {
-            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AssetsPath.AnimationController);
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(
+                AssetsPath.AnimationController
+            );
             var animator = character.GetComponent<Animator>();
             animator.runtimeAnimatorController = controller;
             animator.applyRootMotion = false;
@@ -160,7 +167,7 @@ namespace CharacterCustomizationTool.Editor
 
             var cameraObject = new GameObject("PreviewCamera")
             {
-                hideFlags = HideFlags.HideAndDontSave
+                hideFlags = HideFlags.HideAndDontSave,
             };
 
             _camera = cameraObject.AddComponent<Camera>();
@@ -187,7 +194,7 @@ namespace CharacterCustomizationTool.Editor
 
             _renderTexture = new RenderTexture(300, 300, 30, RenderTextureFormat.ARGB32)
             {
-                antiAliasing = 1
+                antiAliasing = 1,
             };
         }
 
@@ -246,7 +253,8 @@ namespace CharacterCustomizationTool.Editor
                 }
             }
 
-            var root = string.Join("/", pathParts.Where(p => !string.IsNullOrEmpty(p)).ToArray()) + "/";
+            var root =
+                string.Join("/", pathParts.Where(p => !string.IsNullOrEmpty(p)).ToArray()) + "/";
             AssetsPath.SetRoot(root);
         }
     }

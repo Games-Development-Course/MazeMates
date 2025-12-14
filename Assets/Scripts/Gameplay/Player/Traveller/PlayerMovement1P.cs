@@ -72,9 +72,12 @@ public class PlayerMovement1P : NetworkBehaviour
 
     void Update()
     {
-        if (!IsOwner) return;
-        if (controller == null) return;
-        if (GameManager.Instance == null) return;
+        if (!IsOwner)
+            return;
+        if (controller == null)
+            return;
+        if (GameManager.Instance == null)
+            return;
 
         if (movementFrozen)
         {
@@ -110,7 +113,8 @@ public class PlayerMovement1P : NetworkBehaviour
     private void NotifyMovementServerRpc(bool isTraveller)
     {
         var tm = Object.FindFirstObjectByType<TutorialManager>();
-        if (tm == null) return;
+        if (tm == null)
+            return;
 
         if (isTraveller)
             tm.NotifyTravellerMoved();
@@ -140,9 +144,11 @@ public class PlayerMovement1P : NetworkBehaviour
         float redSeconds,
         float fadeOut,
         float fadeIn,
-        ClientRpcParams rpcParams = default)
+        ClientRpcParams rpcParams = default
+    )
     {
-        if (!IsOwner) return;
+        if (!IsOwner)
+            return;
 
         // אפקט רק אצל המטייל (Host)
         if (IsHost)

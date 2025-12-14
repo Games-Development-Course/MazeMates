@@ -1,9 +1,10 @@
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 
 public class TravellerRelayUI : MonoBehaviour
 {
-    [SerializeField] private TMP_Text codeText;  // ?? ?-"Code Text" ???
+    [SerializeField]
+    private TMP_Text codeText; // ?? ?-"Code Text" ???
 
     public async void OnStartHostClicked()
     {

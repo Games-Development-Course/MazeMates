@@ -17,13 +17,15 @@ public class DoorController : NetworkBehaviour
 
     [Header("Navigator TV Screen")]
     [Tooltip("MeshRenderer של ה-Quad שעליו מוצגת התמונה בחדר הנווט")]
-    public MeshRenderer navigatorScreenQuad;          // אפשר להשאיר ריק ולהסתמך על Tag
+    public MeshRenderer navigatorScreenQuad; // אפשר להשאיר ריק ולהסתמך על Tag
     public int navigatorScreenMaterialIndex = 0;
+
     [Range(0.3f, 1f)]
     public float tvZoom = 1f;
 
     [Tooltip("Tag של ה-Quad של הטלוויזיה בחדר הנווט (למשל NavigatorScreenTV)")]
-    [SerializeField] private string navigatorScreenTag = "NavigatorScreenTV";
+    [SerializeField]
+    private string navigatorScreenTag = "NavigatorScreenTV";
 
     public List<GameObject> spawnedHints = new List<GameObject>();
 
@@ -42,8 +44,12 @@ public class DoorController : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[DOOR SPAWN] {name} | NetId={NetworkObjectId}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[DOOR SPAWN] {name} | NetId={NetworkObjectId}"
+        );
 
         pad = GetComponentInChildren<PadTrigger>();
 
@@ -74,10 +80,13 @@ public class DoorController : NetworkBehaviour
         if (navigatorScreenQuad == null)
         {
             Debug.LogWarning(
-                $"[PUZZLE-TV] navigatorScreenQuad is NULL on {name} – " +
-                "תוודא של-Quad של המסך יש Tag '" + navigatorScreenTag + "' " +
-                "או שגררת אותו ידנית ל-Inspector.",
-                this);
+                $"[PUZZLE-TV] navigatorScreenQuad is NULL on {name} – "
+                    + "תוודא של-Quad של המסך יש Tag '"
+                    + navigatorScreenTag
+                    + "' "
+                    + "או שגררת אותו ידנית ל-Inspector.",
+                this
+            );
         }
     }
 
@@ -102,7 +111,10 @@ public class DoorController : NetworkBehaviour
 
         if (navigatorScreenQuad == null)
         {
-            Debug.LogWarning("[PUZZLE-TV] ApplyUnlitMaterial: navigatorScreenQuad עדיין NULL על " + name, this);
+            Debug.LogWarning(
+                "[PUZZLE-TV] ApplyUnlitMaterial: navigatorScreenQuad עדיין NULL על " + name,
+                this
+            );
             return;
         }
 
@@ -122,8 +134,12 @@ public class DoorController : NetworkBehaviour
         // אפשר פשוט להחליף את המטריאל (לא משנה לנו שאר הסלוטים במקרה הזה)
         mr.material = navigatorScreenMaterialInstance;
 
-        Debug.Log("[PUZZLE-TV] Applied UNLIT material with puzzle texture on navigator screen (" +
-                  mr.gameObject.name + ")", mr);
+        Debug.Log(
+            "[PUZZLE-TV] Applied UNLIT material with puzzle texture on navigator screen ("
+                + mr.gameObject.name
+                + ")",
+            mr
+        );
     }
 
     // ============================================================
@@ -162,26 +178,38 @@ public class DoorController : NetworkBehaviour
     }
 
     public bool TravellerIsOnPad() => pad != null && pad.IsPlayerOnPad();
+
     public bool IsOpen() => door != null && door.IsOpen();
+
     public PuzzleDoor GetPuzzle() => door as PuzzleDoor;
 
     private Sprite ExtractPreviewFromPrefab()
     {
-        if (puzzlePrefab == null) return null;
+        if (puzzlePrefab == null)
+            return null;
 
         Transform original = puzzlePrefab.transform.Find("OriginalImage");
-        if (original == null) return null;
+        if (original == null)
+            return null;
 
         var img = original.GetComponentInChildren<UnityEngine.UI.Image>();
         if (img != null && img.sprite != null)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                $"[DoorController] Extracted preview sprite '{img.sprite.name}' from puzzle '{puzzlePrefab.name}'");
+            Debug.LogFormat(
+                LogType.Log,
+                LogOption.NoStacktrace,
+                null,
+                $"[DoorController] Extracted preview sprite '{img.sprite.name}' from puzzle '{puzzlePrefab.name}'"
+            );
         }
         else
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[DoorController] OriginalImage found but no sprite in '{puzzlePrefab.name}'");
+            Debug.LogFormat(
+                LogType.Warning,
+                LogOption.NoStacktrace,
+                null,
+                $"[DoorController] OriginalImage found but no sprite in '{puzzlePrefab.name}'"
+            );
         }
 
         return img != null ? img.sprite : null;
@@ -194,7 +222,8 @@ public class DoorController : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void RequestOpenDoorRpc()
     {
-        if (!IsServer) return;
+        if (!IsServer)
+            return;
 
         var tutorial = FindAnyObjectByType<TutorialManager>();
 
@@ -263,9 +292,12 @@ public class DoorController : NetworkBehaviour
 
         foreach (Transform child in transform)
         {
-            if (child == pivotObj.transform) continue;
-            if (child.name.ToLower().Contains("trigger")) continue;
-            if (child.name.ToLower().Contains("pad")) continue;
+            if (child == pivotObj.transform)
+                continue;
+            if (child.name.ToLower().Contains("trigger"))
+                continue;
+            if (child.name.ToLower().Contains("pad"))
+                continue;
 
             child.SetParent(pivotObj.transform, true);
         }
@@ -287,8 +319,7 @@ public class DoorController : NetworkBehaviour
         return null;
     }
 
-    public static DoorController FindDoorPlayerIsOn(GameObject _) =>
-        FindDoorPlayerIsOn();
+    public static DoorController FindDoorPlayerIsOn(GameObject _) => FindDoorPlayerIsOn();
 
     public static DoorController FindDoorPlayerIsOn(DoorType type)
     {
@@ -307,7 +338,8 @@ public class DoorController : NetworkBehaviour
 
         foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
-            if (!door.TravellerIsOnPad()) continue;
+            if (!door.TravellerIsOnPad())
+                continue;
 
             float dist = Vector3.Distance(position, door.transform.position);
             if (dist < minDist && dist <= maxDistance)
@@ -319,15 +351,21 @@ public class DoorController : NetworkBehaviour
         return nearest;
     }
 
-    public static DoorController FindNearestDoorOnPad(DoorType type, Vector3 position, float maxDistance = 5f)
+    public static DoorController FindNearestDoorOnPad(
+        DoorType type,
+        Vector3 position,
+        float maxDistance = 5f
+    )
     {
         DoorController nearest = null;
         float minDist = float.MaxValue;
 
         foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
         {
-            if (door.doorType != type) continue;
-            if (!door.TravellerIsOnPad()) continue;
+            if (door.doorType != type)
+                continue;
+            if (!door.TravellerIsOnPad())
+                continue;
 
             float dist = Vector3.Distance(position, door.transform.position);
             if (dist < minDist && dist <= maxDistance)
@@ -389,13 +427,21 @@ public class DoorController : NetworkBehaviour
         if (navigatorPreview != null && navigatorPreview.texture != null)
         {
             ApplyUnlitMaterial(navigatorPreview.texture);
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                $"[DoorController] Applied UNLIT puzzle texture '{navigatorPreview.name}' on '{name}'");
+            Debug.LogFormat(
+                LogType.Log,
+                LogOption.NoStacktrace,
+                null,
+                $"[DoorController] Applied UNLIT puzzle texture '{navigatorPreview.name}' on '{name}'"
+            );
         }
         else
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[DoorController] Cannot apply puzzle texture — no valid sprite on {name}");
+            Debug.LogFormat(
+                LogType.Warning,
+                LogOption.NoStacktrace,
+                null,
+                $"[DoorController] Cannot apply puzzle texture — no valid sprite on {name}"
+            );
         }
     }
 
@@ -406,10 +452,15 @@ public class DoorController : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void RequestOpenPuzzleDoorRpc()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[PUZZLE-RPC] RequestOpenPuzzleDoorRpc CALLED on {(IsServer ? "SERVER" : "CLIENT")} | door={name}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[PUZZLE-RPC] RequestOpenPuzzleDoorRpc CALLED on {(IsServer ? "SERVER" : "CLIENT")} | door={name}"
+        );
 
-        if (!IsServer) return;
+        if (!IsServer)
+            return;
 
         OpenPuzzleForTravellerClientRpc(NetworkObjectId);
     }
@@ -417,47 +468,75 @@ public class DoorController : NetworkBehaviour
     [Rpc(SendTo.Everyone)]
     private void OpenPuzzleForTravellerClientRpc(ulong doorId)
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[PUZZLE-RPC] OpenPuzzleForTravellerClientRpc on {(IsServer ? "SERVER" : "CLIENT")} | doorId={doorId}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[PUZZLE-RPC] OpenPuzzleForTravellerClientRpc on {(IsServer ? "SERVER" : "CLIENT")} | doorId={doorId}"
+        );
 
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(doorId, out NetworkObject obj))
+        if (
+            !NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(
+                doorId,
+                out NetworkObject obj
+            )
+        )
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[PUZZLE-RPC] doorId {doorId} not found in SpawnedObjects");
+            Debug.LogFormat(
+                LogType.Warning,
+                LogOption.NoStacktrace,
+                null,
+                $"[PUZZLE-RPC] doorId {doorId} not found in SpawnedObjects"
+            );
             return;
         }
 
         DoorController door = obj.GetComponent<DoorController>();
         if (door == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                "[PUZZLE-RPC] NetworkObject has no DoorController");
+            Debug.LogFormat(
+                LogType.Warning,
+                LogOption.NoStacktrace,
+                null,
+                "[PUZZLE-RPC] NetworkObject has no DoorController"
+            );
             return;
         }
 
         var gm = GameManager.Instance;
         if (gm == null || gm.traveller == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                "[PUZZLE-RPC] traveller uninitialized");
+            Debug.LogFormat(
+                LogType.Warning,
+                LogOption.NoStacktrace,
+                null,
+                "[PUZZLE-RPC] traveller uninitialized"
+            );
             return;
         }
 
         var travellerNet = gm.traveller.GetComponent<NetworkObject>();
         if (travellerNet == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                "[PUZZLE-RPC] traveller has no NetworkObject");
+            Debug.LogFormat(
+                LogType.Warning,
+                LogOption.NoStacktrace,
+                null,
+                "[PUZZLE-RPC] traveller has no NetworkObject"
+            );
             return;
         }
 
         // Puzzle can only open on the traveller's client
         if (travellerNet.IsOwner)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                "[PUZZLE-RPC] Traveller owns this client — opening puzzle");
+            Debug.LogFormat(
+                LogType.Log,
+                LogOption.NoStacktrace,
+                null,
+                "[PUZZLE-RPC] Traveller owns this client — opening puzzle"
+            );
             door.GetPuzzle()?.TryOpen();
         }
     }
 }
-    

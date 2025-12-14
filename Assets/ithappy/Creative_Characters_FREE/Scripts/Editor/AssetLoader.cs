@@ -10,7 +10,8 @@ namespace CharacterCustomizationTool.Editor
         public static IEnumerable<T> LoadAssets<T>(string filter, string folder)
             where T : Object
         {
-            var assets = AssetDatabase.FindAssets(filter, new[] { folder })
+            var assets = AssetDatabase
+                .FindAssets(filter, new[] { folder })
                 .Select(AssetDatabase.GUIDToAssetPath)
                 .Select(AssetDatabase.LoadAssetAtPath<T>)
                 .ToArray();

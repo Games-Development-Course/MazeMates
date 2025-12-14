@@ -16,15 +16,18 @@ namespace CharacterCustomizationTool.Editor.FaceEditor
 
             var previousFace = facePicker.ActiveFace;
 
-            var availableFaces =
-                Enum.GetValues(typeof(FaceType))
-                    .Cast<FaceType>()
-                    .Where(facePicker.HasFace)
-                    .ToArray();
+            var availableFaces = Enum.GetValues(typeof(FaceType))
+                .Cast<FaceType>()
+                .Where(facePicker.HasFace)
+                .ToArray();
 
             var activeFaceIndex = Array.IndexOf(availableFaces, facePicker.ActiveFace);
 
-            var newFaceIndex = EditorGUILayout.Popup("Face", activeFaceIndex, availableFaces.Select(f => f.ToString()).ToArray());
+            var newFaceIndex = EditorGUILayout.Popup(
+                "Face",
+                activeFaceIndex,
+                availableFaces.Select(f => f.ToString()).ToArray()
+            );
             var newFace = availableFaces[newFaceIndex];
 
             if (newFace != previousFace)

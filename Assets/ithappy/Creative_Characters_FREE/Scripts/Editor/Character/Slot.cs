@@ -16,12 +16,10 @@ namespace CharacterCustomizationTool.Editor.Character
         public override int SelectedIndex => _variants.FindIndex(v => v.Name == _selected.Name);
         public override int VariantsCount => _variants.Count;
 
-        public override (SlotType, Mesh)[] Meshes => new[]
-        {
-            (Type, _selected.Mesh),
-        };
+        public override (SlotType, Mesh)[] Meshes => new[] { (Type, _selected.Mesh) };
 
-        public Slot(SlotType type, SlotGroupEntry[] slotGroupEntries) : base(type)
+        public Slot(SlotType type, SlotGroupEntry[] slotGroupEntries)
+            : base(type)
         {
             _groups = slotGroupEntries.Select(TranslateGroup).ToArray();
             _variants = FlattenVariants(_groups);
@@ -70,15 +68,22 @@ namespace CharacterCustomizationTool.Editor.Character
             return true;
         }
 
-        protected override void DrawSlot(Material material, int previewLayer, Camera camera, int submeshIndex)
+        protected override void DrawSlot(
+            Material material,
+            int previewLayer,
+            Camera camera,
+            int submeshIndex
+        )
         {
             DrawMesh(_selected.Mesh, material, previewLayer, camera, submeshIndex);
         }
 
         private static SlotGroup TranslateGroup(SlotGroupEntry entry)
         {
-            var variants = entry.Variants
-                .Select(v => new SlotVariant(v.gameObject.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh))
+            var variants = entry
+                .Variants.Select(v => new SlotVariant(
+                    v.gameObject.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh
+                ))
                 .ToArray();
 
             return new SlotGroup(entry.Type, variants);

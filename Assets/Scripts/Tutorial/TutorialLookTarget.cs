@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class TutorialLookTarget : MonoBehaviour
 {
-    [Tooltip("жйдей мевй щд-TutorialStep йщъощ бе (мощм: DoorLookTarget)")]
+    [Tooltip("пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ-TutorialStep пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ (пїЅпїЅпїЅпїЅ: DoorLookTarget)")]
     public string targetId;
 
     private static readonly Dictionary<string, TutorialLookTarget> registry =
@@ -29,7 +29,8 @@ public class TutorialLookTarget : MonoBehaviour
 
     public static Transform Get(string id)
     {
-        if (string.IsNullOrEmpty(id)) return null;
+        if (string.IsNullOrEmpty(id))
+            return null;
         return registry.TryGetValue(id, out var t) ? t.transform : null;
     }
 }

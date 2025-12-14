@@ -1,23 +1,21 @@
 ﻿using System;
 using System.Threading.Tasks;
-using UnityEngine;
-
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-
-using Unity.Services.Core;
+using Unity.Networking.Transport.Relay; // RelayServerData
 using Unity.Services.Authentication;
+using Unity.Services.Core;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
-
-using Unity.Networking.Transport.Relay;  // RelayServerData
+using UnityEngine;
 
 public class RelayManager : MonoBehaviour
 {
     public static RelayManager Instance { get; private set; }
 
     [Header("Relay Settings")]
-    [SerializeField] private int maxConnections = 2;
+    [SerializeField]
+    private int maxConnections = 2;
 
     // ל-WebGL חייבים WSS (במקום dtls / udp)
     private const string ConnectionType = "wss";
@@ -102,12 +100,12 @@ public class RelayManager : MonoBehaviour
         try
         {
             // 1. יצירת Allocation ל-Host
-            Allocation allocation =
-                await RelayService.Instance.CreateAllocationAsync(maxConnections);
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(
+                maxConnections
+            );
 
             // 2. יצירת RelayServerData עם "wss" (חשוב ל-WebGL)
-            RelayServerData relayServerData =
-                new RelayServerData(allocation, ConnectionType);
+            RelayServerData relayServerData = new RelayServerData(allocation, ConnectionType);
 
             // 3. החלת ההגדרות על UnityTransport
             transport.SetRelayServerData(relayServerData);
@@ -116,8 +114,7 @@ public class RelayManager : MonoBehaviour
             transport.UseWebSockets = true;
 
             // 4. קבלת Join Code
-            string joinCode =
-                await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+            string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
             Debug.Log($"[Relay] Host allocation created. JoinCode = {joinCode}");
 
@@ -148,12 +145,12 @@ public class RelayManager : MonoBehaviour
         try
         {
             // 1. JoinAllocation לפי Join Code
-            JoinAllocation joinAllocation =
-                await RelayService.Instance.JoinAllocationAsync(joinCode);
+            JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(
+                joinCode
+            );
 
             // 2. RelayServerData עם "wss"
-            RelayServerData relayServerData =
-                new RelayServerData(joinAllocation, ConnectionType);
+            RelayServerData relayServerData = new RelayServerData(joinAllocation, ConnectionType);
 
             // 3. החלת ההגדרות על UnityTransport
             transport.SetRelayServerData(relayServerData);

@@ -34,7 +34,7 @@ public enum TutorialConditionType
     // סוף מבוך
     BothReachedExit,
 
-    CustomEvent
+    CustomEvent,
 }
 
 [CreateAssetMenu(menuName = "Scriptable Objects/Tutorial Step", fileName = "NewTutorialStep")]
@@ -42,15 +42,19 @@ public class TutorialStep : ScriptableObject
 {
     [Header("Identification")]
     public string stepId;
-    [TextArea] public string description;
+
+    [TextArea]
+    public string description;
 
     [Header("Logic")]
     public TutorialConditionType conditionType = TutorialConditionType.None;
 
     [Header("HUD Messages")]
-    [TextArea] public string travellerMessage;
-    [TextArea] public string navigatorMessage;
+    [TextArea]
+    public string travellerMessage;
 
+    [TextArea]
+    public string navigatorMessage;
 
     [Header("Mouse / Cursor")]
     public bool applyMouseSettingsOnStepStart = false;
@@ -76,7 +80,7 @@ public class TutorialStep : ScriptableObject
 
     [Header("Traveller Rotation / Look")]
     public bool rotateTravellerOnStepStart = false;
-    public string travellerLookTargetId;        // למשל "DoorLook"
+    public string travellerLookTargetId; // למשל "DoorLook"
 
     // ===========================================================
     [Header("Timing")]

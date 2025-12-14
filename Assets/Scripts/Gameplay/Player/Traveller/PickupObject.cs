@@ -42,12 +42,15 @@ public class PickupObject : NetworkBehaviour
     private void OnTriggerEnter(Collider other)
     {
         // כל הלוגיקה מתבצעת רק על השרת
-        if (!IsServer) return;
-        if (!other.CompareTag("Player")) return;
+        if (!IsServer)
+            return;
+        if (!other.CompareTag("Player"))
+            return;
 
         HUDManager hud = HUDManager.Instance;
         GameManager gm = GameManager.Instance;
-        if (gm == null || hud == null) return;
+        if (gm == null || hud == null)
+            return;
 
         string finalMessage = customMessage;
         bool gameOver = false;
@@ -105,8 +108,8 @@ public class PickupObject : NetworkBehaviour
                         {
                             Send = new ClientRpcSendParams
                             {
-                                TargetClientIds = new ulong[] { playerNetObj.OwnerClientId }
-                            }
+                                TargetClientIds = new ulong[] { playerNetObj.OwnerClientId },
+                            },
                         };
 
                         // ✅ חזרה ל-(1,1,1) ב-World Space
@@ -138,8 +141,10 @@ public class PickupObject : NetworkBehaviour
 
         // השמדת האובייקט מהרשת (עכשיו בטוח – הטלפורט כבר "יושב" על השחקן ולא על הפצצה)
         var netObj = GetComponent<NetworkObject>();
-        if (netObj != null) netObj.Despawn(true);
-        else Destroy(gameObject);
+        if (netObj != null)
+            netObj.Despawn(true);
+        else
+            Destroy(gameObject);
     }
 
     // ================================================================
@@ -154,7 +159,8 @@ public class PickupObject : NetworkBehaviour
         int lives,
         int keys,
         int lifebuoys,
-        bool gameOver)
+        bool gameOver
+    )
     {
         HUDManager hud = HUDManager.Instance;
         GameManager gm = GameManager.Instance;

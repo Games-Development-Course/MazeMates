@@ -21,9 +21,11 @@ public static class FindNetcodePrefabByHash
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (!prefab) continue;
+            if (!prefab)
+                continue;
 
-            if (!prefab.TryGetComponent<NetworkObject>(out _)) continue;
+            if (!prefab.TryGetComponent<NetworkObject>(out _))
+                continue;
 
             foundTotal += CountMatches(targetHash, prefab, path, guid);
         }
@@ -31,8 +33,8 @@ public static class FindNetcodePrefabByHash
         if (foundTotal == 0)
         {
             Debug.LogError(
-                $"❌ No NetworkObject prefab matched hash {targetHash}. " +
-                $"If this still happens, it might be a SCENE object hash or a prefab generated at runtime / not under Assets/."
+                $"❌ No NetworkObject prefab matched hash {targetHash}. "
+                    + $"If this still happens, it might be a SCENE object hash or a prefab generated at runtime / not under Assets/."
             );
         }
         else
@@ -47,10 +49,12 @@ public static class FindNetcodePrefabByHash
 
         void Check(string label, string key)
         {
-            if (string.IsNullOrEmpty(key)) return;
+            if (string.IsNullOrEmpty(key))
+                return;
 
             uint h = XXHash32.Hash(key);
-            if (h != targetHash) return;
+            if (h != targetHash)
+                return;
 
             hits++;
             Debug.Log(
@@ -79,7 +83,9 @@ public static class FindNetcodePrefabByHash
             Check("GlobalObjectId.ToString()", goidStr);
             Check("GlobalObjectId lower", goidStr.ToLowerInvariant());
         }
-        catch { /* ignore */ }
+        catch
+        { /* ignore */
+        }
 
         // 5) some common combos
         Check("name|guid", $"{prefab.name}|{guid}");
@@ -122,13 +128,18 @@ public static class FindNetcodePrefabByHash
 
                 while (index <= limit)
                 {
-                    v1 = Round(v1, ReadUInt32(data, index)); index += 4;
-                    v2 = Round(v2, ReadUInt32(data, index)); index += 4;
-                    v3 = Round(v3, ReadUInt32(data, index)); index += 4;
-                    v4 = Round(v4, ReadUInt32(data, index)); index += 4;
+                    v1 = Round(v1, ReadUInt32(data, index));
+                    index += 4;
+                    v2 = Round(v2, ReadUInt32(data, index));
+                    index += 4;
+                    v3 = Round(v3, ReadUInt32(data, index));
+                    index += 4;
+                    v4 = Round(v4, ReadUInt32(data, index));
+                    index += 4;
                 }
 
-                h32 = RotateLeft(v1, 1) + RotateLeft(v2, 7) + RotateLeft(v3, 12) + RotateLeft(v4, 18);
+                h32 =
+                    RotateLeft(v1, 1) + RotateLeft(v2, 7) + RotateLeft(v3, 12) + RotateLeft(v4, 18);
                 h32 = MergeRound(h32, v1);
                 h32 = MergeRound(h32, v2);
                 h32 = MergeRound(h32, v3);
@@ -180,14 +191,16 @@ public static class FindNetcodePrefabByHash
             return acc;
         }
 
-        private static uint RotateLeft(uint value, int count)
-            => (value << count) | (value >> (32 - count));
+        private static uint RotateLeft(uint value, int count) =>
+            (value << count) | (value >> (32 - count));
 
-        private static uint ReadUInt32(byte[] data, int index)
-            => (uint)(data[index]
-                    | (data[index + 1] << 8)
-                    | (data[index + 2] << 16)
-                    | (data[index + 3] << 24));
+        private static uint ReadUInt32(byte[] data, int index) =>
+            (uint)(
+                data[index]
+                | (data[index + 1] << 8)
+                | (data[index + 2] << 16)
+                | (data[index + 3] << 24)
+            );
     }
 }
 #endif

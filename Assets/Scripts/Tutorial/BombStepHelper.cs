@@ -3,11 +3,11 @@
 public class BombStepHelper : MonoBehaviour
 {
     [Header("Colliders")]
-    public GameObject targetCollider;   // ה-trigger של שלב 4-1
+    public GameObject targetCollider; // ה-trigger של שלב 4-1
     public GameObject tutorialCollider; // ה-TutorialCollider שמתחת RemoveBomb
 
     [Header("Camera Target")]
-    public Transform lookTarget;        // המיקום של הפצצה
+    public Transform lookTarget; // המיקום של הפצצה
 
     private TutorialManager tutorial;
 
@@ -54,7 +54,8 @@ public class BombStepHelper : MonoBehaviour
     // נקרא מ-OnStepStart של Step 4-2
     public void OnBombStep2Start()
     {
-        if (tutorial == null) return;
+        if (tutorial == null)
+            return;
 
         // 🔥 1. לשחרר את ה-TutorialCollider (לתת לניווט אפשרות לעלות על הכפתור)
         if (tutorialCollider != null)
@@ -66,13 +67,9 @@ public class BombStepHelper : MonoBehaviour
         RotateTravellerCameraToBomb();
 
         // 3. HUD
-        tutorial.travellerHUD?.ShowMessage(
-            "היזהר! פצצה מולך.\nבקש מהנווט להסיר אותה."
-        );
+        tutorial.travellerHUD?.ShowMessage("היזהר! פצצה מולך.\nבקש מהנווט להסיר אותה.");
 
-        tutorial.navigatorHUD?.ShowMessage(
-            "עמוד על הכפתור השחור כדי להסיר את הפצצה."
-        );
+        tutorial.navigatorHUD?.ShowMessage("עמוד על הכפתור השחור כדי להסיר את הפצצה.");
     }
 
     private void RotateTravellerCameraToBomb()
@@ -96,7 +93,8 @@ public class BombStepHelper : MonoBehaviour
 
     public void OnBombRemovedSuccess()
     {
-        if (tutorial == null) return;
+        if (tutorial == null)
+            return;
 
         // 🔥 לא משחררים ידנית — השלב הבא צריך להגדיר Unlock בעצמו ב-TutorialStep
 

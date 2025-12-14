@@ -28,7 +28,7 @@ public class TravellerHUD : MonoBehaviour
     public float overlayFadeOut = 0.10f;
 
     [Header("Optional Fade To Black")]
-    public CanvasGroup fadeGroup;   // CanvasGroup (alpha=0)
+    public CanvasGroup fadeGroup; // CanvasGroup (alpha=0)
 
     private bool flashing = false;
     private Coroutine bombEffectCo;
@@ -55,7 +55,12 @@ public class TravellerHUD : MonoBehaviour
         }
 
         // אם לא שייכת Image — ניצור אחד אוטומטית מעל הכל בתוך TravellerHUD
-        var go = new GameObject("DamageOverlay_Auto", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        var go = new GameObject(
+            "DamageOverlay_Auto",
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(Image)
+        );
         go.transform.SetParent(transform, false);
 
         var rt = go.GetComponent<RectTransform>();
@@ -77,7 +82,8 @@ public class TravellerHUD : MonoBehaviour
 
     private void ResetOverlayImmediate()
     {
-        if (damageOverlayImage == null) return;
+        if (damageOverlayImage == null)
+            return;
 
         // גם אם הקובץ “אדום עם alpha 255”, אנחנו מאפסים ל-0 בתחילת המשחק
         var c = damageOverlayImage.color;
@@ -94,7 +100,8 @@ public class TravellerHUD : MonoBehaviour
 
     public void PlayBombResetEffect(float redHoldSeconds, float fadeOut, float fadeIn)
     {
-        if (!gameObject.activeInHierarchy) return;
+        if (!gameObject.activeInHierarchy)
+            return;
 
         if (bombEffectCo != null)
             StopCoroutine(bombEffectCo);
@@ -159,7 +166,8 @@ public class TravellerHUD : MonoBehaviour
 
     private IEnumerator FadeCanvas(CanvasGroup cg, float from, float to, float t)
     {
-        if (cg == null) yield break;
+        if (cg == null)
+            yield break;
 
         cg.alpha = from;
 

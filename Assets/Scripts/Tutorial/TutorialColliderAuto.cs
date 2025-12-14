@@ -9,8 +9,12 @@ public class TutorialColliderAuto : MonoBehaviour
 
     private void Awake()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[AUTO][Awake] Register collider on {name} | stepId={disableOnStepId}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[AUTO][Awake] Register collider on {name} | stepId={disableOnStepId}"
+        );
 
         TutorialManager.RegisterAutoCollider(this);
 
@@ -19,8 +23,12 @@ public class TutorialColliderAuto : MonoBehaviour
 
         if (targetCollider == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[AUTO] No collider found on {name}");
+            Debug.LogFormat(
+                LogType.Warning,
+                LogOption.NoStacktrace,
+                null,
+                $"[AUTO] No collider found on {name}"
+            );
             return;
         }
 
@@ -28,15 +36,23 @@ public class TutorialColliderAuto : MonoBehaviour
 
         if (tm == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[AUTO] TutorialManager NOT FOUND in Awake on {name}");
+            Debug.LogFormat(
+                LogType.Warning,
+                LogOption.NoStacktrace,
+                null,
+                $"[AUTO] TutorialManager NOT FOUND in Awake on {name}"
+            );
             return;
         }
 
         bool isRunning = tm.IsTutorialRunningForStep(disableOnStepId);
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[AUTO][Awake] {name}: IsTutorialRunningForStep({disableOnStepId}) = {isRunning}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[AUTO][Awake] {name}: IsTutorialRunningForStep({disableOnStepId}) = {isRunning}"
+        );
 
         if (isRunning)
         {
@@ -46,11 +62,14 @@ public class TutorialColliderAuto : MonoBehaviour
 
     public void OnStepStarted(string currentStepId)
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[AUTO][OnStepStarted] {name}: step started={currentStepId} | myStep={disableOnStepId}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[AUTO][OnStepStarted] {name}: step started={currentStepId} | myStep={disableOnStepId}"
+        );
 
-        if (!string.IsNullOrEmpty(disableOnStepId) &&
-            currentStepId == disableOnStepId)
+        if (!string.IsNullOrEmpty(disableOnStepId) && currentStepId == disableOnStepId)
         {
             DisableCollider();
         }
@@ -60,22 +79,34 @@ public class TutorialColliderAuto : MonoBehaviour
     {
         if (targetCollider == null)
         {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null,
-                $"[AUTO] DisableCollider FAILED on {name}: collider=null");
+            Debug.LogFormat(
+                LogType.Warning,
+                LogOption.NoStacktrace,
+                null,
+                $"[AUTO] DisableCollider FAILED on {name}: collider=null"
+            );
             return;
         }
 
         if (hasDisabled)
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-                $"[AUTO] {name}: collider already disabled previously.");
+            Debug.LogFormat(
+                LogType.Log,
+                LogOption.NoStacktrace,
+                null,
+                $"[AUTO] {name}: collider already disabled previously."
+            );
             return;
         }
 
         targetCollider.enabled = false;
         hasDisabled = true;
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[AUTO] Disabled collider on {targetCollider.gameObject.name}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[AUTO] Disabled collider on {targetCollider.gameObject.name}"
+        );
     }
 }

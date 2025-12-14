@@ -26,7 +26,11 @@ namespace CharacterCustomizationTool.Editor.Character
 
         public GameObject InstantiateCharacter()
         {
-            var character = Object.Instantiate(_characterGameObject, Vector3.zero, Quaternion.identity);
+            var character = Object.Instantiate(
+                _characterGameObject,
+                Vector3.zero,
+                Quaternion.identity
+            );
 
             return character;
         }
@@ -70,7 +74,9 @@ namespace CharacterCustomizationTool.Editor.Character
 
         public void SaveCombination()
         {
-            var savedCombinations = Slots.Select(slot => new SavedSlot(slot.Type, slot.IsEnabled, slot.SelectedIndex)).ToList();
+            var savedCombinations = Slots
+                .Select(slot => new SavedSlot(slot.Type, slot.IsEnabled, slot.SelectedIndex))
+                .ToList();
             _savedCombinations.Add(savedCombinations);
 
             while (_savedCombinations.Count > 4)
@@ -104,8 +110,15 @@ namespace CharacterCustomizationTool.Editor.Character
             var lastSavedCombination = _savedCombinations.Last();
 
             return !Slots
-                .Select(slot => new { slot, savedCombination = lastSavedCombination.Find(c => c.SlotType == slot.Type) })
-                .Where(t => t.slot.IsEnabled != t.savedCombination.IsEnabled || t.slot.SelectedIndex != t.savedCombination.VariantIndex)
+                .Select(slot => new
+                {
+                    slot,
+                    savedCombination = lastSavedCombination.Find(c => c.SlotType == slot.Type),
+                })
+                .Where(t =>
+                    t.slot.IsEnabled != t.savedCombination.IsEnabled
+                    || t.slot.SelectedIndex != t.savedCombination.VariantIndex
+                )
                 .Select(t => t.slot)
                 .Any();
         }
@@ -147,10 +160,11 @@ namespace CharacterCustomizationTool.Editor.Character
 
         public List<SlotName> GetSlotNames()
         {
-            var partNames = _characterGameObject.transform
-                .Cast<Transform>()
+            var partNames = _characterGameObject
+                .transform.Cast<Transform>()
                 .Where(mesh => mesh.TryGetComponent<Renderer>(out _))
-                .Select(mesh => new SlotName(mesh.name)).ToList();
+                .Select(mesh => new SlotName(mesh.name))
+                .ToList();
 
             return partNames;
         }
@@ -171,7 +185,10 @@ namespace CharacterCustomizationTool.Editor.Character
 
             foreach (var keyword in AssetsPath.BaseMesh.Keywords)
             {
-                var baseMeshes = AssetLoader.LoadAssets<GameObject>(keyword, AssetsPath.BaseMesh.Path);
+                var baseMeshes = AssetLoader.LoadAssets<GameObject>(
+                    keyword,
+                    AssetsPath.BaseMesh.Path
+                );
                 availableBaseMeshes.AddRange(baseMeshes);
             }
 

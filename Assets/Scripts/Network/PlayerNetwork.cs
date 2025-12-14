@@ -3,8 +3,8 @@ using UnityEngine;
 
 public class PlayerNetwork : NetworkBehaviour
 {
-        
     public Camera playerCamera;
+
     private void Start()
     {
         if (IsOwner)
@@ -17,7 +17,6 @@ public class PlayerNetwork : NetworkBehaviour
         }
     }
 
-
     public override void OnNetworkSpawn()
     {
         var renderer = GetComponent<MeshRenderer>();
@@ -29,7 +28,8 @@ public class PlayerNetwork : NetworkBehaviour
             playerCamera.enabled = true;
 
             var listener = playerCamera.GetComponent<AudioListener>();
-            if (listener) listener.enabled = true;
+            if (listener)
+                listener.enabled = true;
         }
         else
         {
@@ -37,17 +37,17 @@ public class PlayerNetwork : NetworkBehaviour
             playerCamera.enabled = false;
 
             var listener = playerCamera.GetComponent<AudioListener>();
-            if (listener) listener.enabled = false;
+            if (listener)
+                listener.enabled = false;
         }
     }
 
-
-
     void Update()
     {
-        if (!IsOwner) return;
+        if (!IsOwner)
+            return;
 
-        // úğåòä ôåùèéú ø÷ ìáãé÷ä
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
 
