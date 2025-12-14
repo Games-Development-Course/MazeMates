@@ -8,20 +8,26 @@ namespace Controller
         [Header("Character")]
         [SerializeField]
         private string m_HorizontalAxis = "Horizontal";
+
         [SerializeField]
         private string m_VerticalAxis = "Vertical";
+
         [SerializeField]
         private string m_JumpButton = "Jump";
+
         [SerializeField]
         private KeyCode m_RunKey = KeyCode.LeftShift;
 
         [Header("Camera")]
         [SerializeField]
         private PlayerCamera m_Camera;
+
         [SerializeField]
         private string m_MouseX = "Mouse X";
+
         [SerializeField]
         private string m_MouseY = "Mouse Y";
+
         [SerializeField]
         private string m_MouseScroll = "Mouse ScrollWheel";
 
@@ -39,11 +45,12 @@ namespace Controller
         {
             m_Mover = GetComponent<CharacterMover>();
 
-            if(m_Camera == null ) 
+            if (m_Camera == null)
             {
                 m_Camera = Camera.main == null ? null : Camera.main.GetComponent<PlayerCamera>();
             }
-            if(m_Camera != null) {
+            if (m_Camera != null)
+            {
                 m_Camera.SetPlayer(transform);
             }
         }

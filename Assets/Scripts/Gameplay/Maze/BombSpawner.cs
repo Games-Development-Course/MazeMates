@@ -1,22 +1,23 @@
-using UnityEngine;
 using Unity.Netcode;
+using UnityEngine;
 
 public class BombSpawner : NetworkBehaviour
 {
     public GameObject bombPrefab;
 
-    // ойчеойн чбетйн щаъд длрсъ
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
     public Vector3[] bombPositions;
 
     public override void OnNetworkSpawn()
     {
-        if (!IsServer) return;
+        if (!IsServer)
+            return;
 
         foreach (var pos in bombPositions)
         {
             var bomb = Instantiate(bombPrefab, pos, Quaternion.identity);
 
-            // зщеб мбцт spawn лгй щдщшъ йрдм аъ даебййчи!
+            // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ spawn пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ!
             bomb.GetComponent<NetworkObject>().Spawn();
         }
     }

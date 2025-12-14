@@ -1,6 +1,6 @@
-﻿using Unity.Netcode;
+﻿using System.Collections;
+using Unity.Netcode;
 using UnityEngine;
-using System.Collections;
 
 public class PlayerSpawnManager : MonoBehaviour
 {
@@ -19,15 +19,17 @@ public class PlayerSpawnManager : MonoBehaviour
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-            Debug.Log($"[SPAWN] PlayerSpawnManager Start. IsServer={NetworkManager.Singleton.IsServer}, LocalClientId={NetworkManager.Singleton.LocalClientId}");
+            Debug.Log(
+                $"[SPAWN] PlayerSpawnManager Start. IsServer={NetworkManager.Singleton.IsServer}, LocalClientId={NetworkManager.Singleton.LocalClientId}"
+            );
         }
         else
         {
-            Debug.LogError("[SPAWN] PlayerSpawnManager Start but NetworkManager.Singleton is STILL NULL");
+            Debug.LogError(
+                "[SPAWN] PlayerSpawnManager Start but NetworkManager.Singleton is STILL NULL"
+            );
         }
     }
-
-
 
     private void OnDestroy()
     {
@@ -39,11 +41,15 @@ public class PlayerSpawnManager : MonoBehaviour
     {
         if (NetworkManager.Singleton == null)
         {
-            Debug.LogWarning("[SPAWN] OnClientConnected called but NetworkManager.Singleton is NULL");
+            Debug.LogWarning(
+                "[SPAWN] OnClientConnected called but NetworkManager.Singleton is NULL"
+            );
             return;
         }
 
-        Debug.Log($"[SPAWN] OnClientConnected: clientId={clientId}, localClientId={NetworkManager.Singleton.LocalClientId}, IsServer={NetworkManager.Singleton.IsServer}");
+        Debug.Log(
+            $"[SPAWN] OnClientConnected: clientId={clientId}, localClientId={NetworkManager.Singleton.LocalClientId}, IsServer={NetworkManager.Singleton.IsServer}"
+        );
 
         if (!NetworkManager.Singleton.IsServer)
             return;
@@ -85,7 +91,9 @@ public class PlayerSpawnManager : MonoBehaviour
         Vector3 pos = travSpawn.position;
         Quaternion rot = travSpawn.rotation;
 
-        Debug.Log($"[SPAWN] Spawning Traveller for client {clientId} at pos={pos}, rot={rot.eulerAngles}");
+        Debug.Log(
+            $"[SPAWN] Spawning Traveller for client {clientId} at pos={pos}, rot={rot.eulerAngles}"
+        );
 
         var obj = Instantiate(travellerPrefab, pos, rot);
         var netObj = obj.GetComponent<NetworkObject>();
@@ -105,8 +113,10 @@ public class PlayerSpawnManager : MonoBehaviour
         gm.travellerMove = obj.GetComponent<PlayerMovement1P>();
         gm.travellerCam = obj.GetComponentInChildren<PlayerCamera1P>();
 
-        if (gm.travellerMove == null) Debug.LogWarning("[SPAWN] TravellerMove is NULL");
-        if (gm.travellerCam == null) Debug.LogWarning("[SPAWN] TravellerCam is NULL");
+        if (gm.travellerMove == null)
+            Debug.LogWarning("[SPAWN] TravellerMove is NULL");
+        if (gm.travellerCam == null)
+            Debug.LogWarning("[SPAWN] TravellerCam is NULL");
 
         Freeze(obj);
 
@@ -137,7 +147,9 @@ public class PlayerSpawnManager : MonoBehaviour
         Vector3 pos = navSpawn.position;
         Quaternion rot = navSpawn.rotation;
 
-        Debug.Log($"[SPAWN] Spawning Navigator for client {clientId} at pos={pos}, rot={rot.eulerAngles}");
+        Debug.Log(
+            $"[SPAWN] Spawning Navigator for client {clientId} at pos={pos}, rot={rot.eulerAngles}"
+        );
 
         var obj = Instantiate(navigatorPrefab, pos, rot);
         var netObj = obj.GetComponent<NetworkObject>();
@@ -157,8 +169,10 @@ public class PlayerSpawnManager : MonoBehaviour
         gm.navigatorMove = obj.GetComponent<PlayerMovement1P>();
         gm.navigatorCam = obj.GetComponentInChildren<PlayerCamera1P>();
 
-        if (gm.navigatorMove == null) Debug.LogWarning("[SPAWN] NavigatorMove is NULL");
-        if (gm.navigatorCam == null) Debug.LogWarning("[SPAWN] NavigatorCam is NULL");
+        if (gm.navigatorMove == null)
+            Debug.LogWarning("[SPAWN] NavigatorMove is NULL");
+        if (gm.navigatorCam == null)
+            Debug.LogWarning("[SPAWN] NavigatorCam is NULL");
 
         Freeze(obj);
 
@@ -230,7 +244,9 @@ public class PlayerSpawnManager : MonoBehaviour
 
         if (!navigatorSpawned || gm == null || gm.traveller == null)
         {
-            Debug.Log($"[SPAWN] OnNavigatorSpawned blocked. navigatorSpawned={navigatorSpawned}, gmNull={gm == null}, travellerNull={gm == null || gm.traveller == null}");
+            Debug.Log(
+                $"[SPAWN] OnNavigatorSpawned blocked. navigatorSpawned={navigatorSpawned}, gmNull={gm == null}, travellerNull={gm == null || gm.traveller == null}"
+            );
             return;
         }
 

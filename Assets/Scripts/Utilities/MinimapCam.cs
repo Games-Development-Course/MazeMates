@@ -3,17 +3,17 @@ using UnityEngine;
 public class MinimapSecurityCamera : MonoBehaviour
 {
     [Header("References")]
-    public Transform player;     // Traveller
-    public Transform mapCenter;  // Empty in the middle of the maze
+    public Transform player; // Traveller
+    public Transform mapCenter; // Empty in the middle of the maze
 
     // Internal defaults
-    private float followStrength = 0.25f;  // how much the camera shifts toward the player
-    private float swayAmplitude = 1.6f;   // subtle live wobble
-    private float swaySpeed = 0.35f;  // speed of wobble
-    private float smooth = 3f;     // smoothing for movement
+    private float followStrength = 0.25f; // how much the camera shifts toward the player
+    private float swayAmplitude = 1.6f; // subtle live wobble
+    private float swaySpeed = 0.35f; // speed of wobble
+    private float smooth = 3f; // smoothing for movement
 
-    private Vector3 baseOffset;          // initial offset from center
-    private Quaternion initialRotation;  // whatever you set in the Inspector
+    private Vector3 baseOffset; // initial offset from center
+    private Quaternion initialRotation; // whatever you set in the Inspector
 
     void Start()
     {
@@ -38,7 +38,8 @@ public class MinimapSecurityCamera : MonoBehaviour
 
     void LateUpdate()
     {
-        if (!player || !mapCenter) return;
+        if (!player || !mapCenter)
+            return;
 
         Vector3 center = mapCenter.position;
 

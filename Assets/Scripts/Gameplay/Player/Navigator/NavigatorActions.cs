@@ -9,14 +9,22 @@ public class NavigatorActions : NetworkBehaviour
 
     private void Awake()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NavigatorActions][Awake] enabled={enabled} active={gameObject.activeSelf} hierarchyActive={gameObject.activeInHierarchy}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[NavigatorActions][Awake] enabled={enabled} active={gameObject.activeSelf} hierarchyActive={gameObject.activeInHierarchy}"
+        );
     }
 
     private void Start()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NavigatorActions][Start] enabled={enabled} active={gameObject.activeSelf} hierarchyActive={gameObject.activeInHierarchy}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[NavigatorActions][Start] enabled={enabled} active={gameObject.activeSelf} hierarchyActive={gameObject.activeInHierarchy}"
+        );
     }
 
     public override void OnNetworkSpawn()
@@ -26,8 +34,12 @@ public class NavigatorActions : NetworkBehaviour
 
         tutorial = Object.FindFirstObjectByType<TutorialManager>();
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NavigatorActions][OnNetworkSpawn] IsOwner={IsOwner} IsHost={IsHost} IsServer={IsServer}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[NavigatorActions][OnNetworkSpawn] IsOwner={IsOwner} IsHost={IsHost} IsServer={IsServer}"
+        );
     }
 
     public override void OnDestroy()
@@ -35,10 +47,13 @@ public class NavigatorActions : NetworkBehaviour
         if (Instance == this)
             Instance = null;
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            "[NavigatorActions][OnDestroy] Instance cleared");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            "[NavigatorActions][OnDestroy] Instance cleared"
+        );
     }
-
 
     // =====================================================================
     // UI — BUTTON EVENTS
@@ -46,7 +61,8 @@ public class NavigatorActions : NetworkBehaviour
 
     public void UI_OpenDoor()
     {
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
         DoorController door = DoorController.FindDoorPlayerIsOn();
 
@@ -65,19 +81,22 @@ public class NavigatorActions : NetworkBehaviour
         door.Interact();
     }
 
-
-
     public void UI_ShowPuzzle()
     {
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
         // במקום FindNearestDoorOnPad לפי מיקום הנווט:
         // DoorController door = DoorController.FindNearestDoorOnPad(DoorType.Puzzle, transform.position);
 
         DoorController door = DoorController.FindDoorPlayerIsOn(DoorType.Puzzle);
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NAV-ACT] UI_ShowPuzzle | door={(door == null ? "null" : door.name)}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[NAV-ACT] UI_ShowPuzzle | door={(door == null ? "null" : door.name)}"
+        );
 
         if (door == null)
         {
@@ -89,21 +108,22 @@ public class NavigatorActions : NetworkBehaviour
         tutorial?.NotifyNavigatorOpenedPuzzleDoor();
     }
 
-
-
-
     private bool IsLocalNavigator()
     {
         return !IsHost;
     }
 
-
     public void UI_RemoveBomb()
     {
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
-            $"[NAV] RemoveBomb pressed | Owner={IsOwner} Server={IsServer} Host={IsHost}");
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            $"[NAV] RemoveBomb pressed | Owner={IsOwner} Server={IsServer} Host={IsHost}"
+        );
 
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
         if (ResourceManager.Instance == null)
         {
@@ -114,10 +134,10 @@ public class NavigatorActions : NetworkBehaviour
         ResourceManager.Instance.TryRemoveBomb();
     }
 
-
     public void UI_UseLifebuoy()
     {
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
         if (ResourceManager.Instance == null)
         {
@@ -128,10 +148,10 @@ public class NavigatorActions : NetworkBehaviour
         ResourceManager.Instance.TryUseLifebuoy();
     }
 
-
     public void UI_PlaceHeart()
     {
-        if (!IsLocalNavigator()) return;
+        if (!IsLocalNavigator())
+            return;
 
         if (ResourceManager.Instance == null)
         {
@@ -141,8 +161,4 @@ public class NavigatorActions : NetworkBehaviour
 
         ResourceManager.Instance.TryPlaceHeart();
     }
-
-
-
-
 }

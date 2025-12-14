@@ -1,11 +1,14 @@
-﻿using UnityEngine;
-using Unity.Netcode;
+﻿using Unity.Netcode;
+using UnityEngine;
 
 public class RoleHUDManager : MonoBehaviour
 {
     [Header("Root HUD objects")]
-    [SerializeField] private GameObject travellerHUD; // TravellerHUD מההיררכיה
-    [SerializeField] private GameObject navigatorHUD; // NavigatorHUD מההיררכיה
+    [SerializeField]
+    private GameObject travellerHUD; // TravellerHUD מההיררכיה
+
+    [SerializeField]
+    private GameObject navigatorHUD; // NavigatorHUD מההיררכיה
 
     private void Start()
     {
@@ -25,7 +28,8 @@ public class RoleHUDManager : MonoBehaviour
 
     private void TrySubscribeToNetworkEvents()
     {
-        if (NetworkManager.Singleton == null) return;
+        if (NetworkManager.Singleton == null)
+            return;
 
         NetworkManager.Singleton.OnServerStarted += OnNetworkStateChanged;
         NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
@@ -34,7 +38,8 @@ public class RoleHUDManager : MonoBehaviour
 
     private void UnsubscribeFromNetworkEvents()
     {
-        if (NetworkManager.Singleton == null) return;
+        if (NetworkManager.Singleton == null)
+            return;
 
         NetworkManager.Singleton.OnServerStarted -= OnNetworkStateChanged;
         NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
@@ -48,8 +53,7 @@ public class RoleHUDManager : MonoBehaviour
 
     private void OnClientConnected(ulong clientId)
     {
-        if (NetworkManager.Singleton != null &&
-            clientId == NetworkManager.Singleton.LocalClientId)
+        if (NetworkManager.Singleton != null && clientId == NetworkManager.Singleton.LocalClientId)
         {
             RefreshHUD();
         }
@@ -57,8 +61,7 @@ public class RoleHUDManager : MonoBehaviour
 
     private void OnClientDisconnected(ulong clientId)
     {
-        if (NetworkManager.Singleton != null &&
-            clientId == NetworkManager.Singleton.LocalClientId)
+        if (NetworkManager.Singleton != null && clientId == NetworkManager.Singleton.LocalClientId)
         {
             RefreshHUD();
         }
@@ -104,6 +107,4 @@ public class RoleHUDManager : MonoBehaviour
             go.SetActive(active);
         }
     }
-
-
 }

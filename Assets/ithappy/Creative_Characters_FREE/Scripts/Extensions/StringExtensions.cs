@@ -9,8 +9,11 @@ namespace CharacterCustomizationTool.Extensions
             return input switch
             {
                 null => throw new ArgumentNullException(nameof(input)),
-                "" => throw new ArgumentException($"{nameof(input)} cannot be empty", nameof(input)),
-                _ => input[0].ToString().ToUpper() + input[1..]
+                "" => throw new ArgumentException(
+                    $"{nameof(input)} cannot be empty",
+                    nameof(input)
+                ),
+                _ => input[0].ToString().ToUpper() + input[1..],
             };
         }
     }

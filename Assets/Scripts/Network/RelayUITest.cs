@@ -1,18 +1,26 @@
-﻿using UnityEngine;
-using TMPro;
+﻿using TMPro;
 using Unity.Netcode;
+using UnityEngine;
 
 public class RelayUITest : NetworkBehaviour
 {
     [Header("UI References")]
-    [SerializeField] private GameObject connectionPanel;   // הפאנל עם Host/Join/קוד
-    [SerializeField] private TMP_Text codeLabel;           // הטקסט שמציג את הקוד (רק הקוד / או "Creating...")
-    [SerializeField] private TMP_InputField codeInput;     // השדה שבו הנווט מזין קוד
+    [SerializeField]
+    private GameObject connectionPanel; // הפאנל עם Host/Join/קוד
+
+    [SerializeField]
+    private TMP_Text codeLabel; // הטקסט שמציג את הקוד (רק הקוד / או "Creating...")
+
+    [SerializeField]
+    private TMP_InputField codeInput; // השדה שבו הנווט מזין קוד
 
     // אם יש לך אובייקטים נפרדים לכפתורים/אזור ג׳וין – גרור אותם כאן (מומלץ)
     [Header("Optional UI Groups (recommended)")]
-    [SerializeField] private GameObject hostJoinButtonsRoot; // קבוצה שמכילה את כפתורי Host/Join
-    [SerializeField] private GameObject joinAreaRoot;        // קבוצה שמכילה את ה-Input + כפתור Join
+    [SerializeField]
+    private GameObject hostJoinButtonsRoot; // קבוצה שמכילה את כפתורי Host/Join
+
+    [SerializeField]
+    private GameObject joinAreaRoot; // קבוצה שמכילה את ה-Input + כפתור Join
 
     private bool lobbyHidden = false;
 
@@ -25,7 +33,9 @@ public class RelayUITest : NetworkBehaviour
     // ===========================
     public override void OnNetworkSpawn()
     {
-        Debug.Log($"[RelayTestUI] OnNetworkSpawn | IsServer={IsServer} IsClient={IsClient} IsOwner={IsOwner}");
+        Debug.Log(
+            $"[RelayTestUI] OnNetworkSpawn | IsServer={IsServer} IsClient={IsClient} IsOwner={IsOwner}"
+        );
 
         if (IsServer && NetworkManager.Singleton != null)
         {
@@ -58,7 +68,9 @@ public class RelayUITest : NetworkBehaviour
     {
         if (NetworkManager.Singleton == null)
         {
-            Debug.LogWarning("[RelayTestUI] OnClientConnectedServer called but NetworkManager is NULL");
+            Debug.LogWarning(
+                "[RelayTestUI] OnClientConnectedServer called but NetworkManager is NULL"
+            );
             return;
         }
 
@@ -82,7 +94,9 @@ public class RelayUITest : NetworkBehaviour
     [ClientRpc]
     private void HideLobbyPanelClientRpc()
     {
-        Debug.Log($"[RelayTestUI] HideLobbyPanelClientRpc on client | IsServer={IsServer} IsClient={IsClient}");
+        Debug.Log(
+            $"[RelayTestUI] HideLobbyPanelClientRpc on client | IsServer={IsServer} IsClient={IsClient}"
+        );
 
         if (connectionPanel != null)
         {
@@ -91,7 +105,9 @@ public class RelayUITest : NetworkBehaviour
         }
         else
         {
-            Debug.LogWarning("[RelayTestUI] connectionPanel is NULL on this client – cannot hide UI");
+            Debug.LogWarning(
+                "[RelayTestUI] connectionPanel is NULL on this client – cannot hide UI"
+            );
         }
     }
 
@@ -147,7 +163,8 @@ public class RelayUITest : NetworkBehaviour
 
             // חזרה למסך בחירה רגיל במקרה כשל
             ShowLobbyButtons(true);
-            if (codeLabel != null) codeLabel.text = "";
+            if (codeLabel != null)
+                codeLabel.text = "";
             if (codeInput != null)
             {
                 codeInput.interactable = true;
@@ -187,14 +204,17 @@ public class RelayUITest : NetworkBehaviour
     private void ShowLobbyButtons(bool show)
     {
         // אם לא חיברת roots - ננסה לפחות להשאיר את panel פעיל
-        if (hostJoinButtonsRoot != null) hostJoinButtonsRoot.SetActive(show);
-        if (joinAreaRoot != null) joinAreaRoot.SetActive(show);
+        if (hostJoinButtonsRoot != null)
+            hostJoinButtonsRoot.SetActive(show);
+        if (joinAreaRoot != null)
+            joinAreaRoot.SetActive(show);
     }
 
     private void ShowHostCodeOnlyUI(bool creating, string code)
     {
         // להשאיר את הפאנל עצמו פעיל, אבל להעלים כפתורים/אזור ג׳וין אם יש
-        if (connectionPanel != null) connectionPanel.SetActive(true);
+        if (connectionPanel != null)
+            connectionPanel.SetActive(true);
 
         ShowLobbyButtons(false);
 

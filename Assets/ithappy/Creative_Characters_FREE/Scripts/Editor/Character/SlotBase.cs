@@ -42,7 +42,12 @@ namespace CharacterCustomizationTool.Editor.Character
             IsEnabled = isToggled;
         }
 
-        protected abstract void DrawSlot(Material material, int previewLayer, Camera camera, int submeshIndex);
+        protected abstract void DrawSlot(
+            Material material,
+            int previewLayer,
+            Camera camera,
+            int submeshIndex
+        );
 
         protected int GetNextIndex()
         {
@@ -65,9 +70,23 @@ namespace CharacterCustomizationTool.Editor.Character
             return targetIndex;
         }
 
-        protected static void DrawMesh(Mesh mesh, Material material, int previewLayer, Camera camera, int submeshIndex)
+        protected static void DrawMesh(
+            Mesh mesh,
+            Material material,
+            int previewLayer,
+            Camera camera,
+            int submeshIndex
+        )
         {
-            Graphics.DrawMesh(mesh, new Vector3(0, -.01f, 0), Quaternion.identity, material, previewLayer, camera, submeshIndex);
+            Graphics.DrawMesh(
+                mesh,
+                new Vector3(0, -.01f, 0),
+                Quaternion.identity,
+                material,
+                previewLayer,
+                camera,
+                submeshIndex
+            );
         }
     }
 }

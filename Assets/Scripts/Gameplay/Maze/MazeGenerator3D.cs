@@ -11,7 +11,6 @@ public class MazeGenerator3D : MonoBehaviour
     [Header("Ground")]
     public GameObject groundPrefab;
 
-
     [Header("Prefabs")]
     public GameObject wallPrefab;
 
@@ -73,7 +72,6 @@ public class MazeGenerator3D : MonoBehaviour
         AssignPuzzlePrefabsToPuzzleDoors(puzzleDoorInstances);
     }
 
-
     // ================================================================
     //   CREATE FOLDER STRUCTURE
     // ================================================================
@@ -102,6 +100,7 @@ public class MazeGenerator3D : MonoBehaviour
             resourcesRoot.SetParent(mazeRoot);
         }
     }
+
     void CreateGround()
     {
         if (groundPrefab == null)
@@ -132,7 +131,6 @@ public class MazeGenerator3D : MonoBehaviour
         ground.transform.localScale = new Vector3(groundWidth, groundHeight, 1);
     }
 
-
     // ================================================================
     //   MAZE GENERATION
     // ================================================================
@@ -141,8 +139,8 @@ public class MazeGenerator3D : MonoBehaviour
         grid = new bool[width, height];
 
         for (int x = 0; x < width; x++)
-            for (int y = 0; y < height; y++)
-                grid[x, y] = true;
+        for (int y = 0; y < height; y++)
+            grid[x, y] = true;
 
         DFS(1, 1);
     }
@@ -157,7 +155,7 @@ public class MazeGenerator3D : MonoBehaviour
             new Vector2Int(2, 0),
             new Vector2Int(-2, 0),
             new Vector2Int(0, 2),
-            new Vector2Int(0, -2)
+            new Vector2Int(0, -2),
         };
 
         Shuffle(dirs);
@@ -203,12 +201,12 @@ public class MazeGenerator3D : MonoBehaviour
     void BuildMaze()
     {
         for (int x = 0; x < width; x++)
-            for (int y = 0; y < height; y++)
-                if (grid[x, y])
-                {
-                    Vector3 pos = new Vector3(x * cellSize, 1, y * cellSize);
-                    Instantiate(wallPrefab, pos, Quaternion.identity, wallsRoot);
-                }
+        for (int y = 0; y < height; y++)
+            if (grid[x, y])
+            {
+                Vector3 pos = new Vector3(x * cellSize, 1, y * cellSize);
+                Instantiate(wallPrefab, pos, Quaternion.identity, wallsRoot);
+            }
         int wx = width - 2;
         int wy = height - 1;
 
@@ -258,7 +256,7 @@ public class MazeGenerator3D : MonoBehaviour
         Vector3 exitPos = new Vector3(
             forcedExitCell.x * cellSize,
             0,
-            forcedExitCell.y * cellSize - half   // זה נותן Z=9.5 במקרה של cellSize=1
+            forcedExitCell.y * cellSize - half // זה נותן Z=9.5 במקרה של cellSize=1
         );
 
         // 4) מסובב שתפנה "למטה" (south / -Z)
@@ -266,7 +264,6 @@ public class MazeGenerator3D : MonoBehaviour
 
         Instantiate(exitDoorPrefab, exitPos, rot, doorsRoot);
     }
-
 
     // ================================================================
     //   DOOR PLACEMENT (NORMAL + PUZZLE)
@@ -286,22 +283,26 @@ public class MazeGenerator3D : MonoBehaviour
         for (int i = 0; i < normalDoorsAmount; i++)
         {
             var s = DoorPlacement.PickRandomSpot(spots, used, minDist);
-            if (s == null) break;
+            if (s == null)
+                break;
 
             SpawnDoor(normalDoorPrefab, s);
             used.Add(s);
         }
 
         // PUZZLE DOORS
-        spots.Sort((a, b) =>
-            Vector2.Distance(new Vector2(1, 1), b.cell)
-                .CompareTo(Vector2.Distance(new Vector2(1, 1), a.cell))
+        spots.Sort(
+            (a, b) =>
+                Vector2
+                    .Distance(new Vector2(1, 1), b.cell)
+                    .CompareTo(Vector2.Distance(new Vector2(1, 1), a.cell))
         );
 
         for (int i = 0; i < puzzleDoorsAmount; i++)
         {
             var s = DoorPlacement.PickDeepSpot(spots, used, minDist);
-            if (s == null) break;
+            if (s == null)
+                break;
 
             GameObject pd = SpawnDoor(puzzleDoorPrefab, s);
             if (pd != null)
@@ -340,16 +341,31 @@ public class MazeGenerator3D : MonoBehaviour
         }
 
         ResourcePlacement.PlaceResources(
-            grid, pathCells, blocked, cellSize,
-            resourcesRoot, heartPrefab, heartsAmount
+            grid,
+            pathCells,
+            blocked,
+            cellSize,
+            resourcesRoot,
+            heartPrefab,
+            heartsAmount
         );
         ResourcePlacement.PlaceResources(
-            grid, pathCells, blocked, cellSize,
-            resourcesRoot, bombPrefab, bombsAmount
+            grid,
+            pathCells,
+            blocked,
+            cellSize,
+            resourcesRoot,
+            bombPrefab,
+            bombsAmount
         );
         ResourcePlacement.PlaceResources(
-            grid, pathCells, blocked, cellSize,
-            resourcesRoot, keyPrefab, keysAmount
+            grid,
+            pathCells,
+            blocked,
+            cellSize,
+            resourcesRoot,
+            keyPrefab,
+            keysAmount
         );
     }
 

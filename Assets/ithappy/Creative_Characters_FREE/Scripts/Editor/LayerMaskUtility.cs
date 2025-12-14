@@ -10,10 +10,15 @@ namespace CharacterCustomizationTool.Editor
         {
             if (string.IsNullOrEmpty(name))
             {
-                throw new ArgumentNullException(nameof(name), "New layer name string is either null or empty.");
+                throw new ArgumentNullException(
+                    nameof(name),
+                    "New layer name string is either null or empty."
+                );
             }
 
-            var tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+            var tagManager = new SerializedObject(
+                AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]
+            );
             var layerProps = tagManager.FindProperty("layers");
             var propCount = layerProps.arraySize;
 
@@ -38,7 +43,13 @@ namespace CharacterCustomizationTool.Editor
 
             if (firstEmptyProp == null)
             {
-                Debug.LogError("Maximum limit of " + propCount + " layers exceeded. Layer \"" + name + "\" not created.");
+                Debug.LogError(
+                    "Maximum limit of "
+                        + propCount
+                        + " layers exceeded. Layer \""
+                        + name
+                        + "\" not created."
+                );
 
                 return;
             }

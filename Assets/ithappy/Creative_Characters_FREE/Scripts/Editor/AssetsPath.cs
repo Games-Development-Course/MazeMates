@@ -4,7 +4,8 @@
     {
         public const string PackageName = "Creative_Characters_FREE";
 
-        public static string AnimationController => _root + "Animations/Animation_Controllers/Character_Movement.controller";
+        public static string AnimationController =>
+            _root + "Animations/Animation_Controllers/Character_Movement.controller";
         public static string SavedCharacters => _root + "Saved_Characters/";
         public static string SlotLibrary => _root + "Configs/SlotLibrary.asset";
 
@@ -17,11 +18,7 @@
 
         public static class BaseMesh
         {
-            public static readonly string[] Keywords =
-            {
-                "Base",
-                "Basic"
-            };
+            public static readonly string[] Keywords = { "Base", "Basic" };
 
             public static string Path => _root + "Meshes/";
         }

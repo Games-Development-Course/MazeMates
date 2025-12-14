@@ -1,6 +1,6 @@
-﻿    using System.Collections;
-    using TMPro;
-    using UnityEngine;
+﻿using System.Collections;
+using TMPro;
+using UnityEngine;
 
 public class HUDManager : MonoBehaviour
 {
@@ -77,8 +77,12 @@ public class HUDManager : MonoBehaviour
         }
     }
 
-    public void ShowMessageForTraveller(string msg) => ShowAndHide(msg, null, defaultMessageDuration);
-    public void ShowMessageForNavigator(string msg) => ShowAndHide(null, msg, defaultMessageDuration);
+    public void ShowMessageForTraveller(string msg) =>
+        ShowAndHide(msg, null, defaultMessageDuration);
+
+    public void ShowMessageForNavigator(string msg) =>
+        ShowAndHide(null, msg, defaultMessageDuration);
+
     public void ShowMessageForBoth(string msg) => ShowAndHide(msg, msg, defaultMessageDuration);
 
     // ============================================
@@ -116,8 +120,8 @@ public class HUDManager : MonoBehaviour
             Traveller.HidePuzzle();
     }
 
-
     public void UpdateHUDs() => UpdateHUD();
+
     public void FlashLifeIcons() => FlashTravellerLife();
 
     public TravellerHUD TravellerHUD => Traveller;
@@ -135,7 +139,13 @@ public class HUDManager : MonoBehaviour
         StartCoroutine(HideMessagesAfter(dur));
     }
 
-    public void ApplyState(int lives, int keys, int lifebuoys, int heartPlacements, int bombRemovals)
+    public void ApplyState(
+        int lives,
+        int keys,
+        int lifebuoys,
+        int heartPlacements,
+        int bombRemovals
+    )
     {
         var gm = GameManager.Instance;
         if (gm == null)
@@ -149,6 +159,7 @@ public class HUDManager : MonoBehaviour
 
         UpdateHUD();
     }
+
     public void NavWorldNotReady()
     {
         ShowMessageForNavigator("עולם המשחק לא מוכן");
@@ -208,6 +219,4 @@ public class HUDManager : MonoBehaviour
     {
         ShowMessageForNavigator("ניתן להשתמש במצוף רק כשהחידה פתוחה");
     }
-
-
 }

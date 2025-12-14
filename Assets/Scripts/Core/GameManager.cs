@@ -1,19 +1,28 @@
-using UnityEngine;
 using Unity.Netcode; // חשוב!
+using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
-    [HideInInspector] public GameObject traveller;
-    [HideInInspector] public GameObject navigator;
+    [HideInInspector]
+    public GameObject traveller;
+
+    [HideInInspector]
+    public GameObject navigator;
 
     // השדות האלה כבר לא קריטיים ללוגיקה, אבל נשאיר למקרה שתשתמש בהם בעתיד
-    [HideInInspector] public PlayerMovement1P travellerMove;
-    [HideInInspector] public PlayerMovement1P navigatorMove;
+    [HideInInspector]
+    public PlayerMovement1P travellerMove;
 
-    [HideInInspector] public PlayerCamera1P travellerCam;
-    [HideInInspector] public PlayerCamera1P navigatorCam;
+    [HideInInspector]
+    public PlayerMovement1P navigatorMove;
+
+    [HideInInspector]
+    public PlayerCamera1P travellerCam;
+
+    [HideInInspector]
+    public PlayerCamera1P navigatorCam;
 
     public int lives = 3;
     public int keys;

@@ -37,8 +37,8 @@ public class PlayerCamera1P : NetworkBehaviour
         ulong localId = NetworkManager.Singleton ? NetworkManager.Singleton.LocalClientId : 9999;
 
         Debug.Log(
-            $"[CAMERA][OnNetworkSpawn] '{gameObject.name}' " +
-            $"OwnerClientId={OwnerClientId} LocalClientId={localId} IsOwner={IsOwner}"
+            $"[CAMERA][OnNetworkSpawn] '{gameObject.name}' "
+                + $"OwnerClientId={OwnerClientId} LocalClientId={localId} IsOwner={IsOwner}"
         );
 
         if (!IsOwner)
@@ -49,7 +49,8 @@ public class PlayerCamera1P : NetworkBehaviour
                 myCamera.enabled = false;
                 myCamera.gameObject.SetActive(false);
             }
-            if (myListener != null) myListener.enabled = false;
+            if (myListener != null)
+                myListener.enabled = false;
 
             Debug.Log($"[CAMERA] DISABLE non-owner camera '{gameObject.name}' on client {localId}");
 
@@ -63,10 +64,13 @@ public class PlayerCamera1P : NetworkBehaviour
             myCamera.gameObject.SetActive(true);
             myCamera.enabled = true;
             myCamera.targetTexture = null;
-            myCamera.targetDisplay = 0;   // 👈 חשוב: תמיד מסך ראשי
-            Debug.Log($"[CAMERA] OWNER camera active '{myCamera.name}', targetDisplay={myCamera.targetDisplay}");
+            myCamera.targetDisplay = 0; // 👈 חשוב: תמיד מסך ראשי
+            Debug.Log(
+                $"[CAMERA] OWNER camera active '{myCamera.name}', targetDisplay={myCamera.targetDisplay}"
+            );
         }
-        if (myListener != null) myListener.enabled = true;
+        if (myListener != null)
+            myListener.enabled = true;
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -77,7 +81,8 @@ public class PlayerCamera1P : NetworkBehaviour
     private void Start()
     {
         // לא בעלים? לא עושים כלום (OnNetworkSpawn כבר דאג לכיבוי)
-        if (!IsOwner) return;
+        if (!IsOwner)
+            return;
 
         tutorial = Object.FindFirstObjectByType<TutorialManager>();
 
@@ -88,27 +93,34 @@ public class PlayerCamera1P : NetworkBehaviour
             isTraveller = rootName.Contains("Trav");
             isNavigator = rootName.Contains("Nav");
 
-            Debug.Log($"[CAMERA] rootName='{rootName}'  isTraveller={isTraveller}  isNavigator={isNavigator}");
+            Debug.Log(
+                $"[CAMERA] rootName='{rootName}'  isTraveller={isTraveller}  isNavigator={isNavigator}"
+            );
         }
         else
         {
             isTraveller = name.Contains("Trav");
             isNavigator = name.Contains("Nav");
 
-            Debug.Log($"[CAMERA] fallback name check '{name}'  isTraveller={isTraveller}  isNavigator={isNavigator}");
+            Debug.Log(
+                $"[CAMERA] fallback name check '{name}'  isTraveller={isTraveller}  isNavigator={isNavigator}"
+            );
         }
     }
 
     private void Update()
     {
-        if (!IsOwner) return;
-        if (GameManager.Instance == null) return;
+        if (!IsOwner)
+            return;
+        if (GameManager.Instance == null)
+            return;
         if (playerBody == null)
         {
             Debug.LogWarning($"[CAMERA] playerBody is NULL on '{gameObject.name}'");
             return;
         }
-        if (GameManager.Instance.inPuzzle) return;
+        if (GameManager.Instance.inPuzzle)
+            return;
 
         // ====== FREEZE CAMERA ======
         if (cameraFrozen)
@@ -139,17 +151,13 @@ public class PlayerCamera1P : NetworkBehaviour
         {
             if (isTraveller)
             {
-                
                 SendLookServerRpc(true);
             }
             else if (isNavigator)
             {
-       
                 SendLookServerRpc(false);
             }
-            else
-            {
-            }
+            else { }
         }
 
         // ====== CAMERA MOVEMENT ======
@@ -171,8 +179,8 @@ public class PlayerCamera1P : NetworkBehaviour
         autoUnlockIn = -1f;
 
         Debug.Log(
-            $"[CAMERA] SetCameraFrozen({freeze}) on '{gameObject.name}' " +
-            $"(client {NetworkManager.Singleton.LocalClientId})"
+            $"[CAMERA] SetCameraFrozen({freeze}) on '{gameObject.name}' "
+                + $"(client {NetworkManager.Singleton.LocalClientId})"
         );
 
         // גם בקפאה וגם בשחרור – שומרים על עכבר נעול
@@ -186,8 +194,8 @@ public class PlayerCamera1P : NetworkBehaviour
         autoUnlockIn = sec;
 
         Debug.Log(
-            $"[CAMERA] LockCameraForSeconds({sec}) on '{gameObject.name}' " +
-            $"(client {NetworkManager.Singleton.LocalClientId})"
+            $"[CAMERA] LockCameraForSeconds({sec}) on '{gameObject.name}' "
+                + $"(client {NetworkManager.Singleton.LocalClientId})"
         );
     }
 
@@ -207,12 +215,10 @@ public class PlayerCamera1P : NetworkBehaviour
 
         if (traveller)
         {
-         
             tm.NotifyTravellerLooked();
         }
         else
         {
-        
             tm.NotifyNavigatorLooked();
         }
     }

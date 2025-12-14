@@ -13,16 +13,19 @@ namespace Controller
 
         [SerializeField, Range(0f, 1f)]
         private float m_SensitivityX = 0.1f;
+
         [SerializeField, Range(0f, 1f)]
         private float m_SensitivityY = 0.1f;
 
         [SerializeField, Range(0f, 1f)]
         private float m_Zoom = 0.5f;
+
         [SerializeField, Range(0f, 1f)]
         private float m_SensetivityZoom = 0.1f;
 
         [SerializeField, Range(0, 90f)]
         private float m_MinAngle = 0f;
+
         [SerializeField, Range(0, 90f)]
         private float m_MaxAngle = 50f;
 
@@ -40,13 +43,14 @@ namespace Controller
             m_Transform = transform;
 
             m_Target = new GameObject($"Target_{gameObject.name}").transform;
-            if(m_Transform.parent != null)
+            if (m_Transform.parent != null)
             {
                 m_Target.transform.parent = m_Transform.parent;
             }
         }
 
-        public void SetPlayer(Transform player) {
+        public void SetPlayer(Transform player)
+        {
             m_Player = player;
         }
 

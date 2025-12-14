@@ -14,7 +14,8 @@ public class BombStopZone : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         var gm = GameManager.Instance;
-        if (gm == null) return;
+        if (gm == null)
+            return;
 
         // לוודא שזה המטייל
         if (other.gameObject != gm.traveller)

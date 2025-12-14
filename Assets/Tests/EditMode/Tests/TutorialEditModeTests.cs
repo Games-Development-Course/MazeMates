@@ -16,13 +16,15 @@ public class TutorialEditModeTests
     // Your configuration
     // ----------------------------
 
-    private static readonly HashSet<string> AllowedNoneConditionStepIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> AllowedNoneConditionStepIds = new HashSet<string>(
+        StringComparer.OrdinalIgnoreCase
+    )
     {
         "Welcome",
         "Welcome2",
         "Bomb3",
         "Bomb4",
-        "Celebrate"
+        "Celebrate",
     };
 
     // ✅ 1) The exact step order you expect (edit this list whenever you change the tutorial)
@@ -46,7 +48,7 @@ public class TutorialEditModeTests
         "Hint2",
         "Key2",
         "Finish",
-        "Celebrate"
+        "Celebrate",
     };
 
     // ✅ 2) Per-step lock expectations (index 0..18)
@@ -77,20 +79,19 @@ public class TutorialEditModeTests
     private const string FIELD_TRAV_MOVE_LOCKED = "travellerLockMovement";
     private const string FIELD_TRAV_CAM_LOCKED = "travellerLockCamera";
 
-
     // Index 0..18 expectations (19 steps)
     private static readonly LockExpectation[] ExpectedLocksByIndex =
     {
         // idx: 0
-        new LockExpectation(navMove: true,  navCam: true,  travMove: true,  travCam: true),
+        new LockExpectation(navMove: true, navCam: true, travMove: true, travCam: true),
         // idx: 1
-        new LockExpectation(navMove: true,  navCam: true,  travMove: true,  travCam: true),
+        new LockExpectation(navMove: true, navCam: true, travMove: true, travCam: true),
         // idx: 2
-        new LockExpectation(navMove: false,  navCam: true,  travMove: false, travCam: true),
+        new LockExpectation(navMove: false, navCam: true, travMove: false, travCam: true),
         // idx: 3
-        new LockExpectation(navMove: false,  navCam: false,  travMove: false, travCam: false),
+        new LockExpectation(navMove: false, navCam: false, travMove: false, travCam: false),
         // idx: 4
-        new LockExpectation(navMove: false, navCam: false,  travMove: false, travCam: false),
+        new LockExpectation(navMove: false, navCam: false, travMove: false, travCam: false),
         // idx: 5
         new LockExpectation(navMove: false, navCam: false, travMove: true, travCam: true),
         // idx: 6
@@ -129,7 +130,10 @@ public class TutorialEditModeTests
     public void TutorialSteps_Exist_InProject()
     {
         var steps = LoadAllTutorialSteps();
-        Assert.IsNotEmpty(steps, "No TutorialStep assets found. Create at least one TutorialStep ScriptableObject.");
+        Assert.IsNotEmpty(
+            steps,
+            "No TutorialStep assets found. Create at least one TutorialStep ScriptableObject."
+        );
     }
 
     [Test]
@@ -142,13 +146,21 @@ public class TutorialEditModeTests
             .GroupBy(x => x.Id, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var duplicates = groups.Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1).ToList();
+        var duplicates = groups
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+            .ToList();
 
         if (duplicates.Count > 0)
         {
-            string msg = "Duplicate stepId values found:\n" +
-                         string.Join("\n", duplicates.Select(d =>
-                             $"- stepId='{d.Key}' in:\n" + string.Join("\n", d.Select(x => $"   • {AssetPath(x.Step)}"))));
+            string msg =
+                "Duplicate stepId values found:\n"
+                + string.Join(
+                    "\n",
+                    duplicates.Select(d =>
+                        $"- stepId='{d.Key}' in:\n"
+                        + string.Join("\n", d.Select(x => $"   • {AssetPath(x.Step)}"))
+                    )
+                );
             Assert.Fail(msg);
         }
     }
@@ -164,14 +176,18 @@ public class TutorialEditModeTests
             object condition = GetFieldValue(step, "conditionType");
 
             if (condition == null)
-                Assert.Fail($"TutorialStep '{AssetPath(step)}' is missing field 'conditionType' (schema mismatch).");
+                Assert.Fail(
+                    $"TutorialStep '{AssetPath(step)}' is missing field 'conditionType' (schema mismatch)."
+                );
 
             bool isNone = condition.ToString().Equals("None", StringComparison.OrdinalIgnoreCase);
 
             if (isNone && !AllowedNoneConditionStepIds.Contains(stepId))
             {
-                Assert.Fail($"TutorialStep '{AssetPath(step)}' (stepId='{stepId}') has conditionType=None. " +
-                            $"Either set a real conditionType or whitelist it in AllowedNoneConditionStepIds.");
+                Assert.Fail(
+                    $"TutorialStep '{AssetPath(step)}' (stepId='{stepId}') has conditionType=None. "
+                        + $"Either set a real conditionType or whitelist it in AllowedNoneConditionStepIds."
+                );
             }
         }
     }
@@ -184,15 +200,20 @@ public class TutorialEditModeTests
         foreach (var step in steps)
         {
             object conditionObj = GetFieldValue(step, "conditionType");
-            if (conditionObj == null) continue;
+            if (conditionObj == null)
+                continue;
 
             var enumType = conditionObj.GetType();
-            if (!enumType.IsEnum) continue;
+            if (!enumType.IsEnum)
+                continue;
 
             string condName = conditionObj.ToString();
-            bool defined = Enum.GetNames(enumType).Any(n => n.Equals(condName, StringComparison.Ordinal));
-            Assert.That(defined,
-                $"TutorialStep '{AssetPath(step)}' has conditionType='{condName}' which is not a defined enum name anymore.");
+            bool defined = Enum.GetNames(enumType)
+                .Any(n => n.Equals(condName, StringComparison.Ordinal));
+            Assert.That(
+                defined,
+                $"TutorialStep '{AssetPath(step)}' has conditionType='{condName}' which is not a defined enum name anymore."
+            );
         }
     }
 
@@ -208,30 +229,47 @@ public class TutorialEditModeTests
             .Where(x => !string.IsNullOrWhiteSpace(x.Id))
             .ToDictionary(x => x.Id, x => x.Step, StringComparer.OrdinalIgnoreCase);
 
-        Assert.That(ExpectedStepOrder.Length > 0, "ExpectedStepOrder is empty. Fill it with your real tutorial stepIds.");
+        Assert.That(
+            ExpectedStepOrder.Length > 0,
+            "ExpectedStepOrder is empty. Fill it with your real tutorial stepIds."
+        );
 
         // Ensure every expected step exists
         foreach (var expectedId in ExpectedStepOrder)
         {
-            Assert.That(stepsById.ContainsKey(expectedId),
-                $"Expected stepId '{expectedId}' does not exist as a TutorialStep asset.");
+            Assert.That(
+                stepsById.ContainsKey(expectedId),
+                $"Expected stepId '{expectedId}' does not exist as a TutorialStep asset."
+            );
         }
 
         // Ensure there are no extra steps (optional strictness)
         // If you DON'T want strictness, delete this block.
-        var extra = stepsById.Keys.Where(k => !ExpectedStepOrder.Contains(k, StringComparer.OrdinalIgnoreCase)).ToList();
-        Assert.That(extra.Count == 0,
-            "Found TutorialStep assets not listed in ExpectedStepOrder:\n" + string.Join("\n", extra.Select(x => "- " + x)));
+        var extra = stepsById
+            .Keys.Where(k => !ExpectedStepOrder.Contains(k, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        Assert.That(
+            extra.Count == 0,
+            "Found TutorialStep assets not listed in ExpectedStepOrder:\n"
+                + string.Join("\n", extra.Select(x => "- " + x))
+        );
 
         // Now verify index-by-index equality (exact order)
         for (int i = 0; i < ExpectedStepOrder.Length; i++)
         {
             string expected = ExpectedStepOrder[i];
-            Assert.That(stepsById.ContainsKey(expected), $"Missing expected stepId '{expected}' at index {i}.");
+            Assert.That(
+                stepsById.ContainsKey(expected),
+                $"Missing expected stepId '{expected}' at index {i}."
+            );
 
             // This line is here mostly to make failures more readable in Test Runner.
             // If the list is the source of truth, the check above is enough.
-            Assert.AreEqual(expected, ExpectedStepOrder[i], $"Order mismatch at index {i} (this should never happen unless array edited incorrectly).");
+            Assert.AreEqual(
+                expected,
+                ExpectedStepOrder[i],
+                $"Order mismatch at index {i} (this should never happen unless array edited incorrectly)."
+            );
         }
     }
 
@@ -242,11 +280,16 @@ public class TutorialEditModeTests
     [Test]
     public void TutorialSteps_0_to_18_Locks_MatchExpected()
     {
-        Assert.AreEqual(19, ExpectedLocksByIndex.Length,
-            "ExpectedLocksByIndex must contain exactly 19 entries (indices 0..18).");
+        Assert.AreEqual(
+            19,
+            ExpectedLocksByIndex.Length,
+            "ExpectedLocksByIndex must contain exactly 19 entries (indices 0..18)."
+        );
 
-        Assert.That(ExpectedStepOrder.Length >= 19,
-            $"ExpectedStepOrder must contain at least 19 stepIds to test indices 0..18. Current length={ExpectedStepOrder.Length}");
+        Assert.That(
+            ExpectedStepOrder.Length >= 19,
+            $"ExpectedStepOrder must contain at least 19 stepIds to test indices 0..18. Current length={ExpectedStepOrder.Length}"
+        );
 
         // Build lookup by stepId
         var stepsById = LoadAllTutorialSteps()
@@ -257,8 +300,10 @@ public class TutorialEditModeTests
         for (int index = 0; index <= 18; index++)
         {
             string stepId = ExpectedStepOrder[index];
-            Assert.That(stepsById.TryGetValue(stepId, out var stepObj),
-                $"Expected stepId '{stepId}' at index {index} does not exist.");
+            Assert.That(
+                stepsById.TryGetValue(stepId, out var stepObj),
+                $"Expected stepId '{stepId}' at index {index} does not exist."
+            );
 
             bool navMove = GetBoolFieldOrFail(stepObj, FIELD_NAV_MOVE_LOCKED, stepId, index);
             bool navCam = GetBoolFieldOrFail(stepObj, FIELD_NAV_CAM_LOCKED, stepId, index);
@@ -267,15 +312,27 @@ public class TutorialEditModeTests
 
             var exp = ExpectedLocksByIndex[index];
 
-            Assert.AreEqual(exp.NavigatorMoveLocked, navMove,
-                $"Step[{index}] stepId='{stepId}' mismatch: {FIELD_NAV_MOVE_LOCKED}");
-            Assert.AreEqual(exp.NavigatorCameraLocked, navCam,
-                $"Step[{index}] stepId='{stepId}' mismatch: {FIELD_NAV_CAM_LOCKED}");
+            Assert.AreEqual(
+                exp.NavigatorMoveLocked,
+                navMove,
+                $"Step[{index}] stepId='{stepId}' mismatch: {FIELD_NAV_MOVE_LOCKED}"
+            );
+            Assert.AreEqual(
+                exp.NavigatorCameraLocked,
+                navCam,
+                $"Step[{index}] stepId='{stepId}' mismatch: {FIELD_NAV_CAM_LOCKED}"
+            );
 
-            Assert.AreEqual(exp.TravellerMoveLocked, travMove,
-                $"Step[{index}] stepId='{stepId}' mismatch: {FIELD_TRAV_MOVE_LOCKED}");
-            Assert.AreEqual(exp.TravellerCameraLocked, travCam,
-                $"Step[{index}] stepId='{stepId}' mismatch: {FIELD_TRAV_CAM_LOCKED}");
+            Assert.AreEqual(
+                exp.TravellerMoveLocked,
+                travMove,
+                $"Step[{index}] stepId='{stepId}' mismatch: {FIELD_TRAV_MOVE_LOCKED}"
+            );
+            Assert.AreEqual(
+                exp.TravellerCameraLocked,
+                travCam,
+                $"Step[{index}] stepId='{stepId}' mismatch: {FIELD_TRAV_CAM_LOCKED}"
+            );
         }
     }
 
@@ -295,7 +352,8 @@ public class TutorialEditModeTests
 
     private static string AssetPath(UnityEngine.Object obj)
     {
-        if (obj == null) return "NULL";
+        if (obj == null)
+            return "NULL";
         string path = AssetDatabase.GetAssetPath(obj);
         return string.IsNullOrWhiteSpace(path) ? obj.name : path;
     }
@@ -306,10 +364,15 @@ public class TutorialEditModeTests
 
     private static object GetFieldValue(UnityEngine.Object obj, string fieldName)
     {
-        if (obj == null) return null;
+        if (obj == null)
+            return null;
         var t = obj.GetType();
-        var f = t.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (f == null) return null;
+        var f = t.GetField(
+            fieldName,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+        );
+        if (f == null)
+            return null;
         return f.GetValue(obj);
     }
 
@@ -319,20 +382,26 @@ public class TutorialEditModeTests
         return v as string;
     }
 
-    private static bool GetBoolFieldOrFail(UnityEngine.Object obj, string fieldName, string stepId, int index)
+    private static bool GetBoolFieldOrFail(
+        UnityEngine.Object obj,
+        string fieldName,
+        string stepId,
+        int index
+    )
     {
         object v = GetFieldValue(obj, fieldName);
         if (v == null)
         {
             Assert.Fail(
-                $"Step[{index}] stepId='{stepId}' is missing bool field '{fieldName}'. " +
-                $"Fix by either:\n" +
-                $"1) Adding that bool field to TutorialStep, OR\n" +
-                $"2) Changing FIELD_* constants in this test to your real field names."
+                $"Step[{index}] stepId='{stepId}' is missing bool field '{fieldName}'. "
+                    + $"Fix by either:\n"
+                    + $"1) Adding that bool field to TutorialStep, OR\n"
+                    + $"2) Changing FIELD_* constants in this test to your real field names."
             );
         }
 
-        if (v is bool b) return b;
+        if (v is bool b)
+            return b;
 
         Assert.Fail(
             $"Step[{index}] stepId='{stepId}' field '{fieldName}' exists but is not bool (type={v.GetType().Name})."

@@ -68,7 +68,9 @@ namespace CharacterCustomizationTool.Editor
 
                 using (new EditorGUI.DisabledScope(!slot.IsEnabled))
                 {
-                    using (new GUILayout.HorizontalScope(EditorStyles.helpBox, GUILayout.Width(Width)))
+                    using (
+                        new GUILayout.HorizontalScope(EditorStyles.helpBox, GUILayout.Width(Width))
+                    )
                     {
                         RenderLeftButton(character, slot.Type);
                         RenderCounter(slot);
@@ -80,7 +82,11 @@ namespace CharacterCustomizationTool.Editor
 
         private static void RenderToggle(CustomizableCharacter character, SlotType type)
         {
-            var isToggled = EditorGUILayout.ToggleLeft("Enabled", character.IsToggled(type), GUILayout.Width(100));
+            var isToggled = EditorGUILayout.ToggleLeft(
+                "Enabled",
+                character.IsToggled(type),
+                GUILayout.Width(100)
+            );
             character.Toggle(type, isToggled);
         }
 
@@ -105,10 +111,7 @@ namespace CharacterCustomizationTool.Editor
             var style = new GUIStyle
             {
                 alignment = TextAnchor.MiddleCenter,
-                normal =
-                {
-                    textColor = Color.white
-                },
+                normal = { textColor = Color.white },
                 fixedWidth = 70,
             };
 

@@ -11,15 +11,21 @@ namespace CharacterCustomizationTool.Editor.Character
 
         public FullBodyVariant(FullBodyEntry fullBodyEntry)
         {
-            Elements = fullBodyEntry.Slots.Select(s => new FullBodyElement(s.Type, s.GameObject.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh)).ToArray();
+            Elements = fullBodyEntry
+                .Slots.Select(s => new FullBodyElement(
+                    s.Type,
+                    s.GameObject.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh
+                ))
+                .ToArray();
             PreviewObject = PreviewCreator.CreateVariantPreview(GetPreviewMesh(Elements));
         }
 
         private static Mesh GetPreviewMesh(FullBodyElement[] elements)
         {
-            var element = elements.FirstOrDefault(e => e.Type == SlotType.Hat)
-                          ?? elements.FirstOrDefault(e => e.Type == SlotType.Outerwear)
-                          ?? elements.First();
+            var element =
+                elements.FirstOrDefault(e => e.Type == SlotType.Hat)
+                ?? elements.FirstOrDefault(e => e.Type == SlotType.Outerwear)
+                ?? elements.First();
 
             return element.Mesh;
         }

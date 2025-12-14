@@ -2,7 +2,12 @@ using UnityEngine;
 
 public class PlayerStartPoint : MonoBehaviour
 {
-    public enum Role { Traveller, Navigator }
+    public enum Role
+    {
+        Traveller,
+        Navigator,
+    }
+
     public Role role;
 
     public static PlayerStartPoint TravellerPoint;

@@ -6,6 +6,7 @@ namespace Controller
     {
         [SerializeField, Range(0f, 2f)]
         private float m_Offset = 1.5f;
+
         [SerializeField, Range(0f, 360f)]
         private float m_CameraSpeed = 90f;
 
@@ -39,7 +40,7 @@ namespace Controller
                 var direction = m_TargetPos - m_Transform.position;
                 var delta = m_CameraSpeed * deltaTime;
 
-                if(delta * delta > direction.sqrMagnitude)
+                if (delta * delta > direction.sqrMagnitude)
                 {
                     m_Transform.position = m_TargetPos;
                 }
@@ -53,7 +54,7 @@ namespace Controller
 
             void target()
             {
-                if(m_Target == null)
+                if (m_Target == null)
                 {
                     return;
                 }
