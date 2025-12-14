@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3464465708620654678}
-  - component: {fileID: 6075485458603301025}
   m_Layer: 0
   m_Name: RemoveBomb
   m_TagString: Untagged
@@ -30,22 +29,78 @@ Transform:
   m_LocalScale: {x: 0.58, y: 0.58, z: 3.712}
   m_ConstrainProportionsScale: 1
   m_Children:
+  - {fileID: 4025988492630615690}
   - {fileID: 5680695172016368189}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 90, y: -90, z: 0}
---- !u!114 &6075485458603301025
+--- !u!1 &3435293081003668201
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4025988492630615690}
+  - component: {fileID: 6777894026446706790}
+  - component: {fileID: 8638632168462226500}
+  m_Layer: 0
+  m_Name: TutorialColliderBomb
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4025988492630615690
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3435293081003668201}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0.38268343, w: 0.92387956}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3464465708620654678}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &6777894026446706790
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3435293081003668201}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.79, y: 1.79, z: 3.78}
+  m_Center: {x: 0, y: 0, z: -1.9}
+--- !u!114 &8638632168462226500
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 576653776637535401}
+  m_GameObject: {fileID: 3435293081003668201}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: afb81eec19a25ca41ab19bc80c993cc5, type: 3}
+  m_Script: {fileID: 11500000, guid: 293e4d2f3c551794f975b349aee5165e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RotateY
-  speed: 45
+  m_EditorClassIdentifier: Assembly-CSharp::TutorialColliderAuto
+  disableOnStepId: Bomb2
+  targetCollider: {fileID: 6777894026446706790}
 --- !u!1 &6280982470403429735
 GameObject:
   m_ObjectHideFlags: 0

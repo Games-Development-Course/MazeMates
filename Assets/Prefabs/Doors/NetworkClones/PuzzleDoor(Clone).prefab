@@ -26,7 +26,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1061351830228647567}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 9, y: 0, z: 5.581}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -48,7 +48,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
   GlobalObjectIdHash: 4285837259
-  InScenePlacedSourceGlobalObjectIdHash: 194967534
+  InScenePlacedSourceGlobalObjectIdHash: 2689513194
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
@@ -78,7 +78,10 @@ MonoBehaviour:
   openSpeed: 3
   puzzlePrefab: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
   navigatorPreview: {fileID: 21300000, guid: 056aa7b5be3175544a6b82529f9b86d3, type: 3}
-  navigatorScreen: {fileID: 3068603538814725836, guid: f6264642bd7ab0b44961a6ef86ecdba0, type: 3}
+  navigatorScreenQuad: {fileID: 0}
+  navigatorScreenMaterialIndex: 0
+  tvZoom: 1
+  navigatorScreenTag: NavigatorScreenTV
   spawnedHints: []
 --- !u!1 &3471302577413516018
 GameObject:

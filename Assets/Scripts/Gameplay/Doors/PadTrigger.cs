@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿// PadTrigger.cs
+using UnityEngine;
 
 public class PadTrigger : MonoBehaviour
 {

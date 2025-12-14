@@ -8,45 +8,153 @@ public class PlayerCamera1P : NetworkBehaviour
 
     float xRotation = 0f;
 
-    public float lockDuration = 0.5f;
-    private bool cameraLocked = true;
-    private float timer = 0f;
+    private bool cameraFrozen = false;
+    private float autoUnlockIn = -1f;
 
-    void Start()
+    private TutorialManager tutorial;
+    private bool isTraveller;
+    private bool isNavigator;
+
+    // רכיבי מצלמה ושמע
+    private Camera myCamera;
+    private AudioListener myListener;
+
+    private void Awake()
     {
-        if (!IsOwner)
-        {
-            enabled = false; // ❗ הסקריפט לא עובד אצל שחקנים אחרים
-            return;
-        }
+        myCamera = GetComponentInChildren<Camera>(true);
+        myListener = GetComponentInChildren<AudioListener>(true);
 
-        Cursor.lockState = CursorLockMode.Locked;
+        if (myCamera != null)
+        {
+            // לוודא שאין TargetTexture – רנדר ישירות למסך
+            myCamera.targetTexture = null;
+        }
     }
 
-    void Update()
+    // 🔹 זה האירוע החשוב ברשת – כאן נחליט מי רואה איזו מצלמה
+    public override void OnNetworkSpawn()
     {
-        if (!IsOwner) return;              // ❗ רק הבעלים מזיז את המצלמה
+        ulong localId = NetworkManager.Singleton ? NetworkManager.Singleton.LocalClientId : 9999;
+
+        Debug.Log(
+            $"[CAMERA][OnNetworkSpawn] '{gameObject.name}' " +
+            $"OwnerClientId={OwnerClientId} LocalClientId={localId} IsOwner={IsOwner}"
+        );
+
+        if (!IsOwner)
+        {
+            if (myCamera != null)
+            {
+                myCamera.targetTexture = null;
+                myCamera.enabled = false;
+                myCamera.gameObject.SetActive(false);
+            }
+            if (myListener != null) myListener.enabled = false;
+
+            Debug.Log($"[CAMERA] DISABLE non-owner camera '{gameObject.name}' on client {localId}");
+
+            enabled = false;
+            return;
+        }
+
+        // === OWNER (השחקן המקומי) ===
+        if (myCamera != null)
+        {
+            myCamera.gameObject.SetActive(true);
+            myCamera.enabled = true;
+            myCamera.targetTexture = null;
+            myCamera.targetDisplay = 0;   // 👈 חשוב: תמיד מסך ראשי
+            Debug.Log($"[CAMERA] OWNER camera active '{myCamera.name}', targetDisplay={myCamera.targetDisplay}");
+        }
+        if (myListener != null) myListener.enabled = true;
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        Debug.Log($"[CAMERA] ENABLE owner camera '{gameObject.name}' on client {localId}");
+    }
+
+    private void Start()
+    {
+        // לא בעלים? לא עושים כלום (OnNetworkSpawn כבר דאג לכיבוי)
+        if (!IsOwner) return;
+
+        tutorial = Object.FindFirstObjectByType<TutorialManager>();
+
+        var rootMovement = GetComponentInParent<PlayerMovement1P>();
+        if (rootMovement != null)
+        {
+            string rootName = rootMovement.gameObject.name;
+            isTraveller = rootName.Contains("Trav");
+            isNavigator = rootName.Contains("Nav");
+
+            Debug.Log($"[CAMERA] rootName='{rootName}'  isTraveller={isTraveller}  isNavigator={isNavigator}");
+        }
+        else
+        {
+            isTraveller = name.Contains("Trav");
+            isNavigator = name.Contains("Nav");
+
+            Debug.Log($"[CAMERA] fallback name check '{name}'  isTraveller={isTraveller}  isNavigator={isNavigator}");
+        }
+    }
+
+    private void Update()
+    {
+        if (!IsOwner) return;
         if (GameManager.Instance == null) return;
-        if (playerBody == null) return;
+        if (playerBody == null)
+        {
+            Debug.LogWarning($"[CAMERA] playerBody is NULL on '{gameObject.name}'");
+            return;
+        }
         if (GameManager.Instance.inPuzzle) return;
 
-        if (cameraLocked)
+        // ====== FREEZE CAMERA ======
+        if (cameraFrozen)
         {
-            timer += Time.deltaTime;
-
-            xRotation = 0f;
             transform.localRotation = Quaternion.identity;
-            playerBody.rotation = Quaternion.identity;
 
-            if (timer >= lockDuration)
-                cameraLocked = false;
+            if (autoUnlockIn > 0)
+            {
+                autoUnlockIn -= Time.deltaTime;
+                if (autoUnlockIn <= 0)
+                {
+                    cameraFrozen = false;
+                    Debug.Log($"[CAMERA] Auto-unfreeze camera on '{gameObject.name}'");
+                }
+            }
 
             return;
         }
 
-        // input
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
+        // ====== RAW INPUT ======
+        float mouseX = Input.GetAxis("Mouse X");
+        float mouseY = Input.GetAxis("Mouse Y");
+
+        bool looked = Mathf.Abs(mouseX) > 0.01f || Mathf.Abs(mouseY) > 0.01f;
+
+        // ====== שליחת אירוע מבט לסרבר (טוטוריאל) ======
+        if (looked && tutorial != null && tutorial.TutorialActive.Value)
+        {
+            if (isTraveller)
+            {
+                
+                SendLookServerRpc(true);
+            }
+            else if (isNavigator)
+            {
+       
+                SendLookServerRpc(false);
+            }
+            else
+            {
+            }
+        }
+
+        // ====== CAMERA MOVEMENT ======
+        mouseX *= mouseSensitivity * Time.deltaTime;
+        mouseY *= mouseSensitivity * Time.deltaTime;
 
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -90f, 90f);
@@ -54,10 +162,58 @@ public class PlayerCamera1P : NetworkBehaviour
         transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
         playerBody.Rotate(Vector3.up * mouseX);
     }
-    public void LockCameraForSeconds(float duration)
+
+    // ====== API ======
+
+    public void SetCameraFrozen(bool freeze)
     {
-        lockDuration = duration;
-        cameraLocked = true;
-        timer = 0f;
+        cameraFrozen = freeze;
+        autoUnlockIn = -1f;
+
+        Debug.Log(
+            $"[CAMERA] SetCameraFrozen({freeze}) on '{gameObject.name}' " +
+            $"(client {NetworkManager.Singleton.LocalClientId})"
+        );
+
+        // גם בקפאה וגם בשחרור – שומרים על עכבר נעול
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    public void LockCameraForSeconds(float sec)
+    {
+        cameraFrozen = true;
+        autoUnlockIn = sec;
+
+        Debug.Log(
+            $"[CAMERA] LockCameraForSeconds({sec}) on '{gameObject.name}' " +
+            $"(client {NetworkManager.Singleton.LocalClientId})"
+        );
+    }
+
+    public bool IsFrozen => cameraFrozen;
+
+    // ====== SERVER RPC ======
+
+    [ServerRpc]
+    private void SendLookServerRpc(bool traveller)
+    {
+        var tm = Object.FindFirstObjectByType<TutorialManager>();
+        if (tm == null)
+        {
+            Debug.LogWarning("[CAMERA][ServerRpc] TutorialManager NOT FOUND on server");
+            return;
+        }
+
+        if (traveller)
+        {
+         
+            tm.NotifyTravellerLooked();
+        }
+        else
+        {
+        
+            tm.NotifyNavigatorLooked();
+        }
     }
 }

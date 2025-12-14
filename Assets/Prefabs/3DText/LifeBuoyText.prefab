@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1467141360969854850}
-  - component: {fileID: 1428691557432431916}
   m_Layer: 0
   m_Name: LifeBuoyText
   m_TagString: Untagged
@@ -33,19 +32,6 @@ Transform:
   - {fileID: 7850295689093279861}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 90, y: -90, z: 0}
---- !u!114 &1428691557432431916
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2134774803460866284}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: afb81eec19a25ca41ab19bc80c993cc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RotateY
-  speed: 45
 --- !u!1 &8911137015914898014
 GameObject:
   m_ObjectHideFlags: 0

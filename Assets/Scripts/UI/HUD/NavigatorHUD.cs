@@ -20,8 +20,6 @@ public class NavigatorHUD : MonoBehaviour
         if (!sharedBar)
             sharedBar = GetComponentInChildren<HUDShared>(true);
 
-
-        // 🔒 נועל כל הכפתורים עד שהנווט וה־manager ערוכים
         foreach (var b in actionButtons)
             b.interactable = false;
 
@@ -32,10 +30,10 @@ public class NavigatorHUD : MonoBehaviour
 
     private IEnumerator WaitForNavigator()
     {
-        while (NavigatorInteractionManager.Instance == null)
+        while (NavigatorActions.Instance == null)
             yield return null;
 
-        var nav = NavigatorInteractionManager.Instance;
+        var nav = NavigatorActions.Instance;
 
         while (!nav.IsSpawned)
             yield return null;
@@ -46,7 +44,6 @@ public class NavigatorHUD : MonoBehaviour
         foreach (var b in actionButtons)
             b.interactable = true;
     }
-
 
     // ============================================
     // HUD API
@@ -59,8 +56,11 @@ public class NavigatorHUD : MonoBehaviour
 
     public void ShowMessage(string msg)
     {
-        if (messageText)
-            messageText.text = msg;
+        if (messageText == null)
+            return;
+
+        messageText.gameObject.SetActive(true);
+        messageText.text = msg;
     }
 
     public void SetMessageColor(Color c)
@@ -69,7 +69,12 @@ public class NavigatorHUD : MonoBehaviour
             messageText.color = c;
     }
 
- 
+    public void Clear()
+    {
+        if (messageText == null)
+            return;
 
-
+        messageText.text = string.Empty;
+        // לא מכבים את האובייקט
+    }
 }

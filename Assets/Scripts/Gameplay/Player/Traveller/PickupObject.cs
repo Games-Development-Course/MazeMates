@@ -1,7 +1,8 @@
+// PickupObject.cs
 using TMPro;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Unity.Netcode;
 
 public class PickupObject : NetworkBehaviour
 {
@@ -25,52 +26,63 @@ public class PickupObject : NetworkBehaviour
     [Header("Message Duration")]
     public float messageDuration = 1.5f;
 
+    [Header("Bomb Reset Visuals")]
+    [Tooltip("כמה זמן האדום+פייד-אאוט יהיו לפני הטלפורט")]
+    public float bombPreTeleportDelay = 0.25f;
+
+    [Tooltip("כמה זמן האדום נשאר דולק (חופף עם הפייד)")]
+    public float bombRedSeconds = 0.15f;
+
+    [Tooltip("זמן פייד-אאוט")]
+    public float bombFadeOut = 0.25f;
+
+    [Tooltip("זמן פייד-אין")]
+    public float bombFadeIn = 0.35f;
+
     private void OnTriggerEnter(Collider other)
     {
         // כל הלוגיקה מתבצעת רק על השרת
-        if (!IsServer)
-            return;
-
-        if (!other.CompareTag("Player"))
-            return;
+        if (!IsServer) return;
+        if (!other.CompareTag("Player")) return;
 
         HUDManager hud = HUDManager.Instance;
         GameManager gm = GameManager.Instance;
-
-        if (gm == null || hud == null)
-            return;
+        if (gm == null || hud == null) return;
 
         string finalMessage = customMessage;
         bool gameOver = false;
 
-        // עדכון לוגיקה של המשחק על השרת
+        var tm = Object.FindFirstObjectByType<TutorialManager>();
+
         switch (type)
         {
             case PickupType.Heart:
                 gm.lives++;
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "אספת לב! קיבלת חיים נוספים.";
+                tm?.NotifyTravellerPickedHeart();
                 break;
 
             case PickupType.Key:
                 gm.keys++;
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "אספת מפתח!";
+                tm?.NotifyTravellerPickedKey();
                 break;
 
             case PickupType.Lifebuoy:
                 gm.lifebuoys++;
                 if (string.IsNullOrEmpty(finalMessage))
-                    finalMessage = "אספת מצוף הצלה! השתמש בו כדי להימנע מהפסד.";
+                    finalMessage = "אספת מצוף הצלה!";
                 break;
 
             case PickupType.Bomb:
                 gm.lives--;
+                tm?.NotifyTravellerSteppedBomb();
 
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "דרכת על פצצה! איבדת לב.";
 
-                // לוגיקת בומבה – רק על השרת, כי השרת מזיז את השחקן והמצב יסונכרן
                 hud.FlashTravellerLife();
 
                 if (gm.lives <= 0)
@@ -83,14 +95,36 @@ public class PickupObject : NetworkBehaviour
                     if (cam != null)
                         cam.LockCameraForSeconds(0.5f);
 
-                    var move = other.GetComponent<PlayerMovement1P>();
-                    if (move != null && PlayerStartPoint.Instance != null)
-                        move.TeleportToStart(PlayerStartPoint.Instance.startPosition);
+                    // ✅ עושים אפקט+טלפורט אצל ה-Owner של השחקן (כי יש ClientNetworkTransform)
+                    var move = other.GetComponentInParent<PlayerMovement1P>();
+                    var playerNetObj = other.GetComponentInParent<NetworkObject>();
+
+                    if (move != null && playerNetObj != null)
+                    {
+                        var p = new ClientRpcParams
+                        {
+                            Send = new ClientRpcSendParams
+                            {
+                                TargetClientIds = new ulong[] { playerNetObj.OwnerClientId }
+                            }
+                        };
+
+                        // ✅ חזרה ל-(1,1,1) ב-World Space
+                        move.BombResetAndTeleportClientRpc(
+                            new Vector3(1f, 1f, 1f),
+                            Quaternion.identity,
+                            bombPreTeleportDelay,
+                            bombRedSeconds,
+                            bombFadeOut,
+                            bombFadeIn,
+                            p
+                        );
+                    }
                 }
                 break;
         }
 
-        // שולחים לכולם סינכרון HUD + הודעה
+        // שולחים ל־Clients לעדכן HUD ולהציג הודעה
         ApplyPickupClientRpc(
             type,
             finalMessage,
@@ -102,18 +136,15 @@ public class PickupObject : NetworkBehaviour
             gameOver
         );
 
-        // הורדת האובייקט מהשרת (ומשם מכל הקליינטים)
+        // השמדת האובייקט מהרשת (עכשיו בטוח – הטלפורט כבר "יושב" על השחקן ולא על הפצצה)
         var netObj = GetComponent<NetworkObject>();
-        if (netObj != null)
-        {
-            netObj.Despawn(true);
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
+        if (netObj != null) netObj.Despawn(true);
+        else Destroy(gameObject);
     }
 
+    // ================================================================
+    //  CLIENT RPC – מציג הודעה ומעדכן HUD
+    // ================================================================
     [ClientRpc]
     private void ApplyPickupClientRpc(
         PickupType pickupType,
@@ -131,7 +162,6 @@ public class PickupObject : NetworkBehaviour
         if (hud == null || gm == null)
             return;
 
-        // מעדכנים את הערכים לפי מה שהשרת החליט
         gm.lives = lives;
         gm.keys = keys;
         gm.lifebuoys = lifebuoys;
@@ -142,17 +172,12 @@ public class PickupObject : NetworkBehaviour
             hud.ShowMessageForBoth(msg);
         }
 
-        // בומבה – כבר הבהבנו חיים בשרת, אבל אפשר לוודא שוב לוגיקה ויזואלית
         if (pickupType == PickupType.Bomb)
-        {
             hud.FlashTravellerLife();
-        }
 
         hud.UpdateHUDs();
 
         if (gameOver)
-        {
             SceneManager.LoadScene("GameOver");
-        }
     }
 }

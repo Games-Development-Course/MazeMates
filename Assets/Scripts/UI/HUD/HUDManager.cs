@@ -1,6 +1,6 @@
-﻿using System.Collections;
-using TMPro;
-using UnityEngine;
+﻿    using System.Collections;
+    using TMPro;
+    using UnityEngine;
 
 public class HUDManager : MonoBehaviour
 {
@@ -17,8 +17,16 @@ public class HUDManager : MonoBehaviour
         Instance = this;
     }
 
+    // ============================================
+    // הודעות HUD רגילות (לא טוטוריאל)
+    // ============================================
+
     private void ShowAndHide(string travellerMsg, string navigatorMsg, float duration)
     {
+        var tm = FindFirstObjectByType<TutorialManager>();
+        if (tm != null && tm.TutorialActive.Value)
+            return; // בזמן טוטוריאל לא נוגעים בהודעות הרגילות
+
         if (!string.IsNullOrEmpty(travellerMsg) && Traveller != null)
             Traveller.ShowMessage(travellerMsg);
 
@@ -69,20 +77,13 @@ public class HUDManager : MonoBehaviour
         }
     }
 
-    public void ShowMessageForTraveller(string msg)
-    {
-        ShowAndHide(msg, null, defaultMessageDuration);
-    }
+    public void ShowMessageForTraveller(string msg) => ShowAndHide(msg, null, defaultMessageDuration);
+    public void ShowMessageForNavigator(string msg) => ShowAndHide(null, msg, defaultMessageDuration);
+    public void ShowMessageForBoth(string msg) => ShowAndHide(msg, msg, defaultMessageDuration);
 
-    public void ShowMessageForNavigator(string msg)
-    {
-        ShowAndHide(null, msg, defaultMessageDuration);
-    }
-
-    public void ShowMessageForBoth(string msg)
-    {
-        ShowAndHide(msg, msg, defaultMessageDuration);
-    }
+    // ============================================
+    // ערכי משחק (חיים / מפתחות / משאבים)
+    // ============================================
 
     public void UpdateHUD()
     {
@@ -107,45 +108,20 @@ public class HUDManager : MonoBehaviour
     {
         if (Traveller != null)
             Traveller.ShowPuzzle();
-
     }
 
     public void HidePuzzle()
     {
         if (Traveller != null)
             Traveller.HidePuzzle();
-
     }
 
-    public void ShowMessageToTraveller(string msg)
-    {
-        ShowMessageForTraveller(msg);
-    }
 
-    public void ShowMessageToNavigator(string msg)
-    {
-        ShowMessageForNavigator(msg);
-    }
+    public void UpdateHUDs() => UpdateHUD();
+    public void FlashLifeIcons() => FlashTravellerLife();
 
-    public void UpdateHUDs()
-    {
-        UpdateHUD();
-    }
-
-    public void FlashLifeIcons()
-    {
-        FlashTravellerLife();
-    }
-
-    public TravellerHUD TravellerHUD
-    {
-        get { return Traveller; }
-    }
-
-    public NavigatorHUD NavigatorHUD
-    {
-        get { return Navigator; }
-    }
+    public TravellerHUD TravellerHUD => Traveller;
+    public NavigatorHUD NavigatorHUD => Navigator;
 
     public void SetMessageAppearanceForBoth(Color c, float dur)
     {
@@ -173,4 +149,65 @@ public class HUDManager : MonoBehaviour
 
         UpdateHUD();
     }
+    public void NavWorldNotReady()
+    {
+        ShowMessageForNavigator("עולם המשחק לא מוכן");
+    }
+
+    public void NavNoDoorHere()
+    {
+        ShowMessageForNavigator("אין דלת כאן");
+    }
+
+    public void NavDoorRequiresPuzzle()
+    {
+        ShowMessageForNavigator("דלת זו דורשת לפתור חידה");
+    }
+
+    public void NavNoPuzzleDoorHere()
+    {
+        ShowMessageForNavigator("אין דלת חידה כאן");
+    }
+
+    public void NavResourcesNotReady()
+    {
+        ShowMessageForNavigator("מערכת משאבים לא מוכנה");
+    }
+
+    public void NavNoHeartsLeft()
+    {
+        ShowMessageForNavigator("לא נותרו לבבות");
+    }
+
+    public void NavNoTraveller()
+    {
+        ShowMessageForNavigator("אין מטייל במשחק");
+    }
+
+    public void NavNoBombAttempts()
+    {
+        ShowMessageForNavigator("לא נותרו ניסיונות להסרת פצצה");
+    }
+
+    public void NavNoBombsOnMap()
+    {
+        ShowMessageForNavigator("אין פצצות במפה");
+    }
+
+    public void NavNoBombFound()
+    {
+        ShowMessageForNavigator("לא נמצאה פצצה");
+    }
+
+    public void NavNoLifebuoys()
+    {
+        ShowMessageForNavigator("לא נותרו מצופי הצלה");
+    }
+
+    public void NavLifebuoyOnlyInPuzzle()
+    {
+        ShowMessageForNavigator("ניתן להשתמש במצוף רק כשהחידה פתוחה");
+    }
+
+
 }

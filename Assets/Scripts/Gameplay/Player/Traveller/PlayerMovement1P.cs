@@ -1,4 +1,6 @@
-﻿using Unity.Netcode;
+﻿// PlayerMovement1P.cs
+using System.Collections;
+using Unity.Netcode;
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
@@ -10,27 +12,92 @@ public class PlayerMovement1P : NetworkBehaviour
     private CharacterController controller;
     private Vector3 velocity;
 
-    void Start()
+    private TutorialManager tutorial;
+    private bool isTraveller;
+    private bool isNavigator;
+
+    private bool movementFrozen = false;
+
+    void Awake()
     {
         controller = GetComponent<CharacterController>();
-        Debug.Log($"[PlayerMovement1P] name={name}, Owner={OwnerClientId}, " +
-                   $"Local={NetworkManager.Singleton.LocalClientId}, IsOwner={IsOwner}");
     }
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        if (!IsOwner)
+            return;
+
+        if (IsHost)
+        {
+            isTraveller = true;
+
+            var tm = Object.FindFirstObjectByType<TutorialManager>();
+            if (tm != null)
+            {
+                tm.RegisterTraveller(transform);
+
+                Camera cam = GetComponentInChildren<Camera>();
+                if (cam != null)
+                    tm.RegisterTravellerCamera(cam);
+            }
+        }
+        else
+        {
+            isTraveller = false;
+        }
+    }
+
+    void Start()
+    {
+        tutorial = Object.FindFirstObjectByType<TutorialManager>();
+        isTraveller = name.Contains("Trav");
+        isNavigator = name.Contains("Nav");
+    }
+
+    public void SetFrozen(bool freeze)
+    {
+        movementFrozen = freeze;
+
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
+
+        if (freeze && controller != null)
+            controller.Move(Vector3.zero);
+    }
+
+    public bool IsFrozen => movementFrozen;
 
     void Update()
     {
-        if (!IsOwner) return;                     
-        if (GameManager.Instance == null) return;
+        if (!IsOwner) return;
         if (controller == null) return;
+        if (GameManager.Instance == null) return;
+
+        if (movementFrozen)
+        {
+            controller.Move(Vector3.zero);
+            return;
+        }
 
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
 
-        // תנועה רגילה
+        bool moved = Mathf.Abs(h) > 0.01f || Mathf.Abs(v) > 0.01f;
+
+        if (moved && tutorial != null && tutorial.TutorialActive.Value)
+        {
+            if (isTraveller)
+                NotifyMovementServerRpc(true);
+            else if (isNavigator)
+                NotifyMovementServerRpc(false);
+        }
+
         Vector3 move = transform.right * h + transform.forward * v;
         controller.Move(move * speed * Time.deltaTime);
 
-        // גרביטי
         if (controller.isGrounded)
             velocity.y = -2f;
         else
@@ -39,15 +106,72 @@ public class PlayerMovement1P : NetworkBehaviour
         controller.Move(velocity * Time.deltaTime);
     }
 
-    // -------------------------------------------------------
-    // Used by PickupObject.cs
-    // -------------------------------------------------------
+    [ServerRpc]
+    private void NotifyMovementServerRpc(bool isTraveller)
+    {
+        var tm = Object.FindFirstObjectByType<TutorialManager>();
+        if (tm == null) return;
+
+        if (isTraveller)
+            tm.NotifyTravellerMoved();
+        else
+            tm.NotifyNavigatorMoved();
+    }
+
     public void TeleportToStart(Vector3 pos)
     {
-        velocity = Vector3.zero;
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
 
+        velocity = Vector3.zero;
         controller.enabled = false;
         transform.position = pos;
         controller.enabled = true;
+    }
+
+    // ============================================================
+    // ✅ BOMB RESET (RUNS ON OWNER CLIENT)
+    // ============================================================
+    [ClientRpc]
+    public void BombResetAndTeleportClientRpc(
+        Vector3 worldPos,
+        Quaternion worldRot,
+        float preDelay,
+        float redSeconds,
+        float fadeOut,
+        float fadeIn,
+        ClientRpcParams rpcParams = default)
+    {
+        if (!IsOwner) return;
+
+        // אפקט רק אצל המטייל (Host)
+        if (IsHost)
+        {
+            var hud = HUDManager.Instance;
+            if (hud != null && hud.TravellerHUD != null)
+                hud.TravellerHUD.PlayBombResetEffect(redSeconds, fadeOut, fadeIn);
+        }
+
+        SetFrozen(true);
+        StopAllCoroutines();
+        StartCoroutine(BombResetRoutine(worldPos, worldRot, preDelay));
+    }
+
+    private IEnumerator BombResetRoutine(Vector3 worldPos, Quaternion worldRot, float preDelay)
+    {
+        yield return new WaitForSeconds(preDelay);
+
+        // טלפורט בטוח עם CharacterController
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
+
+        velocity = Vector3.zero;
+        controller.enabled = false;
+        transform.SetPositionAndRotation(worldPos, worldRot);
+        controller.enabled = true;
+
+        // שחרור קצר אחרי שינוי מיקום
+        yield return new WaitForSeconds(0.05f);
+        SetFrozen(false);
     }
 }

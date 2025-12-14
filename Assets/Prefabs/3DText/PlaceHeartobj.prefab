@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6742879341106018702}
-  - component: {fileID: 1579694469850320684}
   m_Layer: 0
   m_Name: PlaceHeartobj
   m_TagString: Untagged
@@ -30,22 +29,78 @@ Transform:
   m_LocalScale: {x: 0.58, y: 0.58, z: 3.712}
   m_ConstrainProportionsScale: 1
   m_Children:
+  - {fileID: 3138545678550902672}
   - {fileID: 5918125274158897559}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 90, y: -90, z: 0}
---- !u!114 &1579694469850320684
+--- !u!1 &7048108204754252483
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3138545678550902672}
+  - component: {fileID: 7477328655170476634}
+  - component: {fileID: 8095346501829682983}
+  m_Layer: 0
+  m_Name: TutorialCollider
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3138545678550902672
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7048108204754252483}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0.7071068, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6742879341106018702}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &7477328655170476634
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7048108204754252483}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.79, y: 1.79, z: 3.78}
+  m_Center: {x: 0, y: 0, z: -0.3}
+--- !u!114 &8095346501829682983
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3754307007995942667}
+  m_GameObject: {fileID: 7048108204754252483}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: afb81eec19a25ca41ab19bc80c993cc5, type: 3}
+  m_Script: {fileID: 11500000, guid: 293e4d2f3c551794f975b349aee5165e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RotateY
-  speed: 45
+  m_EditorClassIdentifier: Assembly-CSharp::TutorialColliderAuto
+  disableOnStepId: Heart
+  targetCollider: {fileID: 7477328655170476634}
 --- !u!1 &7656439013353128763
 GameObject:
   m_ObjectHideFlags: 0

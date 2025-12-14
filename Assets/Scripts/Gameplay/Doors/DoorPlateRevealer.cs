@@ -1,111 +1,66 @@
-﻿using System.Collections;
-using UnityEngine;
+﻿    using Unity.Netcode;
+    using UnityEngine;
+    using System.Collections;
 
-[RequireComponent(typeof(Collider))]
-public class DoorPlateRevealer : MonoBehaviour
-{
-    [Header("Target plate (the yellow button)")]
-    public Transform plate;          // הכפתור שנמצא מתחת לרצפה
-
-    [Header("Movement")]
-    public float riseAmount = 0.3f;  // כמה להרים אותו מעל המיקום ההתחלתי
-    public float riseSpeed = 4f;     // מהירות האנימציה
-
-    [Header("Trigger filter")]
-    public string playerTag = "Player"; // תג של השחקן שנכנס לקוליידר
-
-    private Vector3 hiddenPos;
-    private Vector3 shownPos;
-
-    private bool isShown = false;
-    private bool plateLocked = false;    // ✅ אחרי שהכפתור עצמו נלחץ – לא יורד יותר
-    private int playersInside = 0;
-    private Coroutine moveRoutine;
-
-    private void Awake()
+    public class VictoryPlateRevealer : NetworkBehaviour
     {
-        var col = GetComponent<Collider>();
-        col.isTrigger = true;
+        [Header("Plate Settings")]
+        public Transform plate;      // הפלטה עצמה
+        public float riseAmount = 0.4f;
+        public float riseSpeed = 2f;
 
-        if (plate == null)
+        private Vector3 startPos;
+        private Vector3 targetPos;
+
+        private bool isRaised = false;
+
+        private void Awake()
         {
-            Debug.LogWarning("[DoorPlateRevealer] plate is not assigned, using self.", this);
-            plate = transform;
+            startPos = plate.localPosition;
+            targetPos = startPos + new Vector3(0, riseAmount, 0);
         }
 
-        hiddenPos = plate.localPosition;
-        shownPos = hiddenPos + Vector3.up * riseAmount;
-    }
-
-    private void OnTriggerEnter(Collider other)
-    {
-        if (!other.CompareTag(playerTag)) return;
-        if (plateLocked) return;          // כבר הופעל סופית
-
-        playersInside++;
-        if (playersInside == 1 && !isShown)
+        // פונקציה שתקרא מה-ExitDoor כשהמטייל נכנס
+        public void RaisePlate()
         {
-            isShown = true;
-            StartMove(true);              // להרים את הכפתור
-        }
-    }
+            if (isRaised) return;
+            isRaised = true;
 
-    private void OnTriggerExit(Collider other)
-    {
-        if (!other.CompareTag(playerTag)) return;
-        if (plateLocked) return;          // לא מורידים אחרי שהופעל
-
-        playersInside--;
-        if (playersInside < 0) playersInside = 0;
-
-        if (playersInside == 0 && isShown)
-        {
-            isShown = false;
-            StartMove(false);             // להחזיר מתחת לרצפה
-        }
-    }
-
-    private void StartMove(bool show)
-    {
-        if (moveRoutine != null)
-            StopCoroutine(moveRoutine);
-
-        moveRoutine = StartCoroutine(MovePlate(show));
-    }
-
-    private IEnumerator MovePlate(bool show)
-    {
-        Vector3 from = show ? hiddenPos : shownPos;
-        Vector3 to = show ? shownPos : hiddenPos;
-
-        float t = 0f;
-        while (t < 1f)
-        {
-            t += Time.deltaTime * riseSpeed;
-            float lerp = Mathf.SmoothStep(0f, 1f, t);
-
-            plate.localPosition = Vector3.Lerp(from, to, lerp);
-            yield return null;
+            // קריאה לשרת כדי שיעשה RPC לכולם
+            RaisePlateServerRpc();
         }
 
-        plate.localPosition = to;
-        moveRoutine = null;
+        [ServerRpc(RequireOwnership = false)]
+        private void RaisePlateServerRpc()
+        {
+            // עדכן אצל כולם
+            RaisePlateClientRpc();
+        }
+
+        [ClientRpc]
+        private void RaisePlateClientRpc()
+        {
+            StopAllCoroutines();
+            StartCoroutine(RaiseAnimation());
+        }
+
+        private IEnumerator RaiseAnimation()
+        {
+            Vector3 from = plate.localPosition;
+            Vector3 to = targetPos;
+
+            float t = 0f;
+
+            while (t < 1f)
+            {
+                t += Time.deltaTime * riseSpeed;
+                plate.localPosition = Vector3.Lerp(from, to, t);
+                yield return null;
+            }
+
+            plate.localPosition = to;
+        var glow = plate.GetComponent<FloorPressurePlateGlow>();
+        if (glow != null)
+            glow.RefreshStartPosition();
     }
-
-    // ----------------------------------------------------------
-    // לקרוא לפונקציה הזו מאירוע onPressed של הפלטה עצמה (FloorPressurePlateGlow)
-    // כאשר שחקן דורך עליה.
-    // ----------------------------------------------------------
-    public void LockPlateUp()
-    {
-        plateLocked = true;
-        isShown = true;
-        playersInside = 0;
-
-        if (moveRoutine != null)
-            StopCoroutine(moveRoutine);
-
-        // לסיים מיד את הדרך למעלה
-        plate.localPosition = shownPos;
     }
-}

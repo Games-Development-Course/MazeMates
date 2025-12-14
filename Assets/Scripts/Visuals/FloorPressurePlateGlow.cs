@@ -126,6 +126,11 @@ public class FloorPressurePlateGlow : MonoBehaviour
 
         currentAnim = null;
     }
+    public void RefreshStartPosition()
+    {
+        startPos = transform.localPosition;
+    }
+
 
     private void SetMaterialColors(Color baseColor, Color emissionColor)
     {

@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 7261606375771018147}
   - component: {fileID: 7661914404414963679}
   - component: {fileID: 3553315719295791699}
-  m_Layer: 8
+  m_Layer: 0
   m_Name: Bomb 1(Clone) 1
   m_TagString: Bomb
   m_Icon: {fileID: 0}
@@ -250,7 +250,7 @@ GameObject:
   - component: {fileID: 4303423587159117561}
   - component: {fileID: 8359334750914313033}
   - component: {fileID: 8048278519925980773}
-  m_Layer: 8
+  m_Layer: 0
   m_Name: FuseBase
   m_TagString: Untagged
   m_Icon: {fileID: 0}
