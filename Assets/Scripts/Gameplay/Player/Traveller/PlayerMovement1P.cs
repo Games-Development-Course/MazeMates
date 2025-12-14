@@ -1,4 +1,5 @@
 ﻿// PlayerMovement1P.cs
+using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -15,22 +16,20 @@ public class PlayerMovement1P : NetworkBehaviour
     private bool isTraveller;
     private bool isNavigator;
 
-    private bool movementFrozen = false;   // Default state
+    private bool movementFrozen = false;
 
-    // ------------- IMPORTANT: Awake עבור ה-Controller -------------עןא
     void Awake()
     {
         controller = GetComponent<CharacterController>();
     }
+
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
 
-        // רק הבעלים צריך לעשות את זה
         if (!IsOwner)
             return;
 
-        // המטייל = ה־Host
         if (IsHost)
         {
             isTraveller = true;
@@ -58,7 +57,6 @@ public class PlayerMovement1P : NetworkBehaviour
         isNavigator = name.Contains("Nav");
     }
 
-    // =====================  API  =====================
     public void SetFrozen(bool freeze)
     {
         movementFrozen = freeze;
@@ -72,14 +70,12 @@ public class PlayerMovement1P : NetworkBehaviour
 
     public bool IsFrozen => movementFrozen;
 
-    // =====================  UPDATE  =====================
     void Update()
     {
         if (!IsOwner) return;
         if (controller == null) return;
         if (GameManager.Instance == null) return;
 
-        // --- STOP ---
         if (movementFrozen)
         {
             controller.Move(Vector3.zero);
@@ -91,16 +87,14 @@ public class PlayerMovement1P : NetworkBehaviour
 
         bool moved = Mathf.Abs(h) > 0.01f || Mathf.Abs(v) > 0.01f;
 
-        // ---- שליחת אירוע תנועה לסרבר (טוטוריאל) ----
         if (moved && tutorial != null && tutorial.TutorialActive.Value)
         {
             if (isTraveller)
-                NotifyMovementServerRpc(true);   // Traveller
+                NotifyMovementServerRpc(true);
             else if (isNavigator)
-                NotifyMovementServerRpc(false);  // Navigator
+                NotifyMovementServerRpc(false);
         }
 
-        // ---- תנועה רגילה ----
         Vector3 move = transform.right * h + transform.forward * v;
         controller.Move(move * speed * Time.deltaTime);
 
@@ -111,8 +105,6 @@ public class PlayerMovement1P : NetworkBehaviour
 
         controller.Move(velocity * Time.deltaTime);
     }
-
-    // =====================  ServerRpc לתנועה  =====================
 
     [ServerRpc]
     private void NotifyMovementServerRpc(bool isTraveller)
@@ -126,7 +118,6 @@ public class PlayerMovement1P : NetworkBehaviour
             tm.NotifyNavigatorMoved();
     }
 
-    // Teleport safe
     public void TeleportToStart(Vector3 pos)
     {
         if (controller == null)
@@ -136,5 +127,51 @@ public class PlayerMovement1P : NetworkBehaviour
         controller.enabled = false;
         transform.position = pos;
         controller.enabled = true;
+    }
+
+    // ============================================================
+    // ✅ BOMB RESET (RUNS ON OWNER CLIENT)
+    // ============================================================
+    [ClientRpc]
+    public void BombResetAndTeleportClientRpc(
+        Vector3 worldPos,
+        Quaternion worldRot,
+        float preDelay,
+        float redSeconds,
+        float fadeOut,
+        float fadeIn,
+        ClientRpcParams rpcParams = default)
+    {
+        if (!IsOwner) return;
+
+        // אפקט רק אצל המטייל (Host)
+        if (IsHost)
+        {
+            var hud = HUDManager.Instance;
+            if (hud != null && hud.TravellerHUD != null)
+                hud.TravellerHUD.PlayBombResetEffect(redSeconds, fadeOut, fadeIn);
+        }
+
+        SetFrozen(true);
+        StopAllCoroutines();
+        StartCoroutine(BombResetRoutine(worldPos, worldRot, preDelay));
+    }
+
+    private IEnumerator BombResetRoutine(Vector3 worldPos, Quaternion worldRot, float preDelay)
+    {
+        yield return new WaitForSeconds(preDelay);
+
+        // טלפורט בטוח עם CharacterController
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
+
+        velocity = Vector3.zero;
+        controller.enabled = false;
+        transform.SetPositionAndRotation(worldPos, worldRot);
+        controller.enabled = true;
+
+        // שחרור קצר אחרי שינוי מיקום
+        yield return new WaitForSeconds(0.05f);
+        SetFrozen(false);
     }
 }

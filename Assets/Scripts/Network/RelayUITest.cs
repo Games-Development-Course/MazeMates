@@ -6,10 +6,19 @@ public class RelayUITest : NetworkBehaviour
 {
     [Header("UI References")]
     [SerializeField] private GameObject connectionPanel;   // הפאנל עם Host/Join/קוד
-    [SerializeField] private TMP_Text codeLabel;           // הטקסט שמציג את הקוד (Code: QKTKF7)
+    [SerializeField] private TMP_Text codeLabel;           // הטקסט שמציג את הקוד (רק הקוד / או "Creating...")
     [SerializeField] private TMP_InputField codeInput;     // השדה שבו הנווט מזין קוד
 
+    // אם יש לך אובייקטים נפרדים לכפתורים/אזור ג׳וין – גרור אותם כאן (מומלץ)
+    [Header("Optional UI Groups (recommended)")]
+    [SerializeField] private GameObject hostJoinButtonsRoot; // קבוצה שמכילה את כפתורי Host/Join
+    [SerializeField] private GameObject joinAreaRoot;        // קבוצה שמכילה את ה-Input + כפתור Join
+
     private bool lobbyHidden = false;
+
+    // מונע לחיצות כפולות / race
+    private bool hostInProgress = false;
+    private int hostRequestVersion = 0;
 
     // ===========================
     // NETCODE LIFECYCLE
@@ -25,9 +34,7 @@ public class RelayUITest : NetworkBehaviour
         }
 
         if (connectionPanel == null)
-        {
             Debug.LogWarning("[RelayTestUI] connectionPanel is NULL in inspector!");
-        }
     }
 
     public override void OnNetworkDespawn()
@@ -95,23 +102,57 @@ public class RelayUITest : NetworkBehaviour
     {
         Debug.Log("[RelayTestUI] Host button clicked");
 
+        // כבר בתהליך
+        if (hostInProgress)
+            return;
+
+        // אם כבר Host/Client רץ – לא עושים שוב
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            return;
+
+        hostInProgress = true;
+        int myVersion = ++hostRequestVersion;
+
+        // UI: אחרי לחיצה על Host - להציג רק קוד (או "Creating...") ולהסתיר כפתורים
+        ShowHostCodeOnlyUI(creating: true, code: "");
+
         string joinCode = await RelayManager.Instance.StartHostWithRelayAsync();
+
+        // אם נלחץ Host שוב בזמן שהמתנו - מתעלמים מתוצאה ישנה
+        if (myVersion != hostRequestVersion)
+            return;
+
+        hostInProgress = false;
 
         if (!string.IsNullOrEmpty(joinCode))
         {
-            // מציגים את הקוד אצל ההוסט
-            if (codeLabel != null)
-                codeLabel.text = $"Code:\n{joinCode}";
+            ShowHostCodeOnlyUI(creating: false, code: joinCode);
 
-            // ממלאים גם את ה-Input שיהיה נוח להעתיק/להדביק
+            // מציגים את הקוד אצל ההוסט (רק הקוד / בלי "Code:\n")
+            if (codeLabel != null)
+                codeLabel.text = joinCode;
+
+            // ממלאים גם את ה-Input שיהיה נוח להעתיק/להדביק (ואפשר גם לנעול לעריכה)
             if (codeInput != null)
+            {
                 codeInput.text = joinCode;
+                codeInput.interactable = false; // Host לא צריך לערוך
+            }
 
             Debug.Log($"[RelayTestUI] Host got joinCode = {joinCode}");
         }
         else
         {
             Debug.LogWarning("[RelayTestUI] Host failed, no join code.");
+
+            // חזרה למסך בחירה רגיל במקרה כשל
+            ShowLobbyButtons(true);
+            if (codeLabel != null) codeLabel.text = "";
+            if (codeInput != null)
+            {
+                codeInput.interactable = true;
+                codeInput.text = "";
+            }
         }
     }
 
@@ -134,5 +175,34 @@ public class RelayUITest : NetworkBehaviour
 
         bool ok = await RelayManager.Instance.StartClientWithRelayAsync(joinCode);
         Debug.Log("[RelayTestUI] StartClient returned = " + ok);
+
+        // אופציונלי: אחרי Join להסתיר את הפאנל אצל הלקוח (אם רוצים)
+        // if (ok && connectionPanel != null) connectionPanel.SetActive(false);
+    }
+
+    // ===========================
+    // UI HELPERS
+    // ===========================
+
+    private void ShowLobbyButtons(bool show)
+    {
+        // אם לא חיברת roots - ננסה לפחות להשאיר את panel פעיל
+        if (hostJoinButtonsRoot != null) hostJoinButtonsRoot.SetActive(show);
+        if (joinAreaRoot != null) joinAreaRoot.SetActive(show);
+    }
+
+    private void ShowHostCodeOnlyUI(bool creating, string code)
+    {
+        // להשאיר את הפאנל עצמו פעיל, אבל להעלים כפתורים/אזור ג׳וין אם יש
+        if (connectionPanel != null) connectionPanel.SetActive(true);
+
+        ShowLobbyButtons(false);
+
+        // במצב Host: לא צריך Join
+        if (codeInput != null)
+            codeInput.gameObject.SetActive(false);
+
+        if (codeLabel != null)
+            codeLabel.text = creating ? "Creating room..." : code;
     }
 }

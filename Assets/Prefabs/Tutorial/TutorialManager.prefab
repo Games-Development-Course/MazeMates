@@ -181,6 +181,7 @@ Transform:
   - {fileID: 481893367848731920}
   - {fileID: 5742954170385394939}
   - {fileID: 1139974965950300018}
+  - {fileID: 7024804475409094634}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4922496235165310045
@@ -676,11 +677,60 @@ MonoBehaviour:
   messageRoot: {fileID: 0}
   bubbleImage: {fileID: 3741543563633444616}
   messageDuration: 999
-  bubbleRootName: TutorialChatBox
-  tmpChildName: Text (TMP)
   hideOnStartButKeepActive: 1
-  debugLogs: 1
-  forceBubbleVisibleInDebug: 0
+--- !u!1 &4231645040132713266
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7024804475409094634}
+  - component: {fileID: 6078724099721825992}
+  m_Layer: 0
+  m_Name: BombBlockCollider2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7024804475409094634
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4231645040132713266}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 4, y: 0, z: 9}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8542499861621857944}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &6078724099721825992
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4231645040132713266}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &4876268384165745176
 GameObject:
   m_ObjectHideFlags: 0
@@ -918,11 +968,7 @@ MonoBehaviour:
   messageRoot: {fileID: 0}
   bubbleImage: {fileID: 5687591382359267249}
   messageDuration: 999
-  bubbleRootName: TutorialChatBox
-  tmpChildName: Text (TMP)
   hideOnStartButKeepActive: 1
-  debugLogs: 1
-  forceBubbleVisibleInDebug: 0
 --- !u!1 &8077460506810603913
 GameObject:
   m_ObjectHideFlags: 0

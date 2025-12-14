@@ -1,3 +1,4 @@
+// PickupObject.cs
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
@@ -25,38 +26,40 @@ public class PickupObject : NetworkBehaviour
     [Header("Message Duration")]
     public float messageDuration = 1.5f;
 
+    [Header("Bomb Reset Visuals")]
+    [Tooltip("כמה זמן האדום+פייד-אאוט יהיו לפני הטלפורט")]
+    public float bombPreTeleportDelay = 0.25f;
+
+    [Tooltip("כמה זמן האדום נשאר דולק (חופף עם הפייד)")]
+    public float bombRedSeconds = 0.15f;
+
+    [Tooltip("זמן פייד-אאוט")]
+    public float bombFadeOut = 0.25f;
+
+    [Tooltip("זמן פייד-אין")]
+    public float bombFadeIn = 0.35f;
+
     private void OnTriggerEnter(Collider other)
     {
         // כל הלוגיקה מתבצעת רק על השרת
-        if (!IsServer)
-            return;
-
-        if (!other.CompareTag("Player"))
-            return;
+        if (!IsServer) return;
+        if (!other.CompareTag("Player")) return;
 
         HUDManager hud = HUDManager.Instance;
         GameManager gm = GameManager.Instance;
-
-        if (gm == null || hud == null)
-            return;
+        if (gm == null || hud == null) return;
 
         string finalMessage = customMessage;
         bool gameOver = false;
 
-        // נשלוף טוטוריאל פעם אחת
         var tm = Object.FindFirstObjectByType<TutorialManager>();
 
-        // ---------------------------------------------------------
-        // עדכון ערכי משחק (רק בשרת)
-        // ---------------------------------------------------------
         switch (type)
         {
             case PickupType.Heart:
                 gm.lives++;
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "אספת לב! קיבלת חיים נוספים.";
-
-                // ⭐ הטוטוריאל – המטייל אסף לב
                 tm?.NotifyTravellerPickedHeart();
                 break;
 
@@ -64,8 +67,6 @@ public class PickupObject : NetworkBehaviour
                 gm.keys++;
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "אספת מפתח!";
-
-                // ⭐ הטוטוריאל – המטייל אסף מפתח
                 tm?.NotifyTravellerPickedKey();
                 break;
 
@@ -77,6 +78,7 @@ public class PickupObject : NetworkBehaviour
 
             case PickupType.Bomb:
                 gm.lives--;
+                tm?.NotifyTravellerSteppedBomb();
 
                 if (string.IsNullOrEmpty(finalMessage))
                     finalMessage = "דרכת על פצצה! איבדת לב.";
@@ -93,26 +95,36 @@ public class PickupObject : NetworkBehaviour
                     if (cam != null)
                         cam.LockCameraForSeconds(0.5f);
 
-                    var move = other.GetComponent<PlayerMovement1P>();
+                    // ✅ עושים אפקט+טלפורט אצל ה-Owner של השחקן (כי יש ClientNetworkTransform)
+                    var move = other.GetComponentInParent<PlayerMovement1P>();
+                    var playerNetObj = other.GetComponentInParent<NetworkObject>();
 
-                    // -------------------------------
-                    // תיקון חשוב – Traveller StartPoint
-                    // -------------------------------
-                    if (move != null && PlayerStartPoint.TravellerPoint != null)
+                    if (move != null && playerNetObj != null)
                     {
-                        Vector3 resetPos = PlayerStartPoint.TravellerPoint.startPosition;
-                        Quaternion resetRot = PlayerStartPoint.TravellerPoint.startRotation;
+                        var p = new ClientRpcParams
+                        {
+                            Send = new ClientRpcSendParams
+                            {
+                                TargetClientIds = new ulong[] { playerNetObj.OwnerClientId }
+                            }
+                        };
 
-                        move.TeleportToStart(resetPos);
-                        other.transform.rotation = resetRot;
+                        // ✅ חזרה ל-(1,1,1) ב-World Space
+                        move.BombResetAndTeleportClientRpc(
+                            new Vector3(1f, 1f, 1f),
+                            Quaternion.identity,
+                            bombPreTeleportDelay,
+                            bombRedSeconds,
+                            bombFadeOut,
+                            bombFadeIn,
+                            p
+                        );
                     }
                 }
                 break;
         }
 
-        // ---------------------------------------------------------
         // שולחים ל־Clients לעדכן HUD ולהציג הודעה
-        // ---------------------------------------------------------
         ApplyPickupClientRpc(
             type,
             finalMessage,
@@ -124,12 +136,10 @@ public class PickupObject : NetworkBehaviour
             gameOver
         );
 
-        // השמדת האובייקט מהרשת
+        // השמדת האובייקט מהרשת (עכשיו בטוח – הטלפורט כבר "יושב" על השחקן ולא על הפצצה)
         var netObj = GetComponent<NetworkObject>();
-        if (netObj != null)
-            netObj.Despawn(true);
-        else
-            Destroy(gameObject);
+        if (netObj != null) netObj.Despawn(true);
+        else Destroy(gameObject);
     }
 
     // ================================================================

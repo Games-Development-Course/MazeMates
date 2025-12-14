@@ -107,6 +107,16 @@ public class TutorialManager : NetworkBehaviour
             step.navigatorLockCamera,
             p
         );
+        if (step.applyMouseSettingsOnStepStart)
+        {
+            ApplyMouseClientRpc(
+                step.travellerCursorVisible,
+                (int)step.travellerCursorLockMode,
+                step.navigatorCursorVisible,
+                (int)step.navigatorCursorLockMode,
+                p
+            );
+        }
     }
 
     // ============================================================
@@ -183,6 +193,7 @@ public class TutorialManager : NetworkBehaviour
         StartCoroutine(DelayedColliderStep(Current.stepId, 0.2f));
 
         ApplyLocks(Current);
+        ApplyMouse(Current);
         ShowStepHUD(Current);
 
         // סיבוב המטייל
@@ -210,6 +221,45 @@ public class TutorialManager : NetworkBehaviour
     // ============================================================
     // LOCKS
     // ============================================================
+    // ============================================================
+    // MOUSE / CURSOR
+    // ============================================================
+
+    private void ApplyMouse(TutorialStep s)
+    {
+        if (!s.applyMouseSettingsOnStepStart)
+            return;
+
+        ApplyMouseClientRpc(
+            s.travellerCursorVisible,
+            (int)s.travellerCursorLockMode,
+            s.navigatorCursorVisible,
+            (int)s.navigatorCursorLockMode
+        );
+    }
+
+    [ClientRpc]
+    private void ApplyMouseClientRpc(
+        bool travellerCursorVisible,
+        int travellerCursorLockMode,
+        bool navigatorCursorVisible,
+        int navigatorCursorLockMode,
+        ClientRpcParams rpcParams = default)
+    {
+        bool iAmTraveller = IsHost;   // Host = Traveller
+        bool iAmNavigator = !IsHost;  // Client = Navigator
+
+        if (iAmTraveller)
+        {
+            Cursor.visible = travellerCursorVisible;
+            Cursor.lockState = (CursorLockMode)travellerCursorLockMode;
+        }
+        else if (iAmNavigator)
+        {
+            Cursor.visible = navigatorCursorVisible;
+            Cursor.lockState = (CursorLockMode)navigatorCursorLockMode;
+        }
+    }
 
     private void ApplyLocks(TutorialStep s)
     {
@@ -436,6 +486,8 @@ public class TutorialManager : NetworkBehaviour
     public void NotifyPuzzleSolved() => Check(TutorialConditionType.PuzzleSolved);
     public void NotifyBothReachedExit() => Check(TutorialConditionType.BothReachedExit);
     public void NotifyCustomEvent() => Check(TutorialConditionType.CustomEvent);
+    public void NotifyTravellerSteppedBomb() => Check(TutorialConditionType.TravellerSteppedBomb);
+
 
     private void NotifyNavigatorCondition(TutorialConditionType condition)
     {

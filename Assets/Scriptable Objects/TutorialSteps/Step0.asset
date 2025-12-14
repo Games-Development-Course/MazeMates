@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TutorialStep
   stepId: Welcome
   description: General explanation about start
-  targetRole: 2
   conditionType: 0
   travellerMessage: "\u05D1\u05E8\u05D5\u05DB\u05D9\u05DD \u05D4\u05D1\u05D0\u05D9\u05DD
     \u05DC setaMezaM!\n\u05E9\u05EA\u05E4\u05D5 \u05E4\u05E2\u05D5\u05DC\u05D4 \u05DB\u05D3\u05D9
@@ -22,11 +21,22 @@ MonoBehaviour:
   navigatorMessage: "\u05D1\u05E8\u05D5\u05DB\u05D9\u05DD \u05D4\u05D1\u05D0\u05D9\u05DD
     \u05DC setaMezaM!\n\u05E9\u05EA\u05E4\u05D5 \u05E4\u05E2\u05D5\u05DC\u05D4 \u05DB\u05D3\u05D9
     \u05DC\u05E6\u05D0\u05EA \u05DE\u05D4\u05DE\u05D1\u05D5\u05DA"
-  unlockMovement: 0
-  unlockCamera: 0
+  applyMouseSettingsOnStepStart: 0
+  travellerCursorVisible: 0
+  travellerCursorLockMode: 1
+  navigatorCursorVisible: 0
+  navigatorCursorLockMode: 0
+  travellerLockMovement: 1
+  travellerLockCamera: 1
+  navigatorLockMovement: 1
+  navigatorLockCamera: 1
+  rotateTravellerOnStepStart: 0
+  travellerLookTargetId: 
   completeOnCondition: 0
   minDuration: 0
   autoCompleteAfter: 6
+  minHUDDuration: 0
+  minWaitMessageDuration: 0
   onStepStart:
     m_PersistentCalls:
       m_Calls: []

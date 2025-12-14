@@ -25,6 +25,7 @@ public enum TutorialConditionType
     // משאבים אצל המטייל
     TravellerPickedKey,
     TravellerPickedHeart,
+    TravellerSteppedBomb,
 
     // פאזלים
     TravellerPlacedPuzzlePiece,
@@ -49,6 +50,18 @@ public class TutorialStep : ScriptableObject
     [Header("HUD Messages")]
     [TextArea] public string travellerMessage;
     [TextArea] public string navigatorMessage;
+
+
+    [Header("Mouse / Cursor")]
+    public bool applyMouseSettingsOnStepStart = false;
+
+    [Header("Traveller Mouse")]
+    public bool travellerCursorVisible = false;
+    public CursorLockMode travellerCursorLockMode = CursorLockMode.Locked;
+
+    [Header("Navigator Mouse")]
+    public bool navigatorCursorVisible = true;
+    public CursorLockMode navigatorCursorLockMode = CursorLockMode.None;
 
     // ===========================================================
     // NEW: explicit lock flags per role

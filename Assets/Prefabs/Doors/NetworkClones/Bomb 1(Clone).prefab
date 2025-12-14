@@ -10006,7 +10006,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 4207436274
+  GlobalObjectIdHash: 511266342
   InScenePlacedSourceGlobalObjectIdHash: 766745082
   DeferredDespawnTick: 0
   Ownership: 1
@@ -10041,6 +10041,10 @@ MonoBehaviour:
   messageColor: {r: 0, g: 0, b: 0, a: 1}
   messageFont: {fileID: 11400000, guid: b139ca59cde2911438d1e2b13d8e0bed, type: 2}
   messageDuration: 1.5
+  bombPreTeleportDelay: 0.25
+  bombRedSeconds: 0.15
+  bombFadeOut: 0.25
+  bombFadeIn: 0.35
 --- !u!114 &3961297062748908986
 MonoBehaviour:
   m_ObjectHideFlags: 0
