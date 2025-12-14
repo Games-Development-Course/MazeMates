@@ -53,3 +53,37 @@
 *.prefab linguist-generated
 *.unity filter=lfs diff=lfs merge=lfs -text
 *.unity linguist-generated
+
+# =========================
+# Line endings – Unity YAML
+# =========================
+
+# Force LF for all Unity text-based files
+*.cs        text eol=lf
+*.shader    text eol=lf
+*.cginc     text eol=lf
+*.hlsl      text eol=lf
+
+# Unity YAML (critical – prevents CRLF warnings)
+*.asset     text eol=lf
+*.prefab   text eol=lf
+*.unity    text eol=lf
+*.meta     text eol=lf
+
+# Project / Settings
+ProjectSettings/*.asset text eol=lf
+Packages/*.json        text eol=lf
+Packages/*.yml         text eol=lf
+
+# =========================
+# Unity binary files
+# =========================
+
+# RenderTextures and other Unity-generated binaries
+*.renderTexture binary
+*.cubemap       binary
+*.lighting      binary
+*.lightingData  binary
+*.navmesh       binary
+*.mask          binary
+*.physicMaterial binary

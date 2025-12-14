@@ -14,18 +14,20 @@ public class PlayerSpawnManager : MonoBehaviour
 
     private bool navigatorSpawned = false;
 
-    private void Awake()
+    private void Start()
     {
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-            Debug.Log($"[SPAWN] PlayerSpawnManager Awake. IsServer={NetworkManager.Singleton.IsServer}, LocalClientId={NetworkManager.Singleton.LocalClientId}");
+            Debug.Log($"[SPAWN] PlayerSpawnManager Start. IsServer={NetworkManager.Singleton.IsServer}, LocalClientId={NetworkManager.Singleton.LocalClientId}");
         }
         else
         {
-            Debug.LogWarning("[SPAWN] PlayerSpawnManager Awake but NetworkManager.Singleton is NULL");
+            Debug.LogError("[SPAWN] PlayerSpawnManager Start but NetworkManager.Singleton is STILL NULL");
         }
     }
+
+
 
     private void OnDestroy()
     {
