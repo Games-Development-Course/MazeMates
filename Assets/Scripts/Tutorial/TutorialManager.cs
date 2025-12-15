@@ -658,7 +658,7 @@ public class TutorialManager : NetworkBehaviour
 
     public void ActivateDiscoMode()
     {
-        var disco = FindObjectOfType<DiscoTime>();
+        var disco = FindFirstObjectByType<DiscoTime>();
         if (disco != null)
         {
             disco.EnableDisco();
