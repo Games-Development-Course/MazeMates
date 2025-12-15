@@ -52,4 +52,9 @@ public class StartMenuController : MonoBehaviour
         // 5) Close this window
         Application.Quit();
     }
+    public void OnTutorialButtonPressed()
+    {
+        SceneManager.LoadScene("TutorialScene");
+    }
+
 }
