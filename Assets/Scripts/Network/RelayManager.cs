@@ -104,8 +104,8 @@ public class RelayManager : MonoBehaviour
                 maxConnections
             );
 
-            // 2. יצירת RelayServerData עם "wss" (חשוב ל-WebGL)
-            RelayServerData relayServerData = new RelayServerData(allocation, ConnectionType);
+            // 2. יצירת RelayServerData (use helper that handles API differences)
+            RelayServerData relayServerData = CreateRelayServerDataFallback(allocation, ConnectionType);
 
             // 3. החלת ההגדרות על UnityTransport
             transport.SetRelayServerData(relayServerData);
@@ -150,7 +150,7 @@ public class RelayManager : MonoBehaviour
             );
 
             // 2. RelayServerData עם "wss"
-            RelayServerData relayServerData = new RelayServerData(joinAllocation, ConnectionType);
+            RelayServerData relayServerData = CreateRelayServerDataFallback(joinAllocation, ConnectionType);
 
             // 3. החלת ההגדרות על UnityTransport
             transport.SetRelayServerData(relayServerData);
@@ -169,5 +169,48 @@ public class RelayManager : MonoBehaviour
             Debug.LogError($"[Relay] Failed to start client with Relay (code={joinCode}): {e}");
             return false;
         }
+    }
+
+    // Helper: try common ctor, else try to invoke any ctor whose first parameter accepts the allocation object.
+    private RelayServerData CreateRelayServerDataFallback(object allocationObj, string connectionType)
+    {
+        var rsdType = typeof(RelayServerData);
+
+        // try common ctor (Allocation/JoinAllocation, string)
+        try
+        {
+            var obj = Activator.CreateInstance(rsdType, allocationObj, connectionType);
+            if (obj is RelayServerData rsd) return rsd;
+        }
+        catch { /* ignore and try other ctors */ }
+
+        // try other constructors where the first parameter type matches our allocation object
+        foreach (var ctor in rsdType.GetConstructors())
+        {
+            var parms = ctor.GetParameters();
+            if (parms.Length == 0) continue;
+            if (!parms[0].ParameterType.IsAssignableFrom(allocationObj.GetType())) continue;
+
+            // build args array (first = allocationObj, rest = default for param type)
+            var args = new object[parms.Length];
+            args[0] = allocationObj;
+            for (int i = 1; i < parms.Length; ++i)
+            {
+                var pType = parms[i].ParameterType;
+                args[i] = pType.IsValueType ? Activator.CreateInstance(pType) : null;
+                // if param is string and likely to be connection type, pass connectionType
+                if (pType == typeof(string) && parms[i].Name.ToLower().Contains("protocol"))
+                    args[i] = connectionType;
+            }
+
+            try
+            {
+                var obj = ctor.Invoke(args);
+                if (obj is RelayServerData rsd) return rsd;
+            }
+            catch { /* continue trying */ }
+        }
+
+        throw new InvalidOperationException("[Relay] Unable to construct RelayServerData for current Relay/UTP package version. Update Unity packages or adapt code.");
     }
 }
