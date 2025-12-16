@@ -242,15 +242,18 @@ public class PlayerSpawnManager : MonoBehaviour
     {
         var gm = GameManager.Instance;
 
-        if (!navigatorSpawned || gm == null || gm.traveller == null)
-        {
-            Debug.Log(
-                $"[SPAWN] OnNavigatorSpawned blocked. navigatorSpawned={navigatorSpawned}, gmNull={gm == null}, travellerNull={gm == null || gm.traveller == null}"
-            );
+        if (!navigatorSpawned || gm.traveller == null)
             return;
-        }
 
-        Debug.Log("[SPAWN] Both players connected → starting tutorial (delayed)");
+        // Don't start tutorial automatically
+        // StartCoroutine(StartTutorialDelayed());
+        
+        Debug.Log("[PlayerSpawnManager] Both players connected. Waiting for tutorial start button...");
+    }
+
+    // New public method for button to call
+    public void OnStartTutorialButtonPressed()
+    {
         StartCoroutine(StartTutorialDelayed());
     }
 

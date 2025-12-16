@@ -54,7 +54,9 @@ public class StartMenuController : MonoBehaviour
     }
     public void OnTutorialButtonPressed()
     {
+        Debug.Log("Loading Tutorial Scene");
         SceneManager.LoadScene("TutorialScene");
+        Debug.Log("Tutorial Scene Loaded");
     }
 
 }
