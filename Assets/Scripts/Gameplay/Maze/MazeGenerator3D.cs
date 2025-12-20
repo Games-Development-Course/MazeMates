@@ -35,6 +35,22 @@ public class MazeGenerator3D : MonoBehaviour
     public GameObject keyPrefab;
     public int keysAmount = 2;
 
+    [Header("Wall Material (optional)")]
+    [Tooltip("אם תבחר כאן Material, הוא יוחל על כל קיר שנוצר מה-wallPrefab.")]
+    public Material wallMaterial;
+
+    [Tooltip("אם ה-Renderer נמצא בילדים של ה-prefab, השאר מסומן. אם ה-Renderer על האובייקט הראשי בלבד, אפשר לבטל.")]
+    public bool applyWallMaterialToChildren = true;
+
+    [Tooltip("מסומן: משתמש ב-sharedMaterial/sharedMaterials (אותו asset לכל הקירות). לא מסומן: משתמש ב-material/materials (יכול לייצר instances).")]
+    public bool useSharedMaterial = true;
+
+    [Tooltip("מסומן: מחליף את כל ה-slots של החומרים ב-Renderer. לא מסומן: מחליף רק slot לפי Material Slot Index.")]
+    public bool replaceAllMaterialSlots = true;
+
+    [Tooltip("רלוונטי רק אם Replace All Material Slots לא מסומן.")]
+    public int materialSlotIndex = 0;
+
     private Transform wallsRoot;
     private Transform doorsRoot;
     private Transform resourcesRoot;
@@ -53,7 +69,7 @@ public class MazeGenerator3D : MonoBehaviour
         GenerateMaze();
         BuildMaze();
 
-        // Ground generation – MUST be after BuildMaze()
+        // Ground generation MUST be after BuildMaze()
         CreateGround();
 
         // ------------------------------------------
@@ -109,25 +125,20 @@ public class MazeGenerator3D : MonoBehaviour
             return;
         }
 
-        // יצירת אובייקט חדש
         GameObject ground = Instantiate(groundPrefab);
 
-        // שמים אותו הילד של המבוך
         ground.name = "Ground";
         ground.transform.SetParent(transform);
 
-        // גודל הרצפה לפי מספר תאים * cellSize
         float groundWidth = width * cellSize;
         float groundHeight = height * cellSize;
 
-        // מניחים אותו במרכז של כל המבוך
         ground.transform.localPosition = new Vector3(
             (groundWidth / 2f) - (cellSize / 2f),
             0,
             (groundHeight / 2f) - (cellSize / 2f)
         );
 
-        // אם זו רצפה עם Scale רגיל (1,1,1) — נשנה Scale לפי הגודל
         ground.transform.localScale = new Vector3(groundWidth, groundHeight, 1);
     }
 
@@ -139,8 +150,8 @@ public class MazeGenerator3D : MonoBehaviour
         grid = new bool[width, height];
 
         for (int x = 0; x < width; x++)
-        for (int y = 0; y < height; y++)
-            grid[x, y] = true;
+            for (int y = 0; y < height; y++)
+                grid[x, y] = true;
 
         DFS(1, 1);
     }
@@ -201,12 +212,16 @@ public class MazeGenerator3D : MonoBehaviour
     void BuildMaze()
     {
         for (int x = 0; x < width; x++)
-        for (int y = 0; y < height; y++)
-            if (grid[x, y])
+            for (int y = 0; y < height; y++)
             {
+                if (!grid[x, y]) continue;
+
                 Vector3 pos = new Vector3(x * cellSize, 1, y * cellSize);
-                Instantiate(wallPrefab, pos, Quaternion.identity, wallsRoot);
+                GameObject wall = Instantiate(wallPrefab, pos, Quaternion.identity, wallsRoot);
+
+                ApplyWallMaterial(wall);
             }
+
         int wx = width - 2;
         int wy = height - 1;
 
@@ -229,6 +244,88 @@ public class MazeGenerator3D : MonoBehaviour
         }
 
         Debug.Log($"Removed wall at ({wx}, {wy})");
+    }
+
+    void ApplyWallMaterial(GameObject wall)
+    {
+        if (wall == null) return;
+        if (wallMaterial == null) return;
+
+        Renderer[] renderers = applyWallMaterialToChildren
+            ? wall.GetComponentsInChildren<Renderer>(true)
+            : wall.GetComponents<Renderer>();
+
+        if (renderers == null || renderers.Length == 0) return;
+
+        foreach (var r in renderers)
+        {
+            if (r == null) continue;
+
+            if (replaceAllMaterialSlots)
+            {
+                if (useSharedMaterial)
+                {
+                    Material[] mats = r.sharedMaterials;
+                    if (mats == null || mats.Length == 0)
+                    {
+                        r.sharedMaterial = wallMaterial;
+                        continue;
+                    }
+
+                    for (int i = 0; i < mats.Length; i++)
+                        mats[i] = wallMaterial;
+
+                    r.sharedMaterials = mats;
+                }
+                else
+                {
+                    Material[] mats = r.materials;
+                    if (mats == null || mats.Length == 0)
+                    {
+                        r.material = wallMaterial;
+                        continue;
+                    }
+
+                    for (int i = 0; i < mats.Length; i++)
+                        mats[i] = wallMaterial;
+
+                    r.materials = mats;
+                }
+            }
+            else
+            {
+                if (useSharedMaterial)
+                {
+                    Material[] mats = r.sharedMaterials;
+                    if (mats == null || mats.Length == 0)
+                    {
+                        r.sharedMaterial = wallMaterial;
+                        continue;
+                    }
+
+                    if (materialSlotIndex < 0 || materialSlotIndex >= mats.Length)
+                        continue;
+
+                    mats[materialSlotIndex] = wallMaterial;
+                    r.sharedMaterials = mats;
+                }
+                else
+                {
+                    Material[] mats = r.materials;
+                    if (mats == null || mats.Length == 0)
+                    {
+                        r.material = wallMaterial;
+                        continue;
+                    }
+
+                    if (materialSlotIndex < 0 || materialSlotIndex >= mats.Length)
+                        continue;
+
+                    mats[materialSlotIndex] = wallMaterial;
+                    r.materials = mats;
+                }
+            }
+        }
     }
 
     // ================================================================
@@ -256,7 +353,7 @@ public class MazeGenerator3D : MonoBehaviour
         Vector3 exitPos = new Vector3(
             forcedExitCell.x * cellSize,
             0,
-            forcedExitCell.y * cellSize - half // זה נותן Z=9.5 במקרה של cellSize=1
+            forcedExitCell.y * cellSize - half
         );
 
         // 4) מסובב שתפנה "למטה" (south / -Z)

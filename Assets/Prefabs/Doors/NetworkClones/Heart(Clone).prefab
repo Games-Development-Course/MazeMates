@@ -11,10 +11,10 @@ GameObject:
   - component: {fileID: 8690352270351246432}
   - component: {fileID: 8427337315587621274}
   - component: {fileID: 6008975529066036672}
+  - component: {fileID: 3241498559230991640}
   - component: {fileID: 5382836943678347059}
   - component: {fileID: 3819417287321432148}
   - component: {fileID: 3769160353219101546}
-  - component: {fileID: 3241498559230991640}
   m_Layer: 8
   m_Name: Heart(Clone)
   m_TagString: Heart
@@ -93,6 +93,31 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &3241498559230991640
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5054068004228068802}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 2175111418
+  InScenePlacedSourceGlobalObjectIdHash: 3088745631
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &5382836943678347059
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -105,12 +130,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fc45f2efe57f59741996460d0743164b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PickupObject
+  ShowTopMostFoldoutHeaderGroup: 1
   type: 0
   customMessage: "\u05DB\u05E0\u05E8\u05D0\u05D4 \u05E9\u05D7\u05D9\u05D9\u05DD \u05D9\u05D5\u05EA\u05E8
     \u05DE\u05E4\u05E2\u05DD \u05D0\u05D7\u05EA ;("
   messageColor: {r: 1, g: 0, b: 0, a: 1}
   messageFont: {fileID: 0}
   messageDuration: 1.5
+  bombPreTeleportDelay: 0.25
+  bombRedSeconds: 0.15
+  bombFadeOut: 0.25
+  bombFadeIn: 0.35
 --- !u!136 &3819417287321432148
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -147,28 +177,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HeartSpin
   rotationSpeed: 90
---- !u!114 &3241498559230991640
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5054068004228068802}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2275664233
-  InScenePlacedSourceGlobalObjectIdHash: 3088745631
-  DeferredDespawnTick: 0
-  Ownership: 1
-  AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 1
-  ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 0
-  SpawnWithObservers: 1
-  DontDestroyWithOwner: 0
-  AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 1
-  AllowOwnerToParent: 0
