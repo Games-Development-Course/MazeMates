@@ -196,7 +196,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2610508818
+  GlobalObjectIdHash: 1078786134
   InScenePlacedSourceGlobalObjectIdHash: 3217684552
   DeferredDespawnTick: 0
   Ownership: 1
@@ -223,6 +223,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TutorialManager
   ShowTopMostFoldoutHeaderGroup: 1
   steps:
+  - {fileID: 11400000, guid: cec161149c60bcd4b9c48190f1df3d88, type: 2}
+  - {fileID: 11400000, guid: 7d7275038693e784eb959c3f3f67012d, type: 2}
+  - {fileID: 11400000, guid: d9faf7623b1a744c2bfcf88f72576eda, type: 2}
+  - {fileID: 11400000, guid: 2d0412b89280747fe8e3328367fee6c5, type: 2}
+  - {fileID: 11400000, guid: fd9dcc598a2404f46b128306ec88127d, type: 2}
+  - {fileID: 11400000, guid: cbb09311d812a4a5b81170a677d90d6e, type: 2}
+  - {fileID: 11400000, guid: 5b4a84d4e2234487b87839adebc9d4c8, type: 2}
+  - {fileID: 11400000, guid: 96e7197b0eec847f59bcdffe8c8cd937, type: 2}
+  - {fileID: 11400000, guid: 42992fb999a0e514b9618b87105c91ad, type: 2}
+  - {fileID: 11400000, guid: 28ec24f2d67b5c445a47c13324ba3e6e, type: 2}
+  - {fileID: 11400000, guid: abb60e81c271f034d969264b682dc972, type: 2}
+  - {fileID: 11400000, guid: e2083ec7d67b741449d715a15c500e70, type: 2}
+  - {fileID: 11400000, guid: e655b4205e6bcd54f9f434d0ee22b892, type: 2}
+  - {fileID: 11400000, guid: 2fbcbd1b41f03e94199f310c9f8aafc4, type: 2}
+  - {fileID: 11400000, guid: 3fae1b06d090fab488a6ad7c1fe642fc, type: 2}
+  - {fileID: 11400000, guid: 340453bc841b0bc4caf52c9fdc889e01, type: 2}
+  - {fileID: 11400000, guid: 0b047e84f9c45bd41ac1b6537fdff6ff, type: 2}
   - {fileID: 11400000, guid: 3aed1c120f6766e4fa4b926f4befb08f, type: 2}
   - {fileID: 11400000, guid: 2cd45b91566e9c44382df6f9abd01422, type: 2}
   travellerHUD: {fileID: 7036673641748627674}
@@ -1197,7 +1214,7 @@ Transform:
   m_GameObject: {fileID: 8931167505575514165}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 3.01, y: 0, z: 4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
