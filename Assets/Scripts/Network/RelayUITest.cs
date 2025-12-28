@@ -194,7 +194,7 @@ public class RelayUITest : NetworkBehaviour
         Debug.Log("[RelayTestUI] StartClient returned = " + ok);
 
         // אופציונלי: אחרי Join להסתיר את הפאנל אצל הלקוח (אם רוצים)
-        // if (ok && connectionPanel != null) connectionPanel.SetActive(false);
+        if (ok && connectionPanel != null) connectionPanel.SetActive(false);
     }
 
     // ===========================
