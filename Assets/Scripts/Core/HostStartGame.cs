@@ -13,11 +13,22 @@ public class HostStartGame : MonoBehaviour
         NetworkManager.Singleton.SceneManager.LoadScene(tutorialSceneName, LoadSceneMode.Single);
     }
 
-    public void StartGame()
+   public void StartGame()
     {
-        if (!NetworkManager.Singleton || !NetworkManager.Singleton.IsServer) return;
-        NetworkManager.Singleton.SceneManager.LoadScene(gameSceneName, LoadSceneMode.Single);
+        if (!NetworkManager.Singleton.IsServer) return;
+
+        if (NetworkManager.Singleton.ConnectedClients.Count <= 1)
+        {
+            Debug.LogWarning("No clients connected yet!");
+            return;
+        }
+
+        NetworkManager.Singleton.SceneManager.LoadScene(
+            gameSceneName,
+            LoadSceneMode.Single
+        );
     }
+
 
     public void click()
     {

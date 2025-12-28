@@ -1,5 +1,6 @@
 ﻿using TMPro;
 using Unity.Netcode;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class RelayUITest : NetworkBehaviour
@@ -192,9 +193,10 @@ public class RelayUITest : NetworkBehaviour
 
         bool ok = await RelayManager.Instance.StartClientWithRelayAsync(joinCode);
         Debug.Log("[RelayTestUI] StartClient returned = " + ok);
-
+        codeLabel.gameObject.SetActive(false);
         // אופציונלי: אחרי Join להסתיר את הפאנל אצל הלקוח (אם רוצים)
         if (ok && connectionPanel != null) connectionPanel.SetActive(false);
+        
     }
 
     // ===========================

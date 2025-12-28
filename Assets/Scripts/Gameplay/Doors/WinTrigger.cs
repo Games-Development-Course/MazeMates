@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -11,8 +12,8 @@ public class WinTrigger : MonoBehaviour
 
         if (other.CompareTag("Player"))
         {
-            Debug.Log("WinTrigger: Player detected — loading scene: " + sceneName);
-            SceneManager.LoadScene(sceneName);
+            Debug.Log("WinTrigger: Player detected ï¿½ loading scene: " + sceneName);
+            NetworkManager.Singleton.SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
         }
         else
         {

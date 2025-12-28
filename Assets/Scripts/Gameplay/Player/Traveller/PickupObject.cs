@@ -184,6 +184,6 @@ public class PickupObject : NetworkBehaviour
         hud.UpdateHUDs();
 
         if (gameOver)
-            SceneManager.LoadScene("GameOver");
+            NetworkManager.Singleton.SceneManager.LoadScene("GameOver", LoadSceneMode.Single);
     }
 }
