@@ -1,8 +1,8 @@
-//RelayUIController (MonoBehaviour): purely local UI logic + calls RelayManager to host/join; reacts to LobbyState.SessionFull to hide host code label when the 2nd player connects.
+// Assets/Scripts/UI/RelayUIController.cs
 using System.Collections;
 using TMPro;
-using UnityEngine;
 using Unity.Netcode;
+using UnityEngine;
 
 public sealed class RelayUIController : MonoBehaviour
 {
@@ -25,22 +25,24 @@ public sealed class RelayUIController : MonoBehaviour
     private bool hostInProgress;
     private int hostRequestVersion;
 
-    private void OnEnable()
-    {
-        StartCoroutine(BindLobbyStateWhenReady());
-    }
+    private void OnEnable() => StartCoroutine(BindLobbyStateWhenReady());
 
     private void OnDisable()
     {
-        UnbindLobbyState();
+        if (lobbyState != null)
+            lobbyState.SessionFull.OnValueChanged -= OnSessionFullChanged;
+
+        lobbyState = null;
     }
 
     private IEnumerator BindLobbyStateWhenReady()
     {
-        while (lobbyState == null)
+        while (true)
         {
             lobbyState = FindFirstObjectByType<LobbyState>();
-            if (lobbyState != null && lobbyState.IsSpawned) break;
+            if (lobbyState != null && lobbyState.IsSpawned)
+                break;
+
             lobbyState = null;
             yield return null;
         }
@@ -49,25 +51,21 @@ public sealed class RelayUIController : MonoBehaviour
         ApplyUiState();
     }
 
-    private void UnbindLobbyState()
-    {
-        if (lobbyState == null) return;
-        lobbyState.SessionFull.OnValueChanged -= OnSessionFullChanged;
-        lobbyState = null;
-    }
-
     private void OnSessionFullChanged(bool _, bool __) => ApplyUiState();
 
     private void ApplyUiState()
     {
-        bool isListening = NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
-        bool isHost = NetworkManager.Singleton != null && NetworkManager.Singleton.IsHost;
-        bool isClientOnly = NetworkManager.Singleton != null && NetworkManager.Singleton.IsClient && !isHost;
+        var nm = NetworkManager.Singleton;
+        bool isListening = nm != null && nm.IsListening;
+        bool isHost = nm != null && nm.IsHost;
+        bool isClientOnly = nm != null && nm.IsClient && !nm.IsHost;
+
         bool full = lobbyState != null && lobbyState.SessionFull.Value;
+
+        Debug.Log($"[RelayUI] ApplyUiState | listening={isListening} host={isHost} clientOnly={isClientOnly} full={full}");
 
         if (!isListening)
         {
-            // Not connected yet: show normal lobby
             if (connectionPanel != null) connectionPanel.SetActive(true);
             ShowLobbyButtons(true);
 
@@ -100,7 +98,7 @@ public sealed class RelayUIController : MonoBehaviour
             return;
         }
 
-        // Connected but not full yet
+        // Not full yet
         if (connectionPanel != null) connectionPanel.SetActive(true);
 
         if (isHost)
@@ -153,7 +151,6 @@ public sealed class RelayUIController : MonoBehaviour
             ShowLobbyButtons(true);
 
             if (codeLabel != null) codeLabel.text = "";
-
             if (codeInput != null)
             {
                 codeInput.interactable = true;
@@ -168,7 +165,9 @@ public sealed class RelayUIController : MonoBehaviour
         if (string.IsNullOrEmpty(joinCode)) return;
 
         bool ok = await RelayManager.Instance.StartClientWithRelayAsync(joinCode);
+        Debug.Log($"[RelayUI] JoinClicked -> StartClient ok={ok}");
 
+        // Client-side UX only; host will react to SessionFull when connection is real
         if (codeLabel != null) codeLabel.gameObject.SetActive(false);
         if (ok && connectionPanel != null) connectionPanel.SetActive(false);
     }
