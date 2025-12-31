@@ -1,277 +1,121 @@
-﻿using System.Collections;
+﻿// Assets/Scripts/Net/PlayerSpawnManager.cs
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
-public class PlayerSpawnManager : MonoBehaviour
+public sealed class PlayerSpawnManager : MonoBehaviour
 {
-    [Header("Fallback spawn points")]
-    public Transform travSpawn;
-    public Transform navSpawn;
+    [Header("Spawn points")]
+    [SerializeField] private Transform travSpawn;
+    [SerializeField] private Transform navSpawn;
 
-    [Header("Prefabs")]
-    public GameObject travellerPrefab;
-    public GameObject navigatorPrefab;
+    [Header("Prefabs (must be registered in NetworkManager > NetworkPrefabs)")]
+    [SerializeField] private GameObject travellerPrefab;
+    [SerializeField] private GameObject navigatorPrefab;
 
-    private bool navigatorSpawned = false;
+    [Header("Options")]
+    [SerializeField] private bool destroyWithScene = false; // usually false if you load scenes with NGO
 
-    private void Start()
+    private void OnEnable()
     {
-        if (NetworkManager.Singleton != null)
-        {
-            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-            Debug.Log(
-                $"[SPAWN] PlayerSpawnManager Start. IsServer={NetworkManager.Singleton.IsServer}, LocalClientId={NetworkManager.Singleton.LocalClientId}"
-            );
-        }
-        else
-        {
-            Debug.LogError(
-                "[SPAWN] PlayerSpawnManager Start but NetworkManager.Singleton is STILL NULL"
-            );
-        }
+        var nm = NetworkManager.Singleton;
+        if (nm == null) return;
+
+        if (nm.SceneManager != null)
+            nm.SceneManager.OnLoadEventCompleted += OnLoadEventCompleted;
+
+        nm.OnClientConnectedCallback += OnClientConnectedServerOnly;
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
-        if (NetworkManager.Singleton != null)
-            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+        var nm = NetworkManager.Singleton;
+        if (nm == null) return;
+
+        if (nm.SceneManager != null)
+            nm.SceneManager.OnLoadEventCompleted -= OnLoadEventCompleted;
+
+        nm.OnClientConnectedCallback -= OnClientConnectedServerOnly;
     }
 
-    private void OnClientConnected(ulong clientId)
+    private void OnClientConnectedServerOnly(ulong _)
     {
-        if (NetworkManager.Singleton == null)
-        {
-            Debug.LogWarning(
-                "[SPAWN] OnClientConnected called but NetworkManager.Singleton is NULL"
-            );
-            return;
-        }
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer) return;
 
-        Debug.Log(
-            $"[SPAWN] OnClientConnected: clientId={clientId}, localClientId={NetworkManager.Singleton.LocalClientId}, IsServer={NetworkManager.Singleton.IsServer}"
-        );
-
-        if (!NetworkManager.Singleton.IsServer)
-            return;
-
-        // השחקן הראשון (Host) = מטייל
-        if (clientId == NetworkManager.Singleton.LocalClientId)
-        {
-            Debug.Log("[SPAWN] Treating this client as TRAVELLER (Host)");
-            SpawnTraveller(clientId);
-        }
-        else
-        {
-            // שחקן נוסף = נווט
-            Debug.Log("[SPAWN] Treating this client as NAVIGATOR (remote client)");
-            SpawnNavigator(clientId);
-            OnNavigatorSpawned();
-        }
+        // Handles initial join in the current scene (if you want spawning there too).
+        TrySpawnOrMoveAllPlayers();
     }
 
-    // ==========================================
-    // TRAVELLER
-    // ==========================================
-
-    private void SpawnTraveller(ulong clientId)
+    private void OnLoadEventCompleted(string sceneName, LoadSceneMode mode,
+        System.Collections.Generic.List<ulong> completedClients,
+        System.Collections.Generic.List<ulong> timedOutClients)
     {
-        var gm = GameManager.Instance;
-        if (gm == null)
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer) return;
+
+        Debug.Log($"[SPAWN] OnLoadEventCompleted scene={sceneName} completed=[{string.Join(",", completedClients)}] timedOut=[{string.Join(",", timedOutClients)}]");
+
+        TrySpawnOrMoveAllPlayers();
+    }
+
+    private void TrySpawnOrMoveAllPlayers()
+    {
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer) return;
+
+        var ids = nm.ConnectedClientsIds;
+        if (ids == null || ids.Count == 0) return;
+
+        ulong hostId = NetworkManager.ServerClientId; // host's clientId
+        ulong? navId = ids.FirstOrDefault(id => id != hostId);
+
+        EnsurePlayer(hostId, travellerPrefab, travSpawn);
+
+        if (navId.HasValue && ids.Contains(navId.Value))
+            EnsurePlayer(navId.Value, navigatorPrefab, navSpawn);
+    }
+
+    private void EnsurePlayer(ulong clientId, GameObject prefab, Transform spawn)
+    {
+        var nm = NetworkManager.Singleton;
+        if (!nm.ConnectedClients.TryGetValue(clientId, out var cc))
         {
-            Debug.LogError("[SPAWN] GameManager.Instance is NULL in SpawnTraveller");
+            Debug.LogWarning($"[SPAWN] No ConnectedClient entry for clientId={clientId}");
             return;
         }
 
-        if (travSpawn == null)
+        if (spawn == null)
         {
-            Debug.LogError("[SPAWN] travSpawn is NULL! לא מוגדר Spawn Point למטייל");
+            Debug.LogError($"[SPAWN] Missing spawn Transform for clientId={clientId}");
             return;
         }
 
-        Vector3 pos = travSpawn.position;
-        Quaternion rot = travSpawn.rotation;
+        if (cc.PlayerObject != null)
+        {
+            // Already exists: move to spawn point (useful when players persist across scenes)
+            cc.PlayerObject.transform.SetPositionAndRotation(spawn.position, spawn.rotation);
+            Debug.Log($"[SPAWN] Moved existing PlayerObject for clientId={clientId} to spawn");
+            return;
+        }
 
-        Debug.Log(
-            $"[SPAWN] Spawning Traveller for client {clientId} at pos={pos}, rot={rot.eulerAngles}"
-        );
+        if (prefab == null)
+        {
+            Debug.LogError($"[SPAWN] Missing prefab for clientId={clientId}");
+            return;
+        }
 
-        var obj = Instantiate(travellerPrefab, pos, rot);
+        var obj = Instantiate(prefab, spawn.position, spawn.rotation);
         var netObj = obj.GetComponent<NetworkObject>();
-
         if (netObj == null)
         {
-            Debug.LogError("[SPAWN] Traveller prefab is missing NetworkObject");
+            Debug.LogError($"[SPAWN] Prefab '{prefab.name}' missing NetworkObject");
+            Destroy(obj);
             return;
         }
 
-        netObj.SpawnAsPlayerObject(clientId);
-        Debug.Log($"[SPAWN] Traveller NetworkObject spawned. OwnerClientId={netObj.OwnerClientId}");
-
-        EnableAllNetworkBehaviours(obj);
-
-        gm.traveller = obj;
-        gm.travellerMove = obj.GetComponent<PlayerMovement1P>();
-        gm.travellerCam = obj.GetComponentInChildren<PlayerCamera1P>();
-
-        if (gm.travellerMove == null)
-            Debug.LogWarning("[SPAWN] TravellerMove is NULL");
-        if (gm.travellerCam == null)
-            Debug.LogWarning("[SPAWN] TravellerCam is NULL");
-
-        Freeze(obj);
-
-        HUDManager.Instance?.Traveller?.ShowMessage("ממתין להתחברות הנווט…");
-
-        Debug.Log($"[SPAWN] Traveller fully initialized for client {clientId}");
-    }
-
-    // ==========================================
-    // NAVIGATOR
-    // ==========================================
-
-    private void SpawnNavigator(ulong clientId)
-    {
-        var gm = GameManager.Instance;
-        if (gm == null)
-        {
-            Debug.LogError("[SPAWN] GameManager.Instance is NULL in SpawnNavigator");
-            return;
-        }
-
-        if (navSpawn == null)
-        {
-            Debug.LogError("[SPAWN] navSpawn is NULL! לא מוגדר Spawn Point לנווט");
-            return;
-        }
-
-        Vector3 pos = navSpawn.position;
-        Quaternion rot = navSpawn.rotation;
-
-        Debug.Log(
-            $"[SPAWN] Spawning Navigator for client {clientId} at pos={pos}, rot={rot.eulerAngles}"
-        );
-
-        var obj = Instantiate(navigatorPrefab, pos, rot);
-        var netObj = obj.GetComponent<NetworkObject>();
-
-        if (netObj == null)
-        {
-            Debug.LogError("[SPAWN] Navigator prefab is missing NetworkObject");
-            return;
-        }
-
-        netObj.SpawnAsPlayerObject(clientId);
-        Debug.Log($"[SPAWN] Navigator NetworkObject spawned. OwnerClientId={netObj.OwnerClientId}");
-
-        EnableAllNetworkBehaviours(obj);
-
-        gm.navigator = obj;
-        gm.navigatorMove = obj.GetComponent<PlayerMovement1P>();
-        gm.navigatorCam = obj.GetComponentInChildren<PlayerCamera1P>();
-
-        if (gm.navigatorMove == null)
-            Debug.LogWarning("[SPAWN] NavigatorMove is NULL");
-        if (gm.navigatorCam == null)
-            Debug.LogWarning("[SPAWN] NavigatorCam is NULL");
-
-        Freeze(obj);
-
-        navigatorSpawned = true;
-
-        Debug.Log($"[SPAWN] Navigator fully initialized for client {clientId}");
-    }
-
-    // ==========================================
-    // ENABLE NETWORK BEHAVIOURS
-    // ==========================================
-
-    private void EnableAllNetworkBehaviours(GameObject obj)
-    {
-        var all = obj.GetComponentsInChildren<NetworkBehaviour>(true);
-        Debug.Log($"[SPAWN] EnableAllNetworkBehaviours on '{obj.name}'  count={all.Length}");
-
-        foreach (var nb in all)
-        {
-            nb.enabled = true;
-        }
-    }
-
-    // ==========================================
-    // FREEZE / UNFREEZE
-    // ==========================================
-
-    private void Freeze(GameObject obj)
-    {
-        var move = obj.GetComponent<PlayerMovement1P>();
-        if (move != null)
-        {
-            move.SetFrozen(true);
-            Debug.Log($"[SPAWN] Freeze movement on '{obj.name}'");
-        }
-
-        var cam = obj.GetComponentInChildren<PlayerCamera1P>();
-        if (cam != null)
-        {
-            cam.SetCameraFrozen(true);
-            Debug.Log($"[SPAWN] Freeze camera on '{obj.name}'");
-        }
-    }
-
-    private void Unfreeze(GameObject obj)
-    {
-        var move = obj.GetComponent<PlayerMovement1P>();
-        if (move != null)
-        {
-            move.SetFrozen(false);
-            Debug.Log($"[SPAWN] Unfreeze movement on '{obj.name}'");
-        }
-
-        var cam = obj.GetComponentInChildren<PlayerCamera1P>();
-        if (cam != null)
-        {
-            cam.SetCameraFrozen(false);
-            Debug.Log($"[SPAWN] Unfreeze camera on '{obj.name}'");
-        }
-    }
-
-    // ==========================================
-    // BOTH CONNECTED → START TUTORIAL
-    // ==========================================
-
-    private void OnNavigatorSpawned()
-    {
-        var gm = GameManager.Instance;
-
-        if (!navigatorSpawned || gm == null || gm.traveller == null)
-        {
-            Debug.Log(
-                $"[SPAWN] OnNavigatorSpawned blocked. navigatorSpawned={navigatorSpawned}, gmNull={gm == null}, travellerNull={gm == null || gm.traveller == null}"
-            );
-            return;
-        }
-
-        Debug.Log("[SPAWN] Both players connected → starting tutorial (delayed)");
-        StartCoroutine(StartTutorialDelayed());
-    }
-
-    private IEnumerator StartTutorialDelayed()
-    {
-        yield return new WaitForSeconds(0.2f);
-
-        if (HUDManager.Instance != null && HUDManager.Instance.Traveller != null)
-        {
-            HUDManager.Instance.Traveller.Clear();
-        }
-
-        var t = FindFirstObjectByType<TutorialManager>();
-        if (t != null)
-        {
-            Debug.Log("[SPAWN] TutorialManager found → StartTutorial()");
-            t.StartTutorial();
-        }
-        else
-        {
-            Debug.LogWarning("[SPAWN] TutorialManager NOT FOUND in StartTutorialDelayed");
-        }
+        netObj.SpawnAsPlayerObject(clientId, destroyWithScene);
+        Debug.Log($"[SPAWN] Spawned PlayerObject '{prefab.name}' for clientId={clientId} destroyWithScene={destroyWithScene}");
     }
 }
