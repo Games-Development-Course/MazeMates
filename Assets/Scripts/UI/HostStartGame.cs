@@ -10,8 +10,35 @@ public sealed class HostStartGame : MonoBehaviour
     [SerializeField] private string gameSceneName = "GameScene";
 
     [Header("Host-only UI")]
-    [SerializeField] private GameObject hostButtonsPanel; // parent object holding 4 buttons
-    [SerializeField] private LobbyState lobbyState;       // drag the LobbyState instance here
+    [SerializeField] private GameObject hostButtonsPanel;
+    [SerializeField] private LobbyState lobbyState;
+
+    [Header("Easy Config")]
+    [SerializeField] private int easyMazeW = 13;
+    [SerializeField] private int easyMazeH = 13;
+    [SerializeField] private int easyHearts = 3;
+    [SerializeField] private int easyBombs = 3;
+    [SerializeField] private int easyKeys = 3;
+    [SerializeField] private int easyNormalDoors = 3;
+    [SerializeField] private int easyPuzzleDoors = 2;
+
+    [Header("Medium Config")]
+    [SerializeField] private int medMazeW = 25;
+    [SerializeField] private int medMazeH = 25;
+    [SerializeField] private int medHearts = 4;
+    [SerializeField] private int medBombs = 2;
+    [SerializeField] private int medKeys = 2;
+    [SerializeField] private int medNormalDoors = 4;
+    [SerializeField] private int medPuzzleDoors = 3;
+
+    [Header("Hard Config")]
+    [SerializeField] private int hardMazeW = 31;
+    [SerializeField] private int hardMazeH = 31;
+    [SerializeField] private int hardHearts = 3;
+    [SerializeField] private int hardBombs = 3;
+    [SerializeField] private int hardKeys = 1;
+    [SerializeField] private int hardNormalDoors = 5;
+    [SerializeField] private int hardPuzzleDoors = 4;
 
     private void Awake()
     {
@@ -61,11 +88,11 @@ public sealed class HostStartGame : MonoBehaviour
         nm.SceneManager.LoadScene(tutorialSceneName, LoadSceneMode.Single);
     }
 
-    public void StartGameEasy() => StartGame();
-    public void StartGameMedium() => StartGame();
-    public void StartGameHard() => StartGame();
+    public void StartGameEasy() => StartGameWithDifficulty(0);
+    public void StartGameMedium() => StartGameWithDifficulty(1);
+    public void StartGameHard() => StartGameWithDifficulty(2);
 
-    private void StartGame()
+    private void StartGameWithDifficulty(int diff)
     {
         var nm = NetworkManager.Singleton;
         if (nm == null || !nm.IsServer) return;
@@ -75,8 +102,30 @@ public sealed class HostStartGame : MonoBehaviour
             Debug.LogWarning("No clients connected yet!");
             return;
         }
-        hostButtonsPanel.SetActive(false);
 
+        var cfg = GameConfigNet.Instance;
+        if (cfg == null)
+        {
+            Debug.LogError("GameConfigNet is missing in the Start/Menu scene (NetworkManager scene).");
+            return;
+        }
+
+        int seed = Random.Range(1, int.MaxValue);
+
+        if (diff == 0)
+        {
+            cfg.SetConfigServerRpc(easyMazeW, easyMazeH, easyHearts, easyBombs, easyKeys, easyNormalDoors, easyPuzzleDoors, 0, seed);
+        }
+        else if (diff == 1)
+        {
+            cfg.SetConfigServerRpc(medMazeW, medMazeH, medHearts, medBombs, medKeys, medNormalDoors, medPuzzleDoors, 1, seed);
+        }
+        else
+        {
+            cfg.SetConfigServerRpc(hardMazeW, hardMazeH, hardHearts, hardBombs, hardKeys, hardNormalDoors, hardPuzzleDoors, 2, seed);
+        }
+
+        hostButtonsPanel?.SetActive(false);
         nm.SceneManager.LoadScene(gameSceneName, LoadSceneMode.Single);
     }
 }

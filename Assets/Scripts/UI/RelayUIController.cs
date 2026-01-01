@@ -1,5 +1,4 @@
-// Assets/Scripts/UI/RelayUIController.cs
-using System.Collections;
+﻿using System.Collections;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
@@ -15,22 +14,37 @@ public sealed class RelayUIController : MonoBehaviour
     [SerializeField] private GameObject hostJoinButtonsRoot;
     [SerializeField] private GameObject joinAreaRoot;
 
+    [Header("Host UI (Difficulty Menu)")]
+    [Tooltip("גרור לכאן את HostButtonsPanel (תפריט רמות קושי/StartGame)")]
+    [SerializeField] private GameObject hostButtonsPanel;
+
     [Header("Behavior")]
-    [SerializeField] private bool hideCodeLabelOnHostWhenFull = true;
-    [SerializeField] private bool hideConnectionPanelOnClientWhenFull = true;
-    [SerializeField] private bool hideConnectionPanelOnHostWhenFull = false;
+    [SerializeField] private bool hideCodeLabelOnHostWhenReady = true;
+    [SerializeField] private bool hideConnectionPanelOnHostWhenReady = true;
+    [SerializeField] private bool hideConnectionPanelOnClientWhenReady = true;
 
     private LobbyState lobbyState;
 
     private bool hostInProgress;
     private int hostRequestVersion;
 
-    private void OnEnable() => StartCoroutine(BindLobbyStateWhenReady());
+    // כדי שלא נכבה תפריט אחרי שפתחנו
+    private bool difficultyMenuOpened;
+
+    private void OnEnable()
+    {
+        StartCoroutine(BindLobbyStateWhenReady());
+        StartCoroutine(BindNetworkManagerCallbacksWhenReady());
+    }
 
     private void OnDisable()
     {
         if (lobbyState != null)
             lobbyState.SessionFull.OnValueChanged -= OnSessionFullChanged;
+
+        var nm = NetworkManager.Singleton;
+        if (nm != null)
+            nm.OnClientConnectedCallback -= HandleClientConnected;
 
         lobbyState = null;
     }
@@ -51,21 +65,74 @@ public sealed class RelayUIController : MonoBehaviour
         ApplyUiState();
     }
 
+    private IEnumerator BindNetworkManagerCallbacksWhenReady()
+    {
+        // מחכים שה-NetworkManager באמת קיים (בפרויקט שלך הוא ב-opening/persistent)
+        while (NetworkManager.Singleton == null)
+            yield return null;
+
+        NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
+        NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
+    }
+
     private void OnSessionFullChanged(bool _, bool __) => ApplyUiState();
+
+    private void HandleClientConnected(ulong clientId)
+    {
+        var nm = NetworkManager.Singleton;
+        if (nm == null) return;
+
+        if (!nm.IsHost) return;
+
+        // השרת עצמו (בדרך כלל 0)
+        if (clientId == NetworkManager.ServerClientId) return;
+
+        Debug.Log($"[RelayUI] Real client joined! clientId={clientId}");
+
+        OpenDifficultyMenuOnHost();
+    }
+
+    private void OpenDifficultyMenuOnHost()
+    {
+        difficultyMenuOpened = true;
+
+        if (hostButtonsPanel != null)
+            hostButtonsPanel.SetActive(true);
+
+        ShowLobbyButtons(false);
+
+        if (hideCodeLabelOnHostWhenReady && codeLabel != null)
+            codeLabel.gameObject.SetActive(false);
+
+        if (hideConnectionPanelOnHostWhenReady && connectionPanel != null)
+            connectionPanel.SetActive(false);
+
+        if (codeInput != null)
+            codeInput.gameObject.SetActive(false);
+    }
 
     private void ApplyUiState()
     {
         var nm = NetworkManager.Singleton;
+
         bool isListening = nm != null && nm.IsListening;
         bool isHost = nm != null && nm.IsHost;
         bool isClientOnly = nm != null && nm.IsClient && !nm.IsHost;
 
-        bool full = lobbyState != null && lobbyState.SessionFull.Value;
+        // Fallback חזק: אם אנחנו Host ורואים יותר מלקוח אחד – סימן שמישהו הצטרף.
+        bool hasRealClient =
+            isHost && nm != null && nm.ConnectedClientsIds != null && nm.ConnectedClientsIds.Count > 1;
 
-        Debug.Log($"[RelayUI] ApplyUiState | listening={isListening} host={isHost} clientOnly={isClientOnly} full={full}");
+        Debug.Log($"[RelayUI] ApplyUiState | listening={isListening} host={isHost} clientOnly={isClientOnly} hasRealClient={hasRealClient} opened={difficultyMenuOpened}");
+
+        // ברירת מחדל: התפריט סגור עד שמישהו באמת הצטרף
+        if (hostButtonsPanel != null && !difficultyMenuOpened)
+            hostButtonsPanel.SetActive(false);
 
         if (!isListening)
         {
+            difficultyMenuOpened = false;
+
             if (connectionPanel != null) connectionPanel.SetActive(true);
             ShowLobbyButtons(true);
 
@@ -79,39 +146,30 @@ public sealed class RelayUIController : MonoBehaviour
             return;
         }
 
-        if (full)
+        // אם כבר יש לקוח אמיתי – נפתח (גם אם פספסנו callback)
+        if (!difficultyMenuOpened && hasRealClient)
         {
-            if (isHost)
-            {
-                if (hideCodeLabelOnHostWhenFull && codeLabel != null)
-                    codeLabel.gameObject.SetActive(false);
-
-                if (hideConnectionPanelOnHostWhenFull && connectionPanel != null)
-                    connectionPanel.SetActive(false);
-            }
-            else if (isClientOnly)
-            {
-                if (hideConnectionPanelOnClientWhenFull && connectionPanel != null)
-                    connectionPanel.SetActive(false);
-            }
-
+            OpenDifficultyMenuOnHost();
             return;
         }
 
-        // Not full yet
-        if (connectionPanel != null) connectionPanel.SetActive(true);
-
-        if (isHost)
+        // מצב ביניים: Host מחכה ללקוח => רק קוד
+        if (isHost && !difficultyMenuOpened)
         {
+            if (connectionPanel != null) connectionPanel.SetActive(true);
             ShowLobbyButtons(false);
+
             if (codeInput != null) codeInput.gameObject.SetActive(false);
             if (codeLabel != null) codeLabel.gameObject.SetActive(true);
+            return;
         }
-        else
+
+        // לקוח: אחרי join אפשר להסתיר את הפאנל
+        if (isClientOnly && hideConnectionPanelOnClientWhenReady && connectionPanel != null)
         {
-            ShowLobbyButtons(true);
-            if (codeInput != null) codeInput.gameObject.SetActive(true);
-            if (codeLabel != null) codeLabel.gameObject.SetActive(true);
+            // אם כבר התחבר – לרוב רוצים להסתיר
+            // (אם תרצה להשאיר עד סצנה הבאה, תגיד)
+            connectionPanel.SetActive(false);
         }
     }
 
@@ -123,7 +181,19 @@ public sealed class RelayUIController : MonoBehaviour
         hostInProgress = true;
         int myVersion = ++hostRequestVersion;
 
-        ShowHostCodeOnlyUI(creating: true, code: "");
+        difficultyMenuOpened = false;
+        if (hostButtonsPanel != null) hostButtonsPanel.SetActive(false);
+
+        // UI: רק קוד
+        if (connectionPanel != null) connectionPanel.SetActive(true);
+        ShowLobbyButtons(false);
+        if (codeInput != null) codeInput.gameObject.SetActive(false);
+
+        if (codeLabel != null)
+        {
+            codeLabel.gameObject.SetActive(true);
+            codeLabel.text = "Creating room...";
+        }
 
         string joinCode = await RelayManager.Instance.StartHostWithRelayAsync();
 
@@ -132,64 +202,45 @@ public sealed class RelayUIController : MonoBehaviour
 
         if (!string.IsNullOrEmpty(joinCode))
         {
-            ShowHostCodeOnlyUI(creating: false, code: joinCode);
+            if (codeLabel != null) codeLabel.text = joinCode;
 
-            if (codeLabel != null)
-            {
-                codeLabel.text = joinCode;
-                codeLabel.gameObject.SetActive(true);
-            }
-
+            // אופציונלי: לשים את הקוד גם בשדה כדי שיהיה קל להעתיק
             if (codeInput != null)
             {
                 codeInput.text = joinCode;
                 codeInput.interactable = false;
             }
+
+            // תן ApplyUiState לוודא שאנחנו במצב "מחכה ללקוח"
+            ApplyUiState();
         }
         else
         {
+            Debug.LogError("[RelayUI] Failed to create host");
             ShowLobbyButtons(true);
-
-            if (codeLabel != null) codeLabel.text = "";
-            if (codeInput != null)
-            {
-                codeInput.interactable = true;
-                codeInput.text = "";
-            }
         }
     }
 
     public async void OnJoinClicked()
     {
-        string joinCode = codeInput != null ? codeInput.text.Trim().ToUpper() : "";
+        if (codeInput == null) return;
+
+        string joinCode = codeInput.text.Trim().ToUpper();
         if (string.IsNullOrEmpty(joinCode)) return;
 
         bool ok = await RelayManager.Instance.StartClientWithRelayAsync(joinCode);
-        Debug.Log($"[RelayUI] JoinClicked -> StartClient ok={ok}");
+        Debug.Log($"[RelayUI] JoinClicked -> ok={ok}");
 
-        // Client-side UX only; host will react to SessionFull when connection is real
-        if (codeLabel != null) codeLabel.gameObject.SetActive(false);
-        if (ok && connectionPanel != null) connectionPanel.SetActive(false);
+        if (ok)
+        {
+            if (codeLabel != null) codeLabel.gameObject.SetActive(false);
+            if (hideConnectionPanelOnClientWhenReady && connectionPanel != null) connectionPanel.SetActive(false);
+        }
     }
 
     private void ShowLobbyButtons(bool show)
     {
         if (hostJoinButtonsRoot != null) hostJoinButtonsRoot.SetActive(show);
         if (joinAreaRoot != null) joinAreaRoot.SetActive(show);
-    }
-
-    private void ShowHostCodeOnlyUI(bool creating, string code)
-    {
-        if (connectionPanel != null) connectionPanel.SetActive(true);
-
-        ShowLobbyButtons(false);
-
-        if (codeInput != null) codeInput.gameObject.SetActive(false);
-
-        if (codeLabel != null)
-        {
-            codeLabel.gameObject.SetActive(true);
-            codeLabel.text = creating ? "Creating room..." : code;
-        }
     }
 }

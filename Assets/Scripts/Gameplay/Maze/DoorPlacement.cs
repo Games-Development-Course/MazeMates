@@ -1,59 +1,13 @@
-﻿using System.Collections.Generic;
+﻿// Assets/Scripts/Maze/DoorPlacement.cs
+using System.Collections.Generic;
 using UnityEngine;
 
 public static class DoorPlacement
 {
     // ----------------------------------------------------------
-    // יצירת רשימת מיקומים תקפים לדלתות
+    // Build candidate "door spots" from carved wall cells:
+    // A door can be placed only on a wall cell that separates two OPEN cells.
     // ----------------------------------------------------------
-    public static List<DoorSpot> CollectDoorSpots(
-        bool[,] grid,
-        List<Vector2Int> pathCells,
-        int width,
-        int height
-    )
-    {
-        List<DoorSpot> spots = new List<DoorSpot>();
-
-        foreach (var c in pathCells)
-        {
-            int x = c.x;
-            int y = c.y;
-
-            // קיר בין שני תאים פתוחים ─ כיוון מזרח-מערב
-            TryAddDoorSpot(
-                spots,
-                grid,
-                width,
-                height,
-                x,
-                y,
-                x + 1,
-                y,
-                x - 1,
-                y,
-                Quaternion.Euler(0, 90, 0)
-            );
-
-            // קיר בין שני תאים פתוחים ─ כיוון צפון-דרום
-            TryAddDoorSpot(
-                spots,
-                grid,
-                width,
-                height,
-                x,
-                y,
-                x,
-                y + 1,
-                x,
-                y - 1,
-                Quaternion.Euler(0, 0, 0)
-            );
-        }
-
-        return spots;
-    }
-
     public static List<DoorSpot> FromCarvedWalls(
         bool[,] grid,
         List<Vector2Int> carvedWalls,
@@ -68,12 +22,13 @@ public static class DoorPlacement
             int x = c.x;
             int y = c.y;
 
-            // כיוון מזרח-מערב
+            // EAST-WEST separator: open on left & right
             if (
                 Inside(x - 1, y, width, height)
                 && Inside(x + 1, y, width, height)
                 && !grid[x - 1, y]
                 && !grid[x + 1, y]
+                && grid[x, y] // must still be a wall cell in the grid
             )
             {
                 spots.Add(
@@ -82,16 +37,19 @@ public static class DoorPlacement
                         cell = c,
                         rotation = Quaternion.Euler(0, 90, 0),
                         score = Random.value,
+                        aOpen = new Vector2Int(x - 1, y),
+                        bOpen = new Vector2Int(x + 1, y),
                     }
                 );
             }
 
-            // כיוון צפון-דרום
+            // NORTH-SOUTH separator: open on down & up
             if (
                 Inside(x, y - 1, width, height)
                 && Inside(x, y + 1, width, height)
                 && !grid[x, y - 1]
                 && !grid[x, y + 1]
+                && grid[x, y]
             )
             {
                 spots.Add(
@@ -100,6 +58,8 @@ public static class DoorPlacement
                         cell = c,
                         rotation = Quaternion.identity,
                         score = Random.value,
+                        aOpen = new Vector2Int(x, y - 1),
+                        bOpen = new Vector2Int(x, y + 1),
                     }
                 );
             }
@@ -108,89 +68,15 @@ public static class DoorPlacement
         return spots;
     }
 
-    static bool Inside(int x, int y, int width, int height)
+    public static List<DoorSpot> FilterOnPath(List<DoorSpot> spots, HashSet<Vector2Int> pathSet)
     {
-        return x > 0 && y > 0 && x < width - 1 && y < height - 1;
-    }
-
-    private static void TryAddDoorSpot(
-        List<DoorSpot> spots,
-        bool[,] grid,
-        int width,
-        int height,
-        int wallX,
-        int wallY,
-        int aX,
-        int aY,
-        int bX,
-        int bY,
-        Quaternion rot
-    )
-    {
-        if (!Inside(wallX, wallY, width, height))
-            return;
-        if (!Inside(aX, aY, width, height))
-            return;
-        if (!Inside(bX, bY, width, height))
-            return;
-
-        // תנאי דלת: קיר בין שני תאים פתוחים
-        if (grid[wallX, wallY] && !grid[aX, aY] && !grid[bX, bY])
-        {
-            DoorSpot spot = new DoorSpot
-            {
-                cell = new Vector2Int(wallX, wallY),
-                rotation = rot,
-                score = Vector2.Distance(new Vector2(aX, aY), new Vector2(width / 2, height / 2)),
-            };
-
-            spots.Add(spot);
-        }
-    }
-
-    // ----------------------------------------------------------
-    // בחירת מיקומים
-    // ----------------------------------------------------------
-
-    public static DoorSpot FindClosestSpot(
-        List<DoorSpot> spots,
-        Vector2Int target,
-        List<DoorSpot> used,
-        float minDist
-    )
-    {
-        DoorSpot best = null;
-        float bestD = Mathf.Infinity;
-
+        List<DoorSpot> res = new();
         foreach (var s in spots)
         {
-            if (!IsValidSpot(s, used, minDist))
-                continue;
-
-            float d = Vector2.Distance(s.cell, target);
-            if (d < bestD)
-            {
-                bestD = d;
-                best = s;
-            }
+            if (pathSet.Contains(s.aOpen) && pathSet.Contains(s.bOpen))
+                res.Add(s);
         }
-        return best;
-    }
-
-    public static DoorSpot PickRandomSpot(List<DoorSpot> spots, List<DoorSpot> used, float minDist)
-    {
-        var list = spots.FindAll(s => IsValidSpot(s, used, minDist));
-        if (list.Count == 0)
-            return null;
-        return list[Random.Range(0, list.Count)];
-    }
-
-    public static DoorSpot PickDeepSpot(List<DoorSpot> spots, List<DoorSpot> used, float minDist)
-    {
-        foreach (var s in spots)
-            if (IsValidSpot(s, used, minDist))
-                return s;
-        return null;
+        return res;
     }
 
     public static bool IsValidSpot(DoorSpot spot, List<DoorSpot> used, float minDist)
@@ -200,5 +86,52 @@ public static class DoorPlacement
                 return false;
 
         return true;
+    }
+
+    public static List<DoorSpot> PickEvenlySpaced(List<DoorSpot> spots, int count, float minDist)
+    {
+        List<DoorSpot> picked = new();
+        if (count <= 0 || spots == null || spots.Count == 0)
+            return picked;
+
+        List<DoorSpot> pool = new(spots);
+
+        // start from a random valid spot
+        DoorSpot first = pool[Random.Range(0, pool.Count)];
+        picked.Add(first);
+
+        while (picked.Count < count)
+        {
+            DoorSpot best = null;
+            float bestMin = -1f;
+
+            foreach (var s in pool)
+            {
+                if (!IsValidSpot(s, picked, minDist))
+                    continue;
+
+                float dmin = float.PositiveInfinity;
+                foreach (var p in picked)
+                    dmin = Mathf.Min(dmin, Vector2.Distance(s.cell, p.cell));
+
+                if (dmin > bestMin)
+                {
+                    bestMin = dmin;
+                    best = s;
+                }
+            }
+
+            if (best == null)
+                break;
+
+            picked.Add(best);
+        }
+
+        return picked;
+    }
+
+    static bool Inside(int x, int y, int width, int height)
+    {
+        return x > 0 && y > 0 && x < width - 1 && y < height - 1;
     }
 }
