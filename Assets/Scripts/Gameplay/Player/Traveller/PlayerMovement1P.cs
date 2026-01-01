@@ -1,6 +1,7 @@
 ﻿// PlayerMovement1P.cs
 using System.Collections;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
@@ -122,17 +123,6 @@ public class PlayerMovement1P : NetworkBehaviour
             tm.NotifyNavigatorMoved();
     }
 
-    public void TeleportToStart(Vector3 pos)
-    {
-        if (controller == null)
-            controller = GetComponent<CharacterController>();
-
-        velocity = Vector3.zero;
-        controller.enabled = false;
-        transform.position = pos;
-        controller.enabled = true;
-    }
-
     // ============================================================
     // ✅ BOMB RESET (RUNS ON OWNER CLIENT)
     // ============================================================
@@ -150,7 +140,6 @@ public class PlayerMovement1P : NetworkBehaviour
         if (!IsOwner)
             return;
 
-        // אפקט רק אצל המטייל (Host)
         if (IsHost)
         {
             var hud = HUDManager.Instance;
@@ -167,7 +156,6 @@ public class PlayerMovement1P : NetworkBehaviour
     {
         yield return new WaitForSeconds(preDelay);
 
-        // טלפורט בטוח עם CharacterController
         if (controller == null)
             controller = GetComponent<CharacterController>();
 
@@ -176,8 +164,24 @@ public class PlayerMovement1P : NetworkBehaviour
         transform.SetPositionAndRotation(worldPos, worldRot);
         controller.enabled = true;
 
-        // שחרור קצר אחרי שינוי מיקום
+        // ✅ Tell server immediately (keeps server in sync, prevents delayed state)
+        ConfirmTeleportServerRpc(worldPos, worldRot);
+
         yield return new WaitForSeconds(0.05f);
         SetFrozen(false);
+    }
+
+    [ServerRpc]
+    private void ConfirmTeleportServerRpc(Vector3 worldPos, Quaternion worldRot)
+    {
+        // If you have NetworkTransform, use Teleport (best). Otherwise set transform.
+        var nt = GetComponent<NetworkTransform>();
+        if (nt != null)
+        {
+            nt.Teleport(worldPos, worldRot, transform.localScale);
+            return;
+        }
+
+        transform.SetPositionAndRotation(worldPos, worldRot);
     }
 }

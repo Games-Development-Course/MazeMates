@@ -40,6 +40,10 @@ PrefabInstance:
       propertyPath: m_VelocityScale
       value: 0.1
       objectReference: {fileID: 0}
+    - target: {fileID: 8874423657729212510, guid: 3f63c111dc713814b99322bcd3fc51e8, type: 3}
+      propertyPath: tutorialTravellerRespawnPoint
+      value: 
+      objectReference: {fileID: 8839784335829030593, guid: 6874d9f2810444a53ad4d7f123558b68, type: 3}
     - target: {fileID: 8919618125850744617, guid: 3f63c111dc713814b99322bcd3fc51e8, type: 3}
       propertyPath: m_LocalPosition.x
       value: -3.51521
@@ -87,5 +91,38 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 7346369688817398720, guid: 3f63c111dc713814b99322bcd3fc51e8, type: 3}
+      insertIndex: 4
+      addedObject: {fileID: 7917514762138273319}
   m_SourcePrefab: {fileID: 100100000, guid: 3f63c111dc713814b99322bcd3fc51e8, type: 3}
+--- !u!1 &4190019433273318664 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7346369688817398720, guid: 3f63c111dc713814b99322bcd3fc51e8, type: 3}
+  m_PrefabInstance: {fileID: 6905843653086097096}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7917514762138273319
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4190019433273318664}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3806594072
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
