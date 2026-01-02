@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 7926504760750204781}
   - component: {fileID: 4705396188649392588}
   - component: {fileID: 6185249980537485262}
-  - component: {fileID: 4551502866990535498}
   m_Layer: 0
   m_Name: GameManager 1
   m_TagString: Untagged
@@ -52,7 +51,7 @@ MonoBehaviour:
   navigatorMove: {fileID: 0}
   travellerCam: {fileID: 0}
   navigatorCam: {fileID: 0}
-  lives: 2
+  lives: 1
   keys: 0
   inPuzzle: 0
   lifebuoys: 1
@@ -72,19 +71,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0d49786b4792d654b993128cd0624134, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MultiDisplayManager
---- !u!114 &4551502866990535498
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1626141356806581025}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9c2113cea95383c46a53a0909a975620, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
-  travSpawn: {fileID: 0}
-  navSpawn: {fileID: 0}
-  travellerPrefab: {fileID: 2708922950654919531, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
-  navigatorPrefab: {fileID: 3345313976844692419, guid: bc1b2a2e1b5de8b4d9cd0bf55de60d4a, type: 3}

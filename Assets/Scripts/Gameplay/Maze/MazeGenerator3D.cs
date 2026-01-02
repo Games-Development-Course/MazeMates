@@ -19,6 +19,25 @@ public class MazeGenerator3D : MonoBehaviour
     [Header("Traveller Spawn")]
     [SerializeField] private Transform travellerSpawn;
 
+
+
+    // -------------------------------
+    // Public API for deterministic spawning (read-only)
+    // -------------------------------
+    public Transform TravellerSpawn => travellerSpawn;
+
+
+
+    public bool IsReady { get; private set; }
+    public event System.Action Ready;
+
+    private void MarkReady()
+    {
+        if (IsReady) return;
+        IsReady = true;
+        Ready?.Invoke();
+    }
+
     [Header("Ground")]
     [SerializeField] private GameObject groundPrefab;
 
@@ -120,9 +139,13 @@ public class MazeGenerator3D : MonoBehaviour
         AlignMazeToNavigatorEntrance();
         UpdateTravellerSpawn();
 
+
+
+
         List<GameObject> puzzleDoorInstances = PlaceDoors();
         PlaceResources();
         AssignPuzzlesToPuzzleDoors(puzzleDoorInstances);
+        MarkReady();
     }
 
     private void PullConfigIfExists()
@@ -700,8 +723,10 @@ collisionRadiusMultiplier: 0.22f
         if (travellerSpawn == null) return;
 
         // ✅ ספאון במרכז התא (1,1)
-        travellerSpawn.position = CellCenterWorld(StartCell.x, StartCell.y, 0f);
+        travellerSpawn.position = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
     }
+
+  
 
     // ================================================================
     //   BFS PATHFINDING
