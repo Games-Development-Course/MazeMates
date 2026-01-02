@@ -1,4 +1,7 @@
 ﻿// ======================= TutorialManager.cs =======================
+// FIXED: client sync + targeted HUD/Locks/Mouse + missing functions + robust HUD resolve
+// Based on your file. :contentReference[oaicite:0]{index=0}
+
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -39,7 +42,9 @@ public class TutorialManager : NetworkBehaviour
     private bool travellerMoved, navigatorMoved;
     private bool travellerLooked, navigatorLooked;
 
-    private TutorialStep Current => steps[currentIndex];
+    private bool tutorialStarted = false;
+
+    private TutorialStep Current => (steps != null && currentIndex >= 0 && currentIndex < steps.Length) ? steps[currentIndex] : null;
 
     public static List<TutorialColliderAuto> autoColliders = new List<TutorialColliderAuto>();
 
@@ -55,19 +60,94 @@ public class TutorialManager : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        base.OnNetworkSpawn();
+        // Always resolve local refs on BOTH host and client
+        StartCoroutine(ResolveLocalRefsNextFrame());
 
-        if (IsServer)
-            TutorialActive.Value = false;
+        // Server starts tutorial once (you wanted it active when scene starts)
+        if (IsServer && !tutorialStarted)
+        {
+            tutorialStarted = true;
+            StartCoroutine(StartTutorialAfterSceneSettles());
+        }
 
-        // במולטיפלייר יש היררכייה אחת -> לא מכבים HUD-ים פה
-        if (travellerHUD != null) travellerHUD.gameObject.SetActive(true);
-        if (navigatorHUD != null) navigatorHUD.gameObject.SetActive(true);
-
-        Debug.Log(
-            $"[TUTORIAL][OnNetworkSpawn] LocalClientId={NetworkManager.Singleton?.LocalClientId} IsHost={IsHost} IsClient={IsClient} IsServer={IsServer}"
-        );
+        // Every client requests a sync snapshot (so late join / missed RPC won't break)
+        if (IsClient)
+            RequestTutorialSyncServerRpc();
     }
+
+    private IEnumerator ResolveLocalRefsNextFrame()
+    {
+        yield return null; // allow scene objects to be ready
+
+        if (travellerHUD == null || navigatorHUD == null)
+        {
+            var huds = Object.FindObjectsOfType<TutorialHUD>(true);
+
+            // Try name-based first
+            foreach (var h in huds)
+            {
+                if (h == null) continue;
+                var n = h.gameObject.name.ToLower();
+                if (travellerHUD == null && (n.Contains("traveller") || n.Contains("מטייל"))) travellerHUD = h;
+                if (navigatorHUD == null && (n.Contains("navigator") || n.Contains("נווט"))) navigatorHUD = h;
+            }
+
+            // Fallback: if still null, take "any" HUD for the local side so UI at least works
+            if (IsHost && travellerHUD == null && huds.Length > 0) travellerHUD = huds[0];
+            if (!IsHost && navigatorHUD == null && huds.Length > 0) navigatorHUD = huds[0];
+        }
+    }
+
+    private IEnumerator StartTutorialAfterSceneSettles()
+    {
+        // Let NGO finish spawning objects on clients
+        yield return null;
+        yield return new WaitForSeconds(0.25f);
+
+        StartTutorial();
+    }
+
+    // ============================================================
+    // CLIENT <-> SERVER SYNC
+    // ============================================================
+
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestTutorialSyncServerRpc(ServerRpcParams rpcParams = default)
+    {
+        ulong targetClientId = rpcParams.Receive.SenderClientId;
+
+        // If tutorial not running yet, nothing to sync
+        if (!TutorialActive.Value || currentIndex < 0 || steps == null || currentIndex >= steps.Length)
+            return;
+
+        SendSnapshotToClient(targetClientId, steps[currentIndex]);
+    }
+
+    private void SendSnapshotToClient(ulong clientId, TutorialStep step)
+    {
+        // locks + mouse + hud for the CURRENT step, targeted to this client
+        SendLocksToSpecificClient(clientId, step);
+
+        if (step.applyMouseSettingsOnStepStart)
+            SendMouseToSpecificClient(clientId, step);
+
+        ShowStepHUDToSpecificClient(clientId, step);
+
+        // also notify step-started colliders (targeted)
+        StepStartedCollidersTargetClientRpc(step.stepId, MakeTargetParams(clientId));
+    }
+
+    private static ClientRpcParams MakeTargetParams(ulong clientId)
+    {
+        return new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { clientId } }
+        };
+    }
+
+    // ============================================================
+    // CONNECTED CALLBACK
+    // ============================================================
 
     private void OnEnable()
     {
@@ -81,44 +161,14 @@ public class TutorialManager : NetworkBehaviour
             NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
     }
 
-    // ============================================================
-    // CLIENT CONNECTED
-    // ============================================================
-
     private void OnClientConnected(ulong clientId)
     {
         if (!IsServer) return;
         if (!TutorialActive.Value) return;
-        if (currentIndex < 0 || currentIndex >= steps.Length) return;
+        if (currentIndex < 0 || steps == null || currentIndex >= steps.Length) return;
 
-        SendLocksToSpecificClient(clientId, Current);
-    }
-
-    private void SendLocksToSpecificClient(ulong clientId, TutorialStep step)
-    {
-        var p = new ClientRpcParams
-        {
-            Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { clientId } },
-        };
-
-        ApplyLocksClientRpc(
-            step.travellerLockMovement,
-            step.travellerLockCamera,
-            step.navigatorLockMovement,
-            step.navigatorLockCamera,
-            p
-        );
-
-        if (step.applyMouseSettingsOnStepStart)
-        {
-            ApplyMouseClientRpc(
-                step.travellerCursorVisible,
-                (int)step.travellerCursorLockMode,
-                step.navigatorCursorVisible,
-                (int)step.navigatorCursorLockMode,
-                p
-            );
-        }
+        // When a client connects while tutorial is already running, send full snapshot (locks+hud+mouse+colliders)
+        SendSnapshotToClient(clientId, steps[currentIndex]);
     }
 
     // ============================================================
@@ -138,10 +188,11 @@ public class TutorialManager : NetworkBehaviour
     {
         if (!IsServer) return;
         if (!stepActive) return;
-
-        if (currentIndex < 0 || currentIndex >= steps.Length) return;
+        if (currentIndex < 0 || steps == null || currentIndex >= steps.Length) return;
 
         TutorialStep step = Current;
+        if (step == null) return;
+
         float elapsedHUD = Time.time - hudShownTime;
 
         // auto complete time-based
@@ -170,7 +221,7 @@ public class TutorialManager : NetworkBehaviour
 
         currentIndex++;
 
-        if (currentIndex >= steps.Length)
+        if (steps == null || currentIndex >= steps.Length)
         {
             Debug.Log("[TUTORIAL] Finished all steps.");
             stepActive = false;
@@ -218,6 +269,16 @@ public class TutorialManager : NetworkBehaviour
         }
     }
 
+    [ClientRpc]
+    private void StepStartedCollidersTargetClientRpc(string stepId, ClientRpcParams rpcParams = default)
+    {
+        foreach (var c in autoColliders)
+        {
+            if (c != null)
+                c.OnStepStarted(stepId);
+        }
+    }
+
     // ============================================================
     // LOCKS
     // ============================================================
@@ -232,17 +293,31 @@ public class TutorialManager : NetworkBehaviour
         );
     }
 
+    private void SendLocksToSpecificClient(ulong clientId, TutorialStep step)
+    {
+        var p = MakeTargetParams(clientId);
+
+        ApplyLocksClientRpc(
+            step.travellerLockMovement,
+            step.travellerLockCamera,
+            step.navigatorLockMovement,
+            step.navigatorLockCamera,
+            p
+        );
+    }
+
     [ClientRpc]
     private void ApplyLocksClientRpc(
-     bool travellerLockMovement,
-     bool travellerLockCamera,
-     bool navigatorLockMovement,
-     bool navigatorLockCamera,
-     ClientRpcParams rpcParams = default
- )
+        bool travellerLockMovement,
+        bool travellerLockCamera,
+        bool navigatorLockMovement,
+        bool navigatorLockCamera,
+        ClientRpcParams rpcParams = default
+    )
     {
-        bool iAmTraveller = IsHost;   // host = traveller
-        bool iAmNavigator = !IsHost;  // client = navigator
+        // host = traveller, client = navigator (your design)
+        bool iAmTraveller = IsHost;
+        bool iAmNavigator = !IsHost;
 
         Debug.Log(
             $"[TUTORIAL] ApplyLocks {(IsHost ? "HOST/Traveller" : "CLIENT/Navigator")} " +
@@ -250,7 +325,6 @@ public class TutorialManager : NetworkBehaviour
             $"Nav(M:{navigatorLockMovement},C:{navigatorLockCamera})"
         );
 
-        // Movement: call SetFrozen on the owner movement component
         foreach (var m in Object.FindObjectsByType<PlayerMovement1P>(FindObjectsSortMode.None))
         {
             if (!m.IsOwner) continue;
@@ -259,7 +333,6 @@ public class TutorialManager : NetworkBehaviour
             if (iAmNavigator) m.SetFrozen(navigatorLockMovement);
         }
 
-        // Camera: call SetCameraFrozen on the owner camera component
         foreach (var c in Object.FindObjectsByType<PlayerCamera1P>(FindObjectsSortMode.None))
         {
             if (!c.IsOwner) continue;
@@ -268,7 +341,6 @@ public class TutorialManager : NetworkBehaviour
             if (iAmNavigator) c.SetCameraFrozen(navigatorLockCamera);
         }
     }
-
 
     // ============================================================
     // MOUSE / CURSOR
@@ -283,6 +355,19 @@ public class TutorialManager : NetworkBehaviour
             (int)s.travellerCursorLockMode,
             s.navigatorCursorVisible,
             (int)s.navigatorCursorLockMode
+        );
+    }
+
+    private void SendMouseToSpecificClient(ulong clientId, TutorialStep step)
+    {
+        var p = MakeTargetParams(clientId);
+
+        ApplyMouseClientRpc(
+            step.travellerCursorVisible,
+            (int)step.travellerCursorLockMode,
+            step.navigatorCursorVisible,
+            (int)step.navigatorCursorLockMode,
+            p
         );
     }
 
@@ -318,11 +403,18 @@ public class TutorialManager : NetworkBehaviour
     {
         Debug.Log($"[TUTORIAL] ShowStepHUD stepId={step.stepId}");
 
-        // Traveller HUD message
+        // broadcast to all; each side will display only its own HUD
         SetTravellerHUDMessageClientRpc(step.travellerMessage);
-
-        // Navigator HUD message
         SetNavigatorHUDMessageClientRpc(step.navigatorMessage);
+    }
+
+    private void ShowStepHUDToSpecificClient(ulong clientId, TutorialStep step)
+    {
+        var p = MakeTargetParams(clientId);
+
+        // send both messages to that one client; gating inside RPC will show correct one
+        SetTravellerHUDMessageTargetClientRpc(step.travellerMessage, p);
+        SetNavigatorHUDMessageTargetClientRpc(step.navigatorMessage, p);
     }
 
     [ClientRpc]
@@ -332,7 +424,7 @@ public class TutorialManager : NetworkBehaviour
             $"[TUTORIAL][RPC] SetTravellerHUDMessageClientRpc side={(IsHost ? "HOST/Traveller" : "CLIENT/Navigator")} msg='{msg}'"
         );
 
-        // רק המטייל (Host) מציג travellerHUD
+        // only traveller (Host) shows travellerHUD
         if (!IsHost) return;
 
         if (travellerHUD == null)
@@ -351,7 +443,37 @@ public class TutorialManager : NetworkBehaviour
             $"[TUTORIAL][RPC] SetNavigatorHUDMessageClientRpc side={(IsHost ? "HOST/Traveller" : "CLIENT/Navigator")} msg='{msg}'"
         );
 
-        // רק הנווט (Client) מציג navigatorHUD
+        // only navigator (Client) shows navigatorHUD
+        if (IsHost) return;
+
+        if (navigatorHUD == null)
+        {
+            Debug.LogWarning("[TUTORIAL] navigatorHUD is NULL on client");
+            return;
+        }
+
+        navigatorHUD.ShowMessage(msg);
+    }
+
+    [ClientRpc]
+    private void SetTravellerHUDMessageTargetClientRpc(string msg, ClientRpcParams rpcParams = default)
+    {
+        // identical gating as broadcast version
+        if (!IsHost) return;
+
+        if (travellerHUD == null)
+        {
+            Debug.LogWarning("[TUTORIAL] travellerHUD is NULL on host");
+            return;
+        }
+
+        travellerHUD.ShowMessage(msg);
+    }
+
+    [ClientRpc]
+    private void SetNavigatorHUDMessageTargetClientRpc(string msg, ClientRpcParams rpcParams = default)
+    {
+        // identical gating as broadcast version
         if (IsHost) return;
 
         if (navigatorHUD == null)
@@ -369,13 +491,14 @@ public class TutorialManager : NetworkBehaviour
 
     private void MarkConditionSatisfiedInternal()
     {
+        if (Current == null) return;
         Debug.Log($"[TUTORIAL] Condition satisfied for step '{Current.stepId}'");
         conditionSatisfied = true;
     }
 
     private void CompleteCurrentStep()
     {
-        Debug.Log($"[TUTORIAL] Step COMPLETE  {Current.stepId}");
+        Debug.Log($"[TUTORIAL] Step COMPLETE  {(Current != null ? Current.stepId : "NULL")}");
 
         if (!IsServer || !stepActive)
         {
@@ -384,7 +507,9 @@ public class TutorialManager : NetworkBehaviour
         }
 
         stepActive = false;
-        Current.onStepComplete?.Invoke();
+        if (Current != null)
+            Current.onStepComplete?.Invoke();
+
         StartCoroutine(GoNext());
     }
 
@@ -407,6 +532,7 @@ public class TutorialManager : NetworkBehaviour
 
         flag = true;
         var step = Current;
+        if (step == null) return;
 
         if (step.conditionType == TutorialConditionType.TravellerMoved && isTraveller)
             MarkConditionSatisfiedInternal();
@@ -427,6 +553,7 @@ public class TutorialManager : NetworkBehaviour
 
         flag = true;
         var step = Current;
+        if (step == null) return;
 
         if (step.conditionType == TutorialConditionType.TravellerLookedAround && isTraveller)
             MarkConditionSatisfiedInternal();
@@ -441,27 +568,18 @@ public class TutorialManager : NetworkBehaviour
     public bool IsTutorialRunningForStep(string stepId)
     {
         if (!TutorialActive.Value) return false;
-        if (currentIndex < 0 || currentIndex >= steps.Length) return false;
+        if (currentIndex < 0 || steps == null || currentIndex >= steps.Length) return false;
         return steps[currentIndex].stepId == stepId;
     }
 
     // ============================================================
-    // ✅ SYSTEMIC CONDITION DISPATCH (fix)
+    // ✅ SYSTEMIC CONDITION DISPATCH
     // ============================================================
 
-    /// <summary>
-    /// Call this from ANY side (host/client). It will always validate the condition on the server.
-    /// </summary>
     private void NotifyCondition(TutorialConditionType condition)
     {
-        if (IsServer)
-        {
-            Check(condition);
-        }
-        else
-        {
-            NotifyConditionServerRpc(condition);
-        }
+        if (IsServer) Check(condition);
+        else NotifyConditionServerRpc(condition);
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -474,12 +592,13 @@ public class TutorialManager : NetworkBehaviour
     private void Check(TutorialConditionType t)
     {
         Debug.Log(
-            $"[TUTORIAL][CHECK] cond={t} step={(currentIndex >= 0 && currentIndex < steps.Length ? Current.stepId : "NONE")} " +
-            $"expect={(currentIndex >= 0 && currentIndex < steps.Length ? Current.conditionType.ToString() : "NONE")} active={stepActive}"
+            $"[TUTORIAL][CHECK] cond={t} step={(currentIndex >= 0 && currentIndex < (steps != null ? steps.Length : 0) ? Current.stepId : "NONE")} " +
+            $"expect={(currentIndex >= 0 && currentIndex < (steps != null ? steps.Length : 0) ? Current.conditionType.ToString() : "NONE")} active={stepActive}"
         );
 
         if (!IsServer) return;
         if (!stepActive) return;
+        if (Current == null) return;
 
         if (Current.conditionType != t)
         {
@@ -492,17 +611,12 @@ public class TutorialManager : NetworkBehaviour
     }
 
     // ============================================================
-    // CONDITION EVENTS (now all go through NotifyCondition)
+    // CONDITION EVENTS
     // ============================================================
 
-    public void NotifyNavigatorRemovedBomb() =>
-        NotifyCondition(TutorialConditionType.NavigatorRemoveBomb);
-
-    public void NotifyNavigatorOpenedNormalDoor() =>
-        NotifyCondition(TutorialConditionType.NavigatorOpenNormalDoor);
-
-    public void NotifyNavigatorOpenedPuzzleDoor() =>
-        NotifyCondition(TutorialConditionType.NavigatorOpenPuzzleDoor);
+    public void NotifyNavigatorRemovedBomb() => NotifyCondition(TutorialConditionType.NavigatorRemoveBomb);
+    public void NotifyNavigatorOpenedNormalDoor() => NotifyCondition(TutorialConditionType.NavigatorOpenNormalDoor);
+    public void NotifyNavigatorOpenedPuzzleDoor() => NotifyCondition(TutorialConditionType.NavigatorOpenPuzzleDoor);
 
     public void NotifyNavigatorOpenedExitDoor()
     {
@@ -510,32 +624,15 @@ public class TutorialManager : NetworkBehaviour
         ActivateDiscoMode();
     }
 
-    public void NotifyNavigatorPlacedHeart() =>
-        NotifyCondition(TutorialConditionType.NavigatorPlaceHeart);
-
-    public void NotifyNavigatorGaveLifebuoy() =>
-        NotifyCondition(TutorialConditionType.NavigatorGiveLifebuoy);
-
-    public void NotifyTravellerPlacedPuzzlePiece() =>
-        NotifyCondition(TutorialConditionType.TravellerPlacedPuzzlePiece);
-
-    public void NotifyTravellerPickedKey() =>
-        NotifyCondition(TutorialConditionType.TravellerPickedKey);
-
-    public void NotifyTravellerPickedHeart() =>
-        NotifyCondition(TutorialConditionType.TravellerPickedHeart);
-
-    public void NotifyPuzzleSolved() =>
-        NotifyCondition(TutorialConditionType.PuzzleSolved);
-
-    public void NotifyBothReachedExit() =>
-        NotifyCondition(TutorialConditionType.BothReachedExit);
-
-    public void NotifyCustomEvent() =>
-        NotifyCondition(TutorialConditionType.CustomEvent);
-
-    public void NotifyTravellerSteppedBomb() =>
-        NotifyCondition(TutorialConditionType.TravellerSteppedBomb);
+    public void NotifyNavigatorPlacedHeart() => NotifyCondition(TutorialConditionType.NavigatorPlaceHeart);
+    public void NotifyNavigatorGaveLifebuoy() => NotifyCondition(TutorialConditionType.NavigatorGiveLifebuoy);
+    public void NotifyTravellerPlacedPuzzlePiece() => NotifyCondition(TutorialConditionType.TravellerPlacedPuzzlePiece);
+    public void NotifyTravellerPickedKey() => NotifyCondition(TutorialConditionType.TravellerPickedKey);
+    public void NotifyTravellerPickedHeart() => NotifyCondition(TutorialConditionType.TravellerPickedHeart);
+    public void NotifyPuzzleSolved() => NotifyCondition(TutorialConditionType.PuzzleSolved);
+    public void NotifyBothReachedExit() => NotifyCondition(TutorialConditionType.BothReachedExit);
+    public void NotifyCustomEvent() => NotifyCondition(TutorialConditionType.CustomEvent);
+    public void NotifyTravellerSteppedBomb() => NotifyCondition(TutorialConditionType.TravellerSteppedBomb);
 
     // ============================================================
     // TRAVELLER ROTATION / LOOK
@@ -552,7 +649,7 @@ public class TutorialManager : NetworkBehaviour
     [ClientRpc]
     private void RotateTravellerClientRpc(string targetId)
     {
-        if (!IsHost) return; // רק אצל המטייל
+        if (!IsHost) return; // only traveller
 
         if (travellerRoot == null)
         {
