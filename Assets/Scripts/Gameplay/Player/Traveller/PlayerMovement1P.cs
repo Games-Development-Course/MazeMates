@@ -1,14 +1,28 @@
-﻿// PlayerMovement1P.cs
+﻿// =======================================================
+// File: Assets/Scripts/Player/PlayerMovement1P.cs
+// Arrow keys only:
+//   Up/Down  = move forward/back
+//   Left/Right = rotate (yaw)
+// Mouse look is NOT used.
+// =======================================================
 using System.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement1P : NetworkBehaviour
 {
-    public float speed = 6f;
+    [Header("Movement")]
+    public float speed = 6f; // forward/back speed
+    [SerializeField] private float turnSpeed = 180f; // degrees/sec
+
+    [Header("Gravity")]
     public float gravity = -9.81f;
+
+    [Header("Input (Arrow Keys Only)")]
+    [SerializeField] private InputAction moveAction;
 
     private CharacterController controller;
     private Vector3 velocity;
@@ -17,11 +31,37 @@ public class PlayerMovement1P : NetworkBehaviour
     private bool isTraveller;
     private bool isNavigator;
 
-    private bool movementFrozen = false;
+    private bool movementFrozen;
 
-    void Awake()
+    private void OnValidate()
+    {
+        if (moveAction == null)
+            moveAction = new InputAction(type: InputActionType.Value);
+
+        if (moveAction.bindings.Count == 0)
+        {
+            moveAction
+                .AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/upArrow")
+                .With("Down", "<Keyboard>/downArrow")
+                .With("Left", "<Keyboard>/leftArrow")
+                .With("Right", "<Keyboard>/rightArrow");
+        }
+    }
+
+    private void Awake()
     {
         controller = GetComponent<CharacterController>();
+    }
+
+    private void OnEnable()
+    {
+        moveAction?.Enable();
+    }
+
+    private void OnDisable()
+    {
+        moveAction?.Disable();
     }
 
     public override void OnNetworkSpawn()
@@ -51,7 +91,7 @@ public class PlayerMovement1P : NetworkBehaviour
         }
     }
 
-    void Start()
+    private void Start()
     {
         tutorial = Object.FindFirstObjectByType<TutorialManager>();
         isTraveller = name.Contains("Trav");
@@ -71,7 +111,7 @@ public class PlayerMovement1P : NetworkBehaviour
 
     public bool IsFrozen => movementFrozen;
 
-    void Update()
+    private void Update()
     {
         if (!IsOwner)
             return;
@@ -86,22 +126,42 @@ public class PlayerMovement1P : NetworkBehaviour
             return;
         }
 
-        float h = Input.GetAxis("Horizontal");
-        float v = Input.GetAxis("Vertical");
+        Vector2 input = moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
 
-        bool moved = Mathf.Abs(h) > 0.01f || Mathf.Abs(v) > 0.01f;
+        bool movedFB = Mathf.Abs(input.y) > 0.01f;
+        bool turned = Mathf.Abs(input.x) > 0.01f;
 
-        if (moved && tutorial != null && tutorial.TutorialActive.Value)
+        if ((movedFB || turned) && tutorial != null && tutorial.TutorialActive.Value)
         {
             if (isTraveller)
                 NotifyMovementServerRpc(true);
             else if (isNavigator)
                 NotifyMovementServerRpc(false);
+
+            if (turned)
+            {
+                if (isTraveller)
+                    NotifyLookServerRpc(true);
+                else if (isNavigator)
+                    NotifyLookServerRpc(false);
+            }
         }
 
-        Vector3 move = transform.right * h + transform.forward * v;
-        controller.Move(move * speed * Time.deltaTime);
+        // Rotate first (yaw)
+        if (turned)
+        {
+            float yaw = input.x * turnSpeed * Time.deltaTime;
+            transform.Rotate(Vector3.up, yaw);
+        }
 
+        // Forward/back
+        if (movedFB)
+        {
+            Vector3 move = transform.forward * (input.y * speed * Time.deltaTime);
+            controller.Move(move);
+        }
+
+        // Gravity
         if (controller.isGrounded)
             velocity.y = -2f;
         else
@@ -111,16 +171,40 @@ public class PlayerMovement1P : NetworkBehaviour
     }
 
     [ServerRpc]
-    private void NotifyMovementServerRpc(bool isTraveller)
+    private void NotifyMovementServerRpc(bool traveller)
     {
         var tm = Object.FindFirstObjectByType<TutorialManager>();
         if (tm == null)
             return;
 
-        if (isTraveller)
+        if (traveller)
             tm.NotifyTravellerMoved();
         else
             tm.NotifyNavigatorMoved();
+    }
+
+    [ServerRpc]
+    private void NotifyLookServerRpc(bool traveller)
+    {
+        var tm = Object.FindFirstObjectByType<TutorialManager>();
+        if (tm == null)
+            return;
+
+        if (traveller)
+            tm.NotifyTravellerLooked();
+        else
+            tm.NotifyNavigatorLooked();
+    }
+
+    public void TeleportToStart(Vector3 pos)
+    {
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
+
+        velocity = Vector3.zero;
+        controller.enabled = false;
+        transform.position = pos;
+        controller.enabled = true;
     }
 
     // ============================================================
@@ -164,7 +248,6 @@ public class PlayerMovement1P : NetworkBehaviour
         transform.SetPositionAndRotation(worldPos, worldRot);
         controller.enabled = true;
 
-        // ✅ Tell server immediately (keeps server in sync, prevents delayed state)
         ConfirmTeleportServerRpc(worldPos, worldRot);
 
         yield return new WaitForSeconds(0.05f);
@@ -174,7 +257,6 @@ public class PlayerMovement1P : NetworkBehaviour
     [ServerRpc]
     private void ConfirmTeleportServerRpc(Vector3 worldPos, Quaternion worldRot)
     {
-        // If you have NetworkTransform, use Teleport (best). Otherwise set transform.
         var nt = GetComponent<NetworkTransform>();
         if (nt != null)
         {

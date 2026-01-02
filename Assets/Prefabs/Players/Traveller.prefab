@@ -255,7 +255,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 4262373835
+  GlobalObjectIdHash: 2688652144
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -282,7 +282,57 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement1P
   ShowTopMostFoldoutHeaderGroup: 1
   speed: 3
+  turnSpeed: 180
   gravity: -9.81
+  moveAction:
+    m_Name: Move
+    m_Type: 0
+    m_ExpectedControlType: 
+    m_Id: 0c856354-a2ff-401f-ac81-4475c3080134
+    m_Processors: 
+    m_Interactions: 
+    m_SingletonActionBindings:
+    - m_Name: 2DVector
+      m_Id: dffbe0be-3ca2-4064-a53c-f604e5a2415c
+      m_Path: 2DVector
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 4
+    - m_Name: Up
+      m_Id: b3885578-fa06-4268-a27b-ced624144551
+      m_Path: <Keyboard>/upArrow
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: Down
+      m_Id: 44d613e6-891e-4f84-9c19-fcb0626e7d0b
+      m_Path: <Keyboard>/downArrow
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: Left
+      m_Id: f0c01508-5cfc-4796-a88f-7bc0b6f7b2b0
+      m_Path: <Keyboard>/leftArrow
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: Right
+      m_Id: 89eebe4b-bdbe-4297-b3df-a883760a4630
+      m_Path: <Keyboard>/rightArrow
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    m_Flags: 0
 --- !u!33 &4849638636391304653
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -468,6 +518,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCamera1P
   ShowTopMostFoldoutHeaderGroup: 1
+  mouseLookEnabled: 0
+  lockCursor: 0
   mouseSensitivity: 180
   playerBody: {fileID: 4641676686332425684}
 --- !u!1 &8433384998924693231
