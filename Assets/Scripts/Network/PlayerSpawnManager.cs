@@ -1,11 +1,12 @@
 ﻿// ===============================
 // File: Assets/Scripts/Net/PlayerSpawnManager.cs
-// Put this ONCE (recommended on the NetworkManager object in the first scene).
-// Remove it from other scenes OR leave it—duplicates will self-destruct.
+// Attach this ONCE to the NetworkManager in StartScene.
 // ===============================
-// Based on your current version. :contentReference[oaicite:0]{index=0}
+
+using System.Collections;
 using System.Linq;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -16,25 +17,40 @@ public sealed class PlayerSpawnManager : MonoBehaviour
     [SerializeField] private GameObject travellerPrefab;
     [SerializeField] private GameObject navigatorPrefab;
 
-    [Header("Options")]
-    [SerializeField] private bool destroyWithScene = false;
+    [Header("Gameplay Scenes (spawn allowed ONLY here)")]
+    [SerializeField]
+    private string[] gameplayScenes =
+    {
+        "TutorialScene",
+        "GameScene"
+    };
 
-    [Header("Fallback Spawn (used if NO PlayerStartPoint exists in the loaded scene)")]
+    [Header("Scene Names")]
+    [SerializeField] private string tutorialSceneName = "TutorialScene";
+    [SerializeField] private string gameSceneName = "GameScene";
+
+    [Header("Fallback Spawn (safety only)")]
     [SerializeField] private Vector3 fallbackTravellerPos = new Vector3(1f, 0f, 1f);
-    [SerializeField] private Vector3 fallbackNavigatorPos = new Vector3(3f, 0f, 3f);
     [SerializeField] private float fallbackYRotation = 0f;
 
-    [Header("Tutorial Scene Name (optional)")]
-    [SerializeField] private string tutorialSceneName = "TutorialScene";
+    [Header("Options")]
+    [SerializeField] private bool destroyWithScene = false;
 
     private static PlayerSpawnManager instance;
 
     private Transform travellerSpawn;
     private Transform navigatorSpawn;
 
+    private string currentSceneName;
+    private bool sceneSpawnsReady;
+
+    private int sceneLoadToken;
+    private Coroutine sceneInitRoutine;
+
+    // -------------------------------------------------
+
     private void Awake()
     {
-        // Always apply DontDestroyOnLoad on the ROOT so Unity won't warn and it will actually persist.
         var root = transform.root.gameObject;
 
         if (instance != null && instance != this)
@@ -49,53 +65,132 @@ public sealed class PlayerSpawnManager : MonoBehaviour
 
     private void OnEnable()
     {
+        SceneManager.sceneLoaded += OnUnitySceneLoaded;
+
         var nm = NetworkManager.Singleton;
         if (nm == null) return;
 
-        if (nm.SceneManager != null)
-            nm.SceneManager.OnLoadEventCompleted += OnLoadEventCompleted;
-
+        nm.OnServerStarted += OnServerStarted;
         nm.OnClientConnectedCallback += OnClientConnectedServerOnly;
+
+        if (nm.SceneManager != null)
+            nm.SceneManager.OnLoadEventCompleted += OnNetcodeLoadEventCompleted;
     }
 
     private void OnDisable()
     {
+        SceneManager.sceneLoaded -= OnUnitySceneLoaded;
+
         var nm = NetworkManager.Singleton;
         if (nm == null) return;
 
-        if (nm.SceneManager != null)
-            nm.SceneManager.OnLoadEventCompleted -= OnLoadEventCompleted;
-
+        nm.OnServerStarted -= OnServerStarted;
         nm.OnClientConnectedCallback -= OnClientConnectedServerOnly;
+
+        if (nm.SceneManager != null)
+            nm.SceneManager.OnLoadEventCompleted -= OnNetcodeLoadEventCompleted;
     }
 
-    private void OnClientConnectedServerOnly(ulong _)
+    // -------------------------------------------------
+    // Scene / Network events
+    // -------------------------------------------------
+
+    private void OnServerStarted()
     {
-        var nm = NetworkManager.Singleton;
-        if (nm == null || !nm.IsServer) return;
-
-        string sceneName = SceneManager.GetActiveScene().name;
-
-        ResolveSpawnPointsFromScene(sceneName);
-        TrySpawnOrMoveAllPlayers(sceneName);
+        var scene = SceneManager.GetActiveScene().name;
+        BeginSceneInit(scene);
     }
 
-    private void OnLoadEventCompleted(
+    private void OnUnitySceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        BeginSceneInit(scene.name);
+    }
+
+    private void OnNetcodeLoadEventCompleted(
         string sceneName,
         LoadSceneMode mode,
         System.Collections.Generic.List<ulong> completedClients,
         System.Collections.Generic.List<ulong> timedOutClients)
     {
+        BeginSceneInit(sceneName);
+    }
+
+    private void OnClientConnectedServerOnly(ulong clientId)
+    {
         var nm = NetworkManager.Singleton;
         if (nm == null || !nm.IsServer) return;
 
-        ResolveSpawnPointsFromScene(sceneName);
-        TrySpawnOrMoveAllPlayers(sceneName);
+        var sceneName = SceneManager.GetActiveScene().name;
+        if (!IsGameplayScene(sceneName)) return;
+
+        if (sceneSpawnsReady)
+            EnsureOnlyThisClient(clientId);
     }
 
-    // Finds PlayerStartPoint objects ONLY if they exist in that scene.
-    // If they don't exist (like your TutorialScene case), we will fall back to default spawn positions.
-    private void ResolveSpawnPointsFromScene(string sceneName)
+    // -------------------------------------------------
+    // Core flow
+    // -------------------------------------------------
+
+    private bool IsGameplayScene(string sceneName)
+    {
+        return gameplayScenes != null && gameplayScenes.Contains(sceneName);
+    }
+
+    private void BeginSceneInit(string sceneName)
+    {
+        currentSceneName = sceneName;
+
+        sceneSpawnsReady = false;
+
+   
+        if (!IsGameplayScene(sceneName))
+            return;
+
+        sceneLoadToken++;
+
+      
+        if (sceneInitRoutine != null)
+        {
+            StopCoroutine(sceneInitRoutine);
+            sceneInitRoutine = null;
+        }
+
+        sceneInitRoutine = StartCoroutine(SceneInit(sceneName, sceneLoadToken));
+    }
+
+    private IEnumerator SceneInit(string sceneName, int token)
+    {
+        yield return null;
+        yield return new WaitForEndOfFrame();
+
+        // 1) First resolve
+        ResolvePlayerStartPoints(sceneName);
+
+        // 2) GameScene: wait for maze to finish aligning (world may move)
+        if (sceneName == gameSceneName)
+            yield return WaitForMazeReady(token);
+
+        // 3) Re-resolve AFTER maze is ready/aligned (critical for Navigator)
+        ResolvePlayerStartPoints(sceneName);
+
+        // 4) Now wait until navigator spawn exists (late load safety)
+        yield return WaitForNavigatorSpawnPoint(sceneName, token);
+
+        if (sceneName == tutorialSceneName)
+            TryResolveFromTutorialManager();
+
+        if (token != sceneLoadToken) yield break;
+
+        sceneSpawnsReady = true;
+        SpawnOrMoveAllPlayers();
+    }
+
+
+    // -------------------------------------------------
+    // Spawn resolution
+    // -------------------------------------------------
+
+    private void ResolvePlayerStartPoints(string sceneName)
     {
         travellerSpawn = null;
         navigatorSpawn = null;
@@ -104,112 +199,130 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         if (!scene.IsValid() || !scene.isLoaded)
             scene = SceneManager.GetActiveScene();
 
-        // Find all PlayerStartPoint in memory (including inactive), then keep only those that belong to this scene.
         var points = Object.FindObjectsByType<PlayerStartPoint>(
             FindObjectsInactive.Include,
             FindObjectsSortMode.None
         );
 
-        for (int i = 0; i < points.Length; i++)
+        foreach (var p in points)
         {
-            var p = points[i];
-            if (p == null) continue;
-
-            if (p.gameObject.scene != scene)
-                continue;
+            if (p.gameObject.scene != scene) continue;
 
             if (p.role == PlayerStartPoint.Role.Traveller)
                 travellerSpawn = p.transform;
             else if (p.role == PlayerStartPoint.Role.Navigator)
                 navigatorSpawn = p.transform;
         }
-
-        // Keep warnings (useful), but spawn will still happen via fallback.
-        if (travellerSpawn == null)
-            Debug.LogWarning($"[SPAWN] No PlayerStartPoint(Role.Traveller) found in scene '{scene.name}' -> using fallback/tutorial spawns.");
-
-        if (navigatorSpawn == null)
-            Debug.LogWarning($"[SPAWN] No PlayerStartPoint(Role.Navigator) found in scene '{scene.name}' -> using fallback/tutorial spawns.");
     }
 
-    private void TrySpawnOrMoveAllPlayers(string sceneName)
+    private IEnumerator WaitForMazeReady(int token)
+    {
+        const int maxFrames = 300;
+
+        for (int i = 0; i < maxFrames; i++)
+        {
+            if (token != sceneLoadToken) yield break;
+
+            var mg = Object.FindFirstObjectByType<MazeGenerator3D>(FindObjectsInactive.Include);
+            if (mg != null && mg.IsReady && mg.TravellerSpawn != null)
+            {
+                travellerSpawn = mg.TravellerSpawn;
+
+                yield break;
+            }
+
+
+            yield return null;
+        }
+
+        Debug.LogWarning("[SPAWN] MazeGenerator not ready in time – using fallback.");
+    }
+
+    private void TryResolveFromTutorialManager()
+    {
+        if (travellerSpawn == null &&
+            TryGetTutorialManagerSpawn(true, out var tPos, out var tRot))
+            travellerSpawn = CreateTempAnchor("TMP_TravellerSpawn", tPos, tRot);
+
+        if (navigatorSpawn == null &&
+            TryGetTutorialManagerSpawn(false, out var nPos, out var nRot))
+            navigatorSpawn = CreateTempAnchor("TMP_NavigatorSpawn", nPos, nRot);
+    }
+
+    private static Transform CreateTempAnchor(string name, Vector3 pos, Quaternion rot)
+    {
+        var go = GameObject.Find(name);
+        if (go == null) go = new GameObject(name);
+        go.transform.SetPositionAndRotation(pos, rot);
+        return go.transform;
+    }
+
+    // -------------------------------------------------
+    // Spawn / Teleport
+    // -------------------------------------------------
+
+    private void SpawnOrMoveAllPlayers()
     {
         var nm = NetworkManager.Singleton;
         if (nm == null || !nm.IsServer) return;
 
         var ids = nm.ConnectedClientsIds;
-        if (ids == null || ids.Count == 0) return;
+        if (ids.Count == 0) return;
 
-        ulong travellerId = NetworkManager.ServerClientId; // host is traveller in your design
+        ulong travellerId = NetworkManager.ServerClientId;
+        ulong? navigatorId = ids.FirstOrDefault(id => id != travellerId);
 
-        ulong navigatorCandidate = ids.FirstOrDefault(id => id != travellerId);
-        bool hasNavigator = ids.Any(id => id != travellerId);
-        ulong? navigatorId = hasNavigator ? navigatorCandidate : (ulong?)null;
-
-        EnsurePlayer(travellerId, travellerPrefab, travellerSpawn, sceneName);
+        EnsurePlayer(travellerId, travellerPrefab, travellerSpawn, true);
 
         if (navigatorId.HasValue && ids.Contains(navigatorId.Value))
-            EnsurePlayer(navigatorId.Value, navigatorPrefab, navigatorSpawn, sceneName);
+            EnsurePlayer(navigatorId.Value, navigatorPrefab, navigatorSpawn, false);
     }
 
-    private void EnsurePlayer(ulong clientId, GameObject prefab, Transform spawn, string sceneName)
+    private void EnsureOnlyThisClient(ulong clientId)
+    {
+        if (!sceneSpawnsReady)
+            return;
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer) return;
+
+        bool isTraveller = clientId == NetworkManager.ServerClientId;
+        var prefab = isTraveller ? travellerPrefab : navigatorPrefab;
+        var spawn = isTraveller ? travellerSpawn : navigatorSpawn;
+
+        EnsurePlayer(clientId, prefab, spawn, isTraveller);
+    }
+
+    private void EnsurePlayer(
+        ulong clientId,
+        GameObject prefab,
+        Transform spawn,
+        bool isTraveller)
     {
         var nm = NetworkManager.Singleton;
-        if (nm == null) return;
+        if (nm == null || !nm.IsServer) return;
 
-        if (!nm.ConnectedClients.TryGetValue(clientId, out var cc))
-            return;
-
-        if (prefab == null)
+        if (!nm.ConnectedClients.TryGetValue(clientId, out var cc)) return;
+        if (!spawn)
         {
-            Debug.LogError($"[SPAWN] Missing prefab for clientId={clientId}");
-            return;
-        }
-
-        bool isTraveller = (clientId == NetworkManager.ServerClientId);
-
-        // 1) Prefer explicit PlayerStartPoint (if exists in this scene)
-        Vector3 pos;
-        Quaternion rot;
-
-        if (spawn != null)
-        {
-            pos = spawn.position;
-            rot = spawn.rotation;
-        }
-        else
-        {
-            // 2) If we're in TutorialScene, try to take spawn from TutorialManager (if it exposes start transforms)
-            if (!string.IsNullOrEmpty(tutorialSceneName) && sceneName == tutorialSceneName)
-            {
-                if (TryGetTutorialManagerSpawn(isTraveller, out var tPos, out var tRot))
-                {
-                    pos = tPos;
-                    rot = tRot;
-                }
-                else
-                {
-                    // 3) Final fallback (inspector values)
-                    pos = isTraveller ? fallbackTravellerPos : fallbackNavigatorPos;
-                    rot = Quaternion.Euler(0f, fallbackYRotation, 0f);
-                }
-            }
+            if (isTraveller)
+                spawn = null; // Traveller allowed to fallback later
             else
             {
-                // Non-tutorial scenes: fallback if no PlayerStartPoint exists
-                pos = isTraveller ? fallbackTravellerPos : fallbackNavigatorPos;
-                rot = Quaternion.Euler(0f, fallbackYRotation, 0f);
+                Debug.LogError("[SPAWN] ❌ Navigator has NO PlayerStartPoint in scene");
+                return; // 🚨 Hard fail for Navigator
             }
         }
 
-        // Move existing player if already spawned
+        Vector3 pos = spawn ? spawn.position : fallbackTravellerPos;
+        Quaternion rot = spawn ? spawn.rotation : Quaternion.Euler(0f, fallbackYRotation, 0f);
+
+
         if (cc.PlayerObject != null)
         {
-            cc.PlayerObject.transform.SetPositionAndRotation(pos, rot);
+            TeleportNetworkSafe(cc.PlayerObject, pos, rot);
             return;
         }
 
-        // Spawn player object
         var obj = Instantiate(prefab, pos, rot);
         var netObj = obj.GetComponent<NetworkObject>();
         if (netObj == null)
@@ -218,13 +331,60 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             Destroy(obj);
             return;
         }
-
         netObj.SpawnAsPlayerObject(clientId, destroyWithScene);
+
+
+    }
+ 
+
+    private IEnumerator WaitForNavigatorSpawnPoint(string sceneName, int token)
+    {
+        const int maxFrames = 180; // ~3 seconds at 60fps
+
+        for (int i = 0; i < maxFrames; i++)
+        {
+            if (token != sceneLoadToken) yield break;
+
+            // try resolve again
+            ResolvePlayerStartPoints(sceneName);
+
+            if (navigatorSpawn != null)
+                yield break;
+
+            yield return null;
+        }
+
+        Debug.LogWarning($"[SPAWN] Navigator PlayerStartPoint not found in time for scene '{sceneName}'. Using fallback.");
     }
 
-    // Tries to read spawn info from TutorialManager at runtime.
-    // ✅ This will compile even if TutorialManager doesn't have these fields; it just returns false.
-    private bool TryGetTutorialManagerSpawn(bool isTraveller, out Vector3 pos, out Quaternion rot)
+    private static void TeleportNetworkSafe(NetworkObject obj, Vector3 pos, Quaternion rot)
+    {
+        if (obj == null) return;
+
+        var nt = obj.GetComponent<NetworkTransform>();
+        if (nt != null)
+        {
+           
+            if (nt.CanCommitToTransform)
+            {
+                nt.Teleport(pos, rot, obj.transform.localScale);
+                return;
+            }
+        }
+
+        // Fallback: at least set locally (authoritative side will replicate)
+        obj.transform.SetPositionAndRotation(pos, rot);
+    }
+
+
+    // -------------------------------------------------
+    // Tutorial helper (unchanged)
+    // -------------------------------------------------
+
+    private bool TryGetTutorialManagerSpawn(
+        bool isTraveller,
+        out Vector3 pos,
+        out Quaternion rot)
     {
         pos = default;
         rot = default;
@@ -232,68 +392,14 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         var tm = Object.FindFirstObjectByType<TutorialManager>(FindObjectsInactive.Include);
         if (tm == null) return false;
 
-        // Common patterns: public Transform travellerSpawn / navigatorSpawn, or start points
-        var tmType = tm.GetType();
-
-        // Try fields (Transform)
-        var fieldName = isTraveller ? "travellerSpawn" : "navigatorSpawn";
-        var f = tmType.GetField(fieldName);
-        if (f != null && f.FieldType == typeof(Transform))
+        var name = isTraveller ? "travellerSpawn" : "navigatorSpawn";
+        var field = tm.GetType().GetField(name);
+        if (field != null && field.FieldType == typeof(Transform))
         {
-            var tr = (Transform)f.GetValue(tm);
-            if (tr != null)
-            {
-                pos = tr.position;
-                rot = tr.rotation;
-                return true;
-            }
-        }
-
-        // Try properties (Transform)
-        var p = tmType.GetProperty(fieldName);
-        if (p != null && p.PropertyType == typeof(Transform))
-        {
-            var tr = (Transform)p.GetValue(tm);
-            if (tr != null)
-            {
-                pos = tr.position;
-                rot = tr.rotation;
-                return true;
-            }
-        }
-
-        // Try alternate common names
-        string[] alt = isTraveller
-            ? new[] { "travellerStart", "travellerStartPoint", "travellerStartTransform", "startTraveller" }
-            : new[] { "navigatorStart", "navigatorStartPoint", "navigatorStartTransform", "startNavigator" };
-
-        for (int i = 0; i < alt.Length; i++)
-        {
-            var name = alt[i];
-
-            var ff = tmType.GetField(name);
-            if (ff != null && ff.FieldType == typeof(Transform))
-            {
-                var tr = (Transform)ff.GetValue(tm);
-                if (tr != null)
-                {
-                    pos = tr.position;
-                    rot = tr.rotation;
-                    return true;
-                }
-            }
-
-            var pp = tmType.GetProperty(name);
-            if (pp != null && pp.PropertyType == typeof(Transform))
-            {
-                var tr = (Transform)pp.GetValue(tm);
-                if (tr != null)
-                {
-                    pos = tr.position;
-                    rot = tr.rotation;
-                    return true;
-                }
-            }
+            var tr = (Transform)field.GetValue(tm);
+            pos = tr.position;
+            rot = tr.rotation;
+            return true;
         }
 
         return false;
