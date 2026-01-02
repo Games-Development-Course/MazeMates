@@ -1,10 +1,18 @@
 ﻿// =======================================================
 // File: Assets/Scripts/Player/PlayerMovement1P.cs
 // Arrow keys only:
-//   Up/Down  = move forward/back
-//   Left/Right = rotate (yaw)
+//   Up/Down   = move forward/back
+//   Left/Right= rotate (yaw)
 // Mouse look is NOT used.
+// NOTE: No NotifyLooked/NotifyLookServerRpc anymore.
+//
+// FIX (Spawn issue):
+// - Disable CharacterController immediately on spawn for EVERYONE
+// - For non-owner: keep CC disabled forever (NetworkTransform drives it)
+// - For owner: enable CC one frame later (after Netcode sets spawn pose)
+// - Block Update until readyForLocalMove == true
 // =======================================================
+
 using System.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -14,8 +22,13 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement1P : NetworkBehaviour
 {
+    public enum PlayerRole { Traveller, Navigator }
+
+    [Header("Role (set per prefab)")]
+    [SerializeField] private PlayerRole role = PlayerRole.Traveller;
+
     [Header("Movement")]
-    public float speed = 6f; // forward/back speed
+    public float speed = 6f;                       // forward/back speed
     [SerializeField] private float turnSpeed = 180f; // degrees/sec
 
     [Header("Gravity")]
@@ -28,10 +41,10 @@ public class PlayerMovement1P : NetworkBehaviour
     private Vector3 velocity;
 
     private TutorialManager tutorial;
-    private bool isTraveller;
-    private bool isNavigator;
-
     private bool movementFrozen;
+
+    // ✅ prevents CC from messing with spawn before NetworkTransform syncs
+    private bool readyForLocalMove = false;
 
     private void OnValidate()
     {
@@ -56,7 +69,8 @@ public class PlayerMovement1P : NetworkBehaviour
 
     private void OnEnable()
     {
-        moveAction?.Enable();
+        // We will explicitly enable in OnNetworkSpawn for the owner after readiness.
+        // Keeping this empty avoids enabling too early in Editor.
     }
 
     private void OnDisable()
@@ -68,57 +82,85 @@ public class PlayerMovement1P : NetworkBehaviour
     {
         base.OnNetworkSpawn();
 
+        tutorial = Object.FindFirstObjectByType<TutorialManager>();
+
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
+
+        // ✅ CRITICAL: disable CC immediately so it can't push/snap on first frames
+        if (controller != null)
+            controller.enabled = false;
+
+        // Non-owner: no input, CC stays off forever (NetworkTransform controls pose)
         if (!IsOwner)
-            return;
-
-        if (IsHost)
         {
-            isTraveller = true;
+            moveAction?.Disable();
+            readyForLocalMove = false;
+            return;
+        }
 
+        // Owner: enable input now (but movement waits for CC re-enable next frame)
+        moveAction?.Enable();
+        readyForLocalMove = false;
+
+        StartCoroutine(EnableControllerNextFrame());
+
+        // Register traveller only if THIS prefab is traveller (not based on Host)
+        if (IsServer && role == PlayerRole.Traveller)
+        {
             var tm = Object.FindFirstObjectByType<TutorialManager>();
             if (tm != null)
             {
                 tm.RegisterTraveller(transform);
 
-                Camera cam = GetComponentInChildren<Camera>();
+                Camera cam = GetComponentInChildren<Camera>(true);
                 if (cam != null)
                     tm.RegisterTravellerCamera(cam);
             }
         }
-        else
-        {
-            isTraveller = false;
-        }
     }
 
-    private void Start()
+    private IEnumerator EnableControllerNextFrame()
     {
-        tutorial = Object.FindFirstObjectByType<TutorialManager>();
-        isTraveller = name.Contains("Trav");
-        isNavigator = name.Contains("Nav");
+        // ✅ allow NGO/NetworkTransform to finish initial placement first
+        yield return null;
+
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
+
+        if (controller != null)
+            controller.enabled = true;
+
+        velocity = Vector3.zero;
+        readyForLocalMove = true;
     }
 
     public void SetFrozen(bool freeze)
     {
         movementFrozen = freeze;
 
-        if (controller == null)
-            controller = GetComponent<CharacterController>();
+        if (freeze)
+        {
+            // stop any motion immediately
+            velocity = Vector3.zero;
 
-        if (freeze && controller != null)
-            controller.Move(Vector3.zero);
+            if (controller == null)
+                controller = GetComponent<CharacterController>();
+
+            // if CC is disabled (remote), just exit
+            if (controller != null && controller.enabled)
+                controller.Move(Vector3.zero);
+        }
     }
 
     public bool IsFrozen => movementFrozen;
 
     private void Update()
     {
-        if (!IsOwner)
-            return;
-        if (controller == null)
-            return;
-        if (GameManager.Instance == null)
-            return;
+        if (!IsOwner) return;
+        if (!readyForLocalMove) return;
+        if (controller == null || !controller.enabled) return;
+        if (GameManager.Instance == null) return;
 
         if (movementFrozen)
         {
@@ -131,23 +173,13 @@ public class PlayerMovement1P : NetworkBehaviour
         bool movedFB = Mathf.Abs(input.y) > 0.01f;
         bool turned = Mathf.Abs(input.x) > 0.01f;
 
+        // Tutorial notify ONLY on movement/turn input (no look notify)
         if ((movedFB || turned) && tutorial != null && tutorial.TutorialActive.Value)
         {
-            if (isTraveller)
-                NotifyMovementServerRpc(true);
-            else if (isNavigator)
-                NotifyMovementServerRpc(false);
-
-            if (turned)
-            {
-                if (isTraveller)
-                    NotifyLookServerRpc(true);
-                else if (isNavigator)
-                    NotifyLookServerRpc(false);
-            }
+            NotifyMovementServerRpc(role == PlayerRole.Traveller);
         }
 
-        // Rotate first (yaw)
+        // Rotate (yaw)
         if (turned)
         {
             float yaw = input.x * turnSpeed * Time.deltaTime;
@@ -170,30 +202,14 @@ public class PlayerMovement1P : NetworkBehaviour
         controller.Move(velocity * Time.deltaTime);
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     private void NotifyMovementServerRpc(bool traveller)
     {
         var tm = Object.FindFirstObjectByType<TutorialManager>();
-        if (tm == null)
-            return;
+        if (tm == null) return;
 
-        if (traveller)
-            tm.NotifyTravellerMoved();
-        else
-            tm.NotifyNavigatorMoved();
-    }
-
-    [ServerRpc]
-    private void NotifyLookServerRpc(bool traveller)
-    {
-        var tm = Object.FindFirstObjectByType<TutorialManager>();
-        if (tm == null)
-            return;
-
-        if (traveller)
-            tm.NotifyTravellerLooked();
-        else
-            tm.NotifyNavigatorLooked();
+        if (traveller) tm.NotifyTravellerMoved();
+        else tm.NotifyNavigatorMoved();
     }
 
     public void TeleportToStart(Vector3 pos)
@@ -202,13 +218,19 @@ public class PlayerMovement1P : NetworkBehaviour
             controller = GetComponent<CharacterController>();
 
         velocity = Vector3.zero;
-        controller.enabled = false;
+
+        // safe teleport with CC
+        if (controller != null)
+            controller.enabled = false;
+
         transform.position = pos;
-        controller.enabled = true;
+
+        if (controller != null)
+            controller.enabled = true;
     }
 
     // ============================================================
-    // ✅ BOMB RESET (RUNS ON OWNER CLIENT)
+    // ✅ BOMB RESET (RUNS ON OWNER CLIENT) - exact 7 args signature
     // ============================================================
     [ClientRpc]
     public void BombResetAndTeleportClientRpc(
@@ -221,10 +243,10 @@ public class PlayerMovement1P : NetworkBehaviour
         ClientRpcParams rpcParams = default
     )
     {
-        if (!IsOwner)
-            return;
+        if (!IsOwner) return;
 
-        if (IsHost)
+        // Only traveller HUD should play effect (role-based, not host-based)
+        if (role == PlayerRole.Traveller)
         {
             var hud = HUDManager.Instance;
             if (hud != null && hud.TravellerHUD != null)
@@ -244,9 +266,14 @@ public class PlayerMovement1P : NetworkBehaviour
             controller = GetComponent<CharacterController>();
 
         velocity = Vector3.zero;
-        controller.enabled = false;
+
+        if (controller != null)
+            controller.enabled = false;
+
         transform.SetPositionAndRotation(worldPos, worldRot);
-        controller.enabled = true;
+
+        if (controller != null)
+            controller.enabled = true;
 
         ConfirmTeleportServerRpc(worldPos, worldRot);
 
@@ -254,7 +281,7 @@ public class PlayerMovement1P : NetworkBehaviour
         SetFrozen(false);
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     private void ConfirmTeleportServerRpc(Vector3 worldPos, Quaternion worldRot)
     {
         var nt = GetComponent<NetworkTransform>();

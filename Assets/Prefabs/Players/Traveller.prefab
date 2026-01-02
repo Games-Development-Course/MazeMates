@@ -255,7 +255,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2688652144
+  GlobalObjectIdHash: 4262373835
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -281,19 +281,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement1P
   ShowTopMostFoldoutHeaderGroup: 1
-  speed: 3
+  role: 0
+  speed: 6
   turnSpeed: 180
   gravity: -9.81
   moveAction:
     m_Name: Move
     m_Type: 0
     m_ExpectedControlType: 
-    m_Id: 0c856354-a2ff-401f-ac81-4475c3080134
+    m_Id: a682969b-faf2-4d9c-99d5-f7561beccd89
     m_Processors: 
     m_Interactions: 
     m_SingletonActionBindings:
     - m_Name: 2DVector
-      m_Id: dffbe0be-3ca2-4064-a53c-f604e5a2415c
+      m_Id: cb62631d-3a02-41b3-891c-daaace4ae58e
       m_Path: 2DVector
       m_Interactions: 
       m_Processors: 
@@ -301,7 +302,7 @@ MonoBehaviour:
       m_Action: Move
       m_Flags: 4
     - m_Name: Up
-      m_Id: b3885578-fa06-4268-a27b-ced624144551
+      m_Id: 1fe4a3c4-b600-4667-a5a6-02d5efae6c7e
       m_Path: <Keyboard>/upArrow
       m_Interactions: 
       m_Processors: 
@@ -309,7 +310,7 @@ MonoBehaviour:
       m_Action: Move
       m_Flags: 8
     - m_Name: Down
-      m_Id: 44d613e6-891e-4f84-9c19-fcb0626e7d0b
+      m_Id: 1a4fc945-4424-45e2-b9d7-408df6829c88
       m_Path: <Keyboard>/downArrow
       m_Interactions: 
       m_Processors: 
@@ -317,7 +318,7 @@ MonoBehaviour:
       m_Action: Move
       m_Flags: 8
     - m_Name: Left
-      m_Id: f0c01508-5cfc-4796-a88f-7bc0b6f7b2b0
+      m_Id: bb948ede-8999-4fe5-875c-ac7daff09d38
       m_Path: <Keyboard>/leftArrow
       m_Interactions: 
       m_Processors: 
@@ -325,7 +326,7 @@ MonoBehaviour:
       m_Action: Move
       m_Flags: 8
     - m_Name: Right
-      m_Id: 89eebe4b-bdbe-4297-b3df-a883760a4630
+      m_Id: e0387726-5d9a-45c2-bdb4-2ea8f842d610
       m_Path: <Keyboard>/rightArrow
       m_Interactions: 
       m_Processors: 
@@ -439,7 +440,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.Multiplayer.Center.NetcodeForGameObjectsExample::Unity.Multiplayer.Center.NetcodeForGameObjectsExample.ClientNetworkTransform
   ShowTopMostFoldoutHeaderGroup: 1
-  NetworkTransformExpanded: 0
+  NetworkTransformExpanded: 1
   AutoOwnerAuthorityTickOffset: 1
   PositionInterpolationType: 0
   RotationInterpolationType: 0
@@ -450,7 +451,7 @@ MonoBehaviour:
   RotationMaxInterpolationTime: 0.1
   ScaleLerpSmoothing: 1
   ScaleMaxInterpolationTime: 0.1
-  AuthorityMode: 0
+  AuthorityMode: 1
   TickSyncChildren: 0
   UseUnreliableDeltas: 0
   SyncPositionX: 1
