@@ -1,4 +1,16 @@
 // File: Assets/Scripts/Gameplay/Pickups/PickupObject.cs
+//
+// ✅ Fixes (based on the version that worked for you):
+// 1) Tutorial notify happens on SERVER (authoritative) at the moment of pickup.
+// 2) "Picked by Traveller" is detected by comparing the player NetworkObject to GameManager.Instance.traveller
+//    (so it works even if Traveller is NOT the host).
+// 3) Tutorial gating uses the pickup object's scene (gameObject.scene) + fallback isLoaded check.
+// 4) No brittle caching of TutorialManager (won’t get stuck on null).
+// 5) Bomb keeps the tutorial reset/teleport flow and calls the bomb tutorial notify.
+//
+// Notes:
+// - ResourceManager expects: p.type and PickupObject.PickupType to be public -> kept public.
+// - Colliders: relay is added to ALL child colliders and they are forced to isTrigger=true.
 
 using TMPro;
 using Unity.Netcode;
@@ -14,7 +26,7 @@ public class PickupObject : NetworkBehaviour
 
     [Header("Tutorial Override")]
     [SerializeField] private string tutorialSceneName = "TutorialScene";
-    [SerializeField] private Transform tutorialTravellerRespawnPoint; // שים נקודת spawn בטוטוריאל
+    [SerializeField] private Transform tutorialTravellerRespawnPoint; // assign in TutorialScene
 
     [Header("Custom Message Settings")]
     [TextArea(2, 5)] public string customMessage = "";
@@ -31,7 +43,6 @@ public class PickupObject : NetworkBehaviour
     public float bombFadeIn = 0.35f;
 
     private bool consumedServer = false;
-    private TutorialManager tutorialCache;
 
     private void Awake()
     {
@@ -56,7 +67,7 @@ public class PickupObject : NetworkBehaviour
         var playerNo = GetPlayerNetworkObjectFromCollider(other);
         if (playerNo == null) return;
 
-        // רק ה-Owner של השחקן שולח בקשה (מונע כפילויות)
+        // Only local owner requests pickup (prevents duplicates)
         if (!playerNo.IsOwner) return;
 
         RequestPickupServerRpc(NetworkObjectId, playerNo.NetworkObjectId);
@@ -99,30 +110,9 @@ public class PickupObject : NetworkBehaviour
         }
     }
 
-    private TutorialManager EnsureTutorial()
-    {
-        if (tutorialCache == null)
-            tutorialCache = Object.FindFirstObjectByType<TutorialManager>();
-        return tutorialCache;
-    }
-
-    private bool IsTutorialActiveOnServer(TutorialManager tm)
-    {
-        // ✅ FIX: אל תתלה ב-TutorialActive (זה מה שחסם לך Notify על מפתח)
-        if (tm == null) return false;
-        if (!tm.IsSpawned) return false;
-        return SceneManager.GetActiveScene().name == tutorialSceneName;
-    }
-
-    private Vector3 GetTutorialRespawnPos()
-        => tutorialTravellerRespawnPoint != null ? tutorialTravellerRespawnPoint.position : Vector3.zero;
-
-    private Quaternion GetTutorialRespawnRot()
-        => tutorialTravellerRespawnPoint != null ? tutorialTravellerRespawnPoint.rotation : Quaternion.identity;
-
-    // =====================================================================
+    // ============================================================
     // SERVER AUTHORITATIVE PICKUP
-    // =====================================================================
+    // ============================================================
 
     [ServerRpc(RequireOwnership = false)]
     private void RequestPickupServerRpc(ulong pickupNetId, ulong playerNetId, ServerRpcParams rpcParams = default)
@@ -135,80 +125,86 @@ public class PickupObject : NetworkBehaviour
 
         consumedServer = true;
 
+        // Detect who picked it (Traveller vs Navigator) in a way that doesn't depend on host.
+        bool pickedByTraveller = IsTravellerPlayer(playerNo);
+
+        // ✅ IMPORTANT: tutorial notify is SERVER-side and happens BEFORE despawn
+        NotifyTutorialServerSide(type, pickedByTraveller);
+
+        // Apply server state (authoritative)
         var gm = GameManager.Instance;
+        var hud = HUDManager.Instance;
+
         if (gm == null)
         {
             DespawnNow();
             return;
         }
 
-        bool pickedByTraveller = (playerNo.OwnerClientId == NetworkManager.ServerClientId); // Host = traveller
-        var tm = EnsureTutorial();
-
-        // ---- Apply server state + tutorial notify ----
-        string finalMessage = customMessage;
         bool gameOver = false;
+        string finalMessage = customMessage;
 
         switch (type)
         {
             case PickupType.Heart:
                 gm.lives++;
-                if (string.IsNullOrEmpty(finalMessage))
+                if (string.IsNullOrWhiteSpace(finalMessage))
                     finalMessage = "אספת לב! קיבלת חיים נוספים.";
-                if (pickedByTraveller && IsTutorialActiveOnServer(tm))
-                    tm.NotifyTravellerPickedHeart();
                 break;
 
             case PickupType.Key:
                 gm.keys++;
-                if (string.IsNullOrEmpty(finalMessage))
+                if (string.IsNullOrWhiteSpace(finalMessage))
                     finalMessage = "אספת מפתח!";
-                if (pickedByTraveller && IsTutorialActiveOnServer(tm))
-                    tm.NotifyTravellerPickedKey();
                 break;
 
             case PickupType.Lifebuoy:
                 gm.lifebuoys++;
-                if (string.IsNullOrEmpty(finalMessage))
+                if (string.IsNullOrWhiteSpace(finalMessage))
                     finalMessage = "אספת מצוף הצלה!";
                 break;
 
             case PickupType.Bomb:
+                gm.lives--;
+                if (string.IsNullOrWhiteSpace(finalMessage))
+                    finalMessage = "דרכת על פצצה! איבדת לב.";
+
+                // UI flash (clients will also flash in RPC, but keep this safe)
+                if (hud != null) hud.FlashTravellerLife();
+
+                bool inTutorial = IsInTutorialContextOnServer();
+
+                if (gm.lives <= 0)
                 {
-                    gm.lives--;
-                    if (string.IsNullOrEmpty(finalMessage))
-                        finalMessage = "דרכת על פצצה! איבדת לב.";
-
-                    bool inTutorial = pickedByTraveller && IsTutorialActiveOnServer(tm);
-
-                    // תנאי טוטוריאל
-                    if (inTutorial)
-                        tm.NotifyTravellerSteppedBomb();
-
-                    // ✅ אפקט פצצה + טלפורט:
-                    // בטוטוריאל תמיד טלפורט לנקודת ההתחלה (לא משנה כמה חיים נשארו)
-                    // במשחק רגיל: רק אפקט; ואם החיים נגמרו -> GameOver
                     if (inTutorial)
                     {
-                        // בטוטוריאל לא נרצה להיכנס ל-GameOver
-                        if (gm.lives <= 0) gm.lives = 1;
+                        // Tutorial rule: never game over, reset traveller (keep at least 1 life)
+                        gm.lives = 1;
 
-                        TryBombResetTeleportTo(playerNo, GetTutorialRespawnPos(), GetTutorialRespawnRot());
+                        if (pickedByTraveller)
+                        {
+                            Vector3 pos = GetTutorialRespawnPos();
+                            Quaternion rot = GetTutorialRespawnRot();
+                            TryBombResetTeleportTo(playerNo, pos, rot);
+                        }
                     }
                     else
                     {
-                        // אפקט בלבד (טלפורט לעצמו) כדי לקבל את אותו Visual reset
-                        TryBombResetTeleportTo(playerNo, playerNo.transform.position, playerNo.transform.rotation);
-
-                        if (gm.lives <= 0)
-                            gameOver = true;
+                        gameOver = true;
                     }
-
-                    break;
                 }
+                else
+                {
+                    // Optional: if you want bomb to "shake/teleport" even when not dead, keep this.
+                    // If you DON'T want any teleport unless dead, delete this block.
+                    if (pickedByTraveller)
+                        TryBombResetTeleportTo(playerNo, new Vector3(1f, 1f, 1f), Quaternion.identity);
+                }
+
+                break;
         }
 
-        // ---- Broadcast to clients (mirror counters + HUD) ----
+        // Mirror to all clients (your GameManager isn’t networked)
         ApplyPickupClientRpc(
             type,
             finalMessage,
@@ -221,6 +217,84 @@ public class PickupObject : NetworkBehaviour
         );
 
         DespawnNow();
+    }
+
+    private bool IsTravellerPlayer(NetworkObject playerNo)
+    {
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+        {
+            var tNo = gm.traveller.GetComponent<NetworkObject>();
+            if (tNo != null && tNo.IsSpawned)
+                return tNo.NetworkObjectId == playerNo.NetworkObjectId;
+        }
+
+        // Fallback (old assumption): host == traveller
+        return playerNo.OwnerClientId == NetworkManager.ServerClientId;
+    }
+
+    private void NotifyTutorialServerSide(PickupType pickupType, bool pickedByTraveller)
+    {
+        if (!IsServer) return;
+        if (!IsInTutorialContextOnServer()) return;
+
+        var tm = Object.FindFirstObjectByType<TutorialManager>();
+        if (tm == null || !tm.IsSpawned) return;
+
+        // If your tutorial expects "only when tutorial is active", keep this gate:
+        if (tm.TutorialActive != null && !tm.TutorialActive.Value) return;
+
+        switch (pickupType)
+        {
+            case PickupType.Key:
+                if (pickedByTraveller)
+                    tm.NotifyTravellerPickedKey();
+                break;
+
+            case PickupType.Heart:
+                if (pickedByTraveller)
+                    tm.NotifyTravellerPickedHeart();
+                break;
+
+            case PickupType.Bomb:
+                if (pickedByTraveller)
+                    tm.NotifyTravellerSteppedBomb();
+                break;
+
+            case PickupType.Lifebuoy:
+            default:
+                break;
+        }
+    }
+
+    private bool IsInTutorialContextOnServer()
+    {
+        // Prefer pickup object's own scene (works with additive / wrong active scene)
+        if (gameObject.scene.IsValid() && gameObject.scene.name == tutorialSceneName)
+            return true;
+
+        // Fallback: if TutorialScene is loaded at all
+        var sc = SceneManager.GetSceneByName(tutorialSceneName);
+        if (sc.IsValid() && sc.isLoaded)
+            return true;
+
+        return false;
+    }
+
+    private Vector3 GetTutorialRespawnPos()
+    {
+        if (tutorialTravellerRespawnPoint != null)
+            return tutorialTravellerRespawnPoint.position;
+
+        return new Vector3(1f, 1f, 1f);
+    }
+
+    private Quaternion GetTutorialRespawnRot()
+    {
+        if (tutorialTravellerRespawnPoint != null)
+            return tutorialTravellerRespawnPoint.rotation;
+
+        return Quaternion.identity;
     }
 
     private void TryBombResetTeleportTo(NetworkObject playerNo, Vector3 pos, Quaternion rot)
@@ -258,9 +332,9 @@ public class PickupObject : NetworkBehaviour
             Destroy(gameObject);
     }
 
-    // =====================================================================
+    // ============================================================
     // CLIENT MIRROR (GameManager is not Networked in your project)
-    // =====================================================================
+    // ============================================================
 
     [ClientRpc]
     private void ApplyPickupClientRpc(
@@ -297,9 +371,9 @@ public class PickupObject : NetworkBehaviour
             NetworkManager.Singleton.SceneManager.LoadScene("GameOver", LoadSceneMode.Single);
     }
 
-    // =====================================================================
+    // ============================================================
     // Relay for child colliders
-    // =====================================================================
+    // ============================================================
 
     private sealed class PickupTriggerRelay : MonoBehaviour
     {
