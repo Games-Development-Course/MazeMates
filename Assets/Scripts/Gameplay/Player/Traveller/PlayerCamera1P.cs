@@ -86,7 +86,7 @@ public class PlayerCamera1P : NetworkBehaviour
 
         tutorial = Object.FindFirstObjectByType<TutorialManager>();
 
-        var rootMovement = GetComponentInParent<PlayerMovement1P>();
+        var rootMovement = GetComponentInParent<PlayerMovement>();
         if (rootMovement != null)
         {
             string rootName = rootMovement.gameObject.name;

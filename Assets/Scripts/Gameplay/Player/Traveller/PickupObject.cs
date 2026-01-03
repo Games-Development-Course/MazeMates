@@ -301,7 +301,7 @@ public class PickupObject : NetworkBehaviour
     {
         if (playerNo == null) return;
 
-        var move = playerNo.GetComponentInChildren<PlayerMovement1P>(true);
+        var move = playerNo.GetComponentInChildren<PlayerMovement>(true);
         if (move == null) return;
 
         var p = new ClientRpcParams

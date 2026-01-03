@@ -75,9 +75,9 @@ public class TutorialManager : NetworkBehaviour
         return nm.LocalClientId == NetworkManager.ServerClientId;
     }
 
-    private PlayerMovement1P FindLocalOwnedMovement()
+    private PlayerMovement FindLocalOwnedMovement()
     {
-        foreach (var m in Object.FindObjectsByType<PlayerMovement1P>(FindObjectsSortMode.None))
+        foreach (var m in Object.FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
         {
             if (m != null && m.IsOwner) return m;
         }

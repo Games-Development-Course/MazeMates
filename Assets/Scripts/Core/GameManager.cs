@@ -13,10 +13,10 @@ public class GameManager : MonoBehaviour
 
     // השדות האלה כבר לא קריטיים ללוגיקה, אבל נשאיר למקרה שתשתמש בהם בעתיד
     [HideInInspector]
-    public PlayerMovement1P travellerMove;
+    public PlayerMovement travellerMove;
 
     [HideInInspector]
-    public PlayerMovement1P navigatorMove;
+    public PlayerMovement navigatorMove;
 
     [HideInInspector]
     public PlayerCamera1P travellerCam;

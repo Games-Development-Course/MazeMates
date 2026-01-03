@@ -718,15 +718,74 @@ collisionRadiusMultiplier: 0.22f
         }
     }
 
+    // החלף את UpdateTravellerSpawn בגרסה הזו + הוסף את הפונקציה העוזרת מתחתיה
+
     private void UpdateTravellerSpawn()
     {
         if (travellerSpawn == null) return;
 
         // ✅ ספאון במרכז התא (1,1)
-        travellerSpawn.position = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
+        Vector3 spawnPos = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
+        travellerSpawn.position = spawnPos;
+
+        // ✅ רוטציה: פונה לכיוון התא הכי קרוב אליו שאינו קיר (מתוך 4 שכנים)
+        Vector2Int dir = GetClosestOpenNeighborDir(StartCell);
+
+        // אם אין שכן פתוח (מקרה קצה נדיר) – נשאר עם forward של המבוך
+        Vector3 lookDirWorld;
+        if (dir == Vector2Int.zero)
+        {
+            lookDirWorld = transform.forward;
+        }
+        else
+        {
+            Vector3 from = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
+            Vector3 to = CellCenterWorld(StartCell.x + dir.x, StartCell.y + dir.y, 0.5f);
+            lookDirWorld = (to - from);
+        }
+
+        lookDirWorld.y = 0f;
+        if (lookDirWorld.sqrMagnitude > 0.0001f)
+            travellerSpawn.rotation = Quaternion.LookRotation(lookDirWorld.normalized, Vector3.up);
     }
 
-  
+    // מחזיר את השכן הפתוח (לא קיר) "הכי קרוב" לספאון (בפועל כולם באותו מרחק, אז נשבר שוויון לפי סדר)
+    private Vector2Int GetClosestOpenNeighborDir(Vector2Int cell)
+    {
+        Vector2Int[] dirs =
+        {
+        new Vector2Int(1, 0),
+        new Vector2Int(-1, 0),
+        new Vector2Int(0, 1),
+        new Vector2Int(0, -1),
+    };
+
+        Vector3 center = CellCenterWorld(cell.x, cell.y, 0.5f);
+
+        float best = float.PositiveInfinity;
+        Vector2Int bestDir = Vector2Int.zero;
+
+        foreach (var d in dirs)
+        {
+            Vector2Int n = cell + d;
+            if (!InBounds(n)) continue;
+            if (grid[n.x, n.y]) continue; // true = קיר
+
+            Vector3 nCenter = CellCenterWorld(n.x, n.y, 0.5f);
+            float dist = (nCenter - center).sqrMagnitude;
+
+            if (dist < best)
+            {
+                best = dist;
+                bestDir = d;
+            }
+        }
+
+        return bestDir;
+    }
+
+
+
 
     // ================================================================
     //   BFS PATHFINDING
