@@ -25,7 +25,7 @@ public class GameManager : MonoBehaviour
     public PlayerCamera1P navigatorCam;
 
     public int lives = 3;
-    public int keys;
+    public int keys = 0;
     public bool inPuzzle = false;
 
     public int lifebuoys = 1;
@@ -33,7 +33,7 @@ public class GameManager : MonoBehaviour
     public int BombRemovals = 1;
 
     public DoorController activePuzzleDoor;
-    public int totalKeysInLevel = 0;
+    public int totalKeysToCollect = 0;
 
     private void Awake()
     {
@@ -46,11 +46,24 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         HUDManager.Instance?.UpdateHUD();
+        ApplyConfigFromNetwork();
+        HUDManager.Instance?.UpdateHUD();
     }
+private void ApplyConfigFromNetwork()
+    {
+        var cfg = GameConfigNet.Instance;
+        if (cfg == null)
+        {
+            Debug.LogWarning("[GameManager] GameConfigNet.Instance is null (did it persist into GameScene?)");
+            return;
+        }
 
+        totalKeysToCollect = cfg.KeysToCollect.Value;
+        Debug.Log($"[GameManager] totalKeysToCollect set to {totalKeysToCollect}");
+    }
     public bool AllKeysCollected()
     {
-        return keys >= totalKeysInLevel;
+        return keys >= totalKeysToCollect;
     }
 
     // ============================

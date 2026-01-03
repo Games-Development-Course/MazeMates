@@ -51,6 +51,7 @@ public sealed class GameConfigNet : NetworkBehaviour
         Hearts.Value = Mathf.Max(0, hearts);
         Bombs.Value = Mathf.Max(0, bombs);
         Keys.Value = Mathf.Max(0, keys);
+        KeysToCollect.Value = keys;
 
         NormalDoors.Value = Mathf.Max(0, normalDoors);
         PuzzleDoors.Value = Mathf.Max(0, puzzleDoors);
@@ -58,4 +59,10 @@ public sealed class GameConfigNet : NetworkBehaviour
         Difficulty.Value = Mathf.Clamp(difficulty, 0, 2);
         Seed.Value = seed;
     }
+    public NetworkVariable<int> KeysToCollect { get; } = new(
+        0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
 }
