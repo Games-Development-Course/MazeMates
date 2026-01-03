@@ -1,19 +1,6 @@
-﻿// ======================= File: Assets/Scripts/Gameplay/Player/Navigator/NavigatorActions.cs =======================
-// FIX: OpenDoor / ShowPuzzle should work reliably in multiplayer.
-//
-// Why it failed (from your logs):
-// 1) UI button sometimes invoked on a NavigatorActions instance that is NOT owner (IsOwner=False).
-// 2) Client-side "find door player is on" can return NULL because pad/trigger state isn't synced to client.
-//
-// Solution (NO DoorController API changes):
-// - Always route UI calls to the LOCAL owner's NavigatorActions.Instance.
-// - Send ServerRpc.
-// - On SERVER: find the Traveller's current pad by scanning PadTrigger components (server has authoritative triggers).
-//   We pick the DoorController whose PadTrigger.IsPlayerOnPad() == true.
-// - Then open/interact on server.
-//
-// NOTE: This does NOT require any overload of DoorController.FindDoorPlayerIsOn.
-// ================================================================================================================
+﻿// File: Assets/Scripts/Gameplay/Player/Navigator/NavigatorActions.cs
+// שינוי: איחוד OpenDoor + ShowPuzzle + VictoryDoor לכפתור אחד (UI_OpenDoor)
+// הלוגיקה רצה בשרת (ServerRpc) כדי להסתמך על PadTrigger בצורה authoritative.
 
 using Unity.Netcode;
 using UnityEngine;
@@ -76,6 +63,11 @@ public class NavigatorActions : NetworkBehaviour
     // UI — BUTTON EVENTS
     // =====================================================================
 
+    /// <summary>
+    /// כפתור יחיד: אם המטייל עומד על דלת רגילה -> פותח
+    /// אם על דלת חידה -> פותח פאזל
+    /// אם על דלת יציאה -> מנסה ניצחון (רק אם כל המפתחות נאספו)
+    /// </summary>
     public void UI_OpenDoor()
     {
         // Route to local owner's instance (fixes IsOwner=False button wiring)
@@ -104,53 +96,31 @@ public class NavigatorActions : NetworkBehaviour
             return;
         }
 
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[NAV-ACT] Sending OpenDoorOnTravellerPadServerRpc()");
-        OpenDoorOnTravellerPadServerRpc();
+        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[NAV-ACT] Sending UseDoorOnTravellerPadServerRpc()");
+        UseDoorOnTravellerPadServerRpc();
     }
 
-    public void UI_ShowPuzzle()
-    {
-        // Route to local owner's instance (fixes IsOwner=False button wiring)
-        if (Instance != null && Instance != this)
-        {
-            Debug.LogFormat(
-                LogType.Log,
-                LogOption.NoStacktrace,
-                null,
-                $"[NAV-ACT] UI_ShowPuzzle routed -> local Instance (thisOwner={IsOwner}, instanceOwner={Instance.IsOwner})"
-            );
-            Instance.UI_ShowPuzzle();
-            return;
-        }
+    // תאימות לאחור: אם עדיין יש כפתורים ישנים בסצנה/Prefab – שלא יישבר
+    public void UI_ShowPuzzle() => UI_OpenDoor();
 
-        Debug.LogFormat(
-            LogType.Log,
-            LogOption.NoStacktrace,
-            null,
-            $"[NAV-ACT] UI_ShowPuzzle pressed | IsHost={IsHost} IsOwner={IsOwner}"
-        );
-
-        if (!IsLocalNavigator())
-            return;
-
-        Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[NAV-ACT] Sending OpenPuzzleOnTravellerPadServerRpc()");
-        OpenPuzzleOnTravellerPadServerRpc();
-    }
+    // אם יש לך כפתור “VictoryDoor”/דומה שקורא למתודה אחרת – תשאיר/תכוון אותו לזה
+    public void UI_VictoryDoor() => UI_OpenDoor();
 
     private bool IsLocalNavigator()
     {
+        // אצלך: Host = Traveller, Client = Navigator
         return !IsHost;
     }
 
     // =====================================================================
-    // SERVER AUTHORITATIVE DOOR ACTIONS
+    // SERVER AUTHORITATIVE DOOR ACTIONS (unified)
     // =====================================================================
 
     [ServerRpc(RequireOwnership = false)]
-    private void OpenDoorOnTravellerPadServerRpc(ServerRpcParams rpcParams = default)
+    private void UseDoorOnTravellerPadServerRpc(ServerRpcParams rpcParams = default)
     {
         ulong sender = rpcParams.Receive.SenderClientId;
-        Debug.Log($"[NAV-ACT][ServerRpc] OpenDoorOnTravellerPadServerRpc from clientId={sender}");
+        Debug.Log($"[NAV-ACT][ServerRpc] UseDoorOnTravellerPadServerRpc from clientId={sender}");
 
         var travellerObj = FindTravellerNetworkObject();
         if (travellerObj == null)
@@ -163,7 +133,7 @@ public class NavigatorActions : NetworkBehaviour
         // Find door by authoritative pad triggers (server-side)
         DoorController door = FindDoorTravellerIsStandingOnServer(null);
 
-        Debug.Log($"[NAV-ACT][ServerRpc] FindDoorTravellerIsStandingOnServer(NORMAL/ANY) -> {(door == null ? "NULL" : door.name)}");
+        Debug.Log($"[NAV-ACT][ServerRpc] FindDoorTravellerIsStandingOnServer(ANY) -> {(door == null ? "NULL" : door.name)}");
 
         if (door == null)
         {
@@ -173,47 +143,32 @@ public class NavigatorActions : NetworkBehaviour
 
         Debug.Log($"[NAV-ACT][ServerRpc] Door type={door.doorType} open={door.IsOpen()} name={door.name}");
 
+        // החלטה לפי סוג הדלת
         if (door.doorType == DoorType.Puzzle)
         {
-            SendNavigatorMessageTargetClientRpc("דלת זו דורשת לפתור חידה", MakeTargetParams(sender));
+            Debug.Log($"[NAV-ACT][ServerRpc] Puzzle door -> RequestOpenPuzzleDoorRpc() for {door.name}");
+            door.RequestOpenPuzzleDoorRpc();
+            tutorial?.NotifyNavigatorOpenedPuzzleDoor();
             return;
         }
 
-        Debug.Log($"[NAV-ACT][ServerRpc] Calling door.Interact() on server for {door.name}");
+        if (door.doorType == DoorType.Exit)
+        {
+            if (GameManager.Instance != null && !GameManager.Instance.AllKeysCollected())
+            {
+                SendNavigatorMessageTargetClientRpc("עליך לאסוף את כל המפתחות", MakeTargetParams(sender));
+                return;
+            }
+
+            Debug.Log($"[NAV-ACT][ServerRpc] Exit door -> Interact() for {door.name}");
+            door.Interact();
+            return;
+        }
+
+        // Normal (וגם כל סוג אחר שאינו Puzzle/Exit)
+        Debug.Log($"[NAV-ACT][ServerRpc] Normal door -> Interact() for {door.name}");
         door.Interact();
-
-        // Optional: if your tutorial step expects "opened normal door"
         tutorial?.NotifyNavigatorOpenedNormalDoor();
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    private void OpenPuzzleOnTravellerPadServerRpc(ServerRpcParams rpcParams = default)
-    {
-        ulong sender = rpcParams.Receive.SenderClientId;
-        Debug.Log($"[NAV-ACT][ServerRpc] OpenPuzzleOnTravellerPadServerRpc from clientId={sender}");
-
-        var travellerObj = FindTravellerNetworkObject();
-        if (travellerObj == null)
-        {
-            Debug.LogWarning("[NAV-ACT][ServerRpc] Traveller NetworkObject not found.");
-            SendNavigatorMessageTargetClientRpc("לא נמצא מטייל בסצנה", MakeTargetParams(sender));
-            return;
-        }
-
-        DoorController door = FindDoorTravellerIsStandingOnServer(DoorType.Puzzle);
-
-        Debug.Log($"[NAV-ACT][ServerRpc] FindDoorTravellerIsStandingOnServer(PUZZLE) -> {(door == null ? "NULL" : door.name)}");
-
-        if (door == null)
-        {
-            SendNavigatorMessageTargetClientRpc("אין דלת חידה כאן", MakeTargetParams(sender));
-            return;
-        }
-
-        Debug.Log($"[NAV-ACT][ServerRpc] Calling door.RequestOpenPuzzleDoorRpc() on server for {door.name}");
-        door.RequestOpenPuzzleDoorRpc();
-
-        tutorial?.NotifyNavigatorOpenedPuzzleDoor();
     }
 
     /// <summary>
@@ -223,7 +178,6 @@ public class NavigatorActions : NetworkBehaviour
     /// </summary>
     private static DoorController FindDoorTravellerIsStandingOnServer(DoorType? filter)
     {
-        // We intentionally search PadTrigger (not client-side helper methods)
         var pads = Object.FindObjectsOfType<PadTrigger>(true);
 
         DoorController best = null;
@@ -242,7 +196,6 @@ public class NavigatorActions : NetworkBehaviour
             if (filter.HasValue && door.doorType != filter.Value)
                 continue;
 
-            // If multiple pads are "true" (edge case), pick first; add smarter selection if needed.
             best = door;
             break;
         }

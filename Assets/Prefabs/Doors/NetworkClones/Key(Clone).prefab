@@ -63,7 +63,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3036092331
+  GlobalObjectIdHash: 3246410454
   InScenePlacedSourceGlobalObjectIdHash: 751193362
   DeferredDespawnTick: 0
   Ownership: 1
@@ -89,11 +89,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PickupObject
   ShowTopMostFoldoutHeaderGroup: 1
-  type: 1
+  type: 0
+  tutorialSceneName: TutorialScene
+  tutorialTravellerRespawnPoint: {fileID: 0}
   customMessage: 
   messageColor: {r: 1, g: 0.94875, b: 0, a: 1}
-  messageFont: {fileID: 0}
   messageDuration: 1.5
+  bombPreTeleportDelay: 0.25
+  bombRedSeconds: 0.15
+  bombFadeOut: 0.25
+  bombFadeIn: 0.35
 --- !u!136 &909592112345739759
 CapsuleCollider:
   m_ObjectHideFlags: 0

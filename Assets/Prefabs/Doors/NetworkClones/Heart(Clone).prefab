@@ -131,11 +131,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PickupObject
   ShowTopMostFoldoutHeaderGroup: 1
-  type: 0
+  type: 1
+  tutorialSceneName: TutorialScene
+  tutorialTravellerRespawnPoint: {fileID: 0}
   customMessage: "\u05DB\u05E0\u05E8\u05D0\u05D4 \u05E9\u05D7\u05D9\u05D9\u05DD \u05D9\u05D5\u05EA\u05E8
     \u05DE\u05E4\u05E2\u05DD \u05D0\u05D7\u05EA ;("
   messageColor: {r: 1, g: 0, b: 0, a: 1}
-  messageFont: {fileID: 0}
   messageDuration: 1.5
   bombPreTeleportDelay: 0.25
   bombRedSeconds: 0.15

@@ -1,6 +1,7 @@
 ﻿// Assets/Scripts/Maze/ResourcePlacement.cs
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
 public static class ResourcePlacement
 {
@@ -34,6 +35,10 @@ public static class ResourcePlacement
     )
     {
         if (grid == null || pathCells == null || parent == null || requests == null)
+            return;
+
+        // ✅ רק השרת ממקם ומבצע Spawn ל-NetworkObjects
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
             return;
 
         blockedCells ??= new HashSet<Vector2Int>();
@@ -106,7 +111,7 @@ public static class ResourcePlacement
             return;
         }
 
-        // ---- NEW: compute BFS distance map along the maze (geodesic coverage)
+        // ---- BFS distance map
         Vector2Int bfsStart = startCell ?? valid[Random.Range(0, valid.Count)];
         Dictionary<Vector2Int, int> dist = BuildBfsDistanceMap(grid, bfsStart);
 
@@ -148,7 +153,7 @@ public static class ResourcePlacement
             );
         }
 
-        // round-robin instantiate (so Key won't starve)
+        // round-robin instantiate
         List<int> remaining = new();
         for (int i = 0; i < active.Count; i++) remaining.Add(active[i].amount);
 
@@ -163,7 +168,16 @@ public static class ResourcePlacement
 
                 Vector2Int c = picked[idx++];
                 Vector3 pos = CellCenterWorld(c, cellSize, parent, yOffset);
-                Object.Instantiate(active[r].prefab, pos, Quaternion.identity, parent);
+
+                // ✅ Instantiate + Spawn (אם יש NetworkObject)
+                GameObject go = Object.Instantiate(active[r].prefab, pos, Quaternion.identity, parent);
+
+                var netObj = go.GetComponent<NetworkObject>();
+                if (netObj != null)
+                {
+                    // אם זה NetworkPrefab רשום, זה יסתנכרן אוטומטית לכל הקליינטים
+                    netObj.Spawn();
+                }
 
                 blockedCells.Add(c);
                 remaining[r]--;
@@ -174,9 +188,6 @@ public static class ResourcePlacement
         }
     }
 
-    // -------------------------
-    // Picking: distance strata + Mitchell best-candidate (blue-noise-ish)
-    // -------------------------
     private static List<Vector2Int> PickByDistanceStrata_BestCandidate(
         List<Vector2Int> cells,
         Dictionary<Vector2Int, int> dist,
@@ -188,16 +199,13 @@ public static class ResourcePlacement
         List<Vector2Int> picked = new();
         if (count <= 0 || cells == null || cells.Count == 0) return picked;
 
-        // find max dist
         int maxD = 0;
         for (int i = 0; i < cells.Count; i++)
             if (dist.TryGetValue(cells[i], out int d)) maxD = Mathf.Max(maxD, d);
 
-        // number of strata: enough to cover maze, not too many
         int strata = Mathf.Clamp(count, 4, 12);
         int step = Mathf.Max(1, (maxD + 1) / strata);
 
-        // build buckets by distance
         List<Vector2Int>[] buckets = new List<Vector2Int>[strata];
         for (int i = 0; i < strata; i++) buckets[i] = new List<Vector2Int>();
 
@@ -211,14 +219,12 @@ public static class ResourcePlacement
             buckets[bi].Add(c);
         }
 
-        // shuffle each bucket + shuffle bucket order
         for (int i = 0; i < buckets.Length; i++) Shuffle(buckets[i]);
 
         List<int> order = new();
         for (int i = 0; i < strata; i++) order.Add(i);
         Shuffle(order);
 
-        // round-robin across distance buckets
         int guard = 0;
         while (picked.Count < count && guard++ < 200000)
         {
@@ -230,8 +236,6 @@ public static class ResourcePlacement
                 var b = buckets[bi];
                 if (b.Count == 0) continue;
 
-                // Mitchell best-candidate: sample K candidates from this bucket,
-                // choose the one maximizing min-distance to picked (blue-noise style). :contentReference[oaicite:1]{index=1}
                 const int K = 20;
                 Vector2Int best = default;
                 float bestScore = -1f;
@@ -313,7 +317,6 @@ public static class ResourcePlacement
         }
     }
 
-    // BFS distance along corridors (grid[x,y] == false means walkable)
     private static Dictionary<Vector2Int, int> BuildBfsDistanceMap(bool[,] grid, Vector2Int start)
     {
         int w = grid.GetLength(0);
@@ -342,7 +345,7 @@ public static class ResourcePlacement
             {
                 var n = cur + dirs[i];
                 if (!Inside(n.x, n.y, w, h)) continue;
-                if (grid[n.x, n.y]) continue; // wall
+                if (grid[n.x, n.y]) continue;
                 if (dist.ContainsKey(n)) continue;
 
                 dist[n] = cd + 1;
@@ -366,7 +369,6 @@ public static class ResourcePlacement
         return world;
     }
 
-    // generic shuffle (works for List<int> and List<Vector2Int>)
     private static void Shuffle<T>(List<T> list)
     {
         for (int i = 0; i < list.Count; i++)
