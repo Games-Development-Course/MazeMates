@@ -1,5 +1,4 @@
-﻿// PadTrigger.cs
-using UnityEngine;
+﻿using UnityEngine;
 
 public class PadTrigger : MonoBehaviour
 {
@@ -9,6 +8,7 @@ public class PadTrigger : MonoBehaviour
     private void Awake()
     {
         controller = GetComponentInParent<DoorController>();
+        Debug.Log($"[PadTrigger][Awake] controller={(controller != null ? controller.name : "NULL")}");
     }
 
     void OnTriggerEnter(Collider other)
@@ -18,11 +18,14 @@ public class PadTrigger : MonoBehaviour
 
         playerOnPad = true;
 
-        // ודא שהדלת קיימת
         if (controller == null)
             controller = GetComponentInParent<DoorController>();
 
-        // אם הדלת כבר פתוחה – אל תציג שום הודעה
+        Debug.Log(
+            $"[PadTrigger] Player ENTER pad | door={(controller != null ? controller.name : "NULL")} " +
+            $"isOpen={(controller != null && controller.IsOpen())}"
+        );
+
         if (controller != null && controller.IsOpen())
             return;
 
@@ -40,7 +43,7 @@ public class PadTrigger : MonoBehaviour
                 break;
 
             case DoorType.Exit:
-                if (gm.AllKeysCollected())
+                if (gm != null && gm.AllKeysCollected())
                     hud.ShowMessageForTraveller("יש לך את כל המפתחות! הקש רווח לניצחון!");
                 else
                     hud.ShowMessageForTraveller("עליך לאסוף את כל המפתחות");
@@ -55,8 +58,9 @@ public class PadTrigger : MonoBehaviour
 
         playerOnPad = false;
 
-        // אם הדלת סגורה → סגור חידה אם יש
-        if (!controller.IsOpen())
+        Debug.Log($"[PadTrigger] Player EXIT pad | door={(controller != null ? controller.name : "NULL")}");
+
+        if (controller != null && !controller.IsOpen())
         {
             var puzzle = controller.GetPuzzle();
             if (puzzle != null)

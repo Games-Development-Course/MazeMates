@@ -1,3 +1,14 @@
+ן»¿// ======================= File: Assets/Scripts/Tutorial/TutorialManagerSpawner.cs =======================
+// SAFE VERSION: won't break player spawning.
+// - Only server spawns TutorialManager
+// - Only in TutorialScene
+// - Delays spawn slightly AFTER scene load events
+// - Wraps in try/catch so NGO flow never breaks
+// - Does NOT call NetworkShow
+// - Does NOT try to spawn "existing in-scene" objects (avoids scene object edge cases)
+
+using System.Collections;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -10,17 +21,30 @@ public sealed class TutorialManagerSpawner : MonoBehaviour
     [Tooltip("Exact tutorial scene name (as in Build Settings)")]
     [SerializeField] private string tutorialSceneName = "TutorialScene";
 
+    private bool spawnQueued;
+
     private void OnEnable()
     {
+        Debug.Log($"[TMS] OnEnable | activeScene={SceneManager.GetActiveScene().name}");
+
         SceneManager.sceneLoaded += OnUnitySceneLoaded;
 
         var nm = NetworkManager.Singleton;
         if (nm != null && nm.SceneManager != null)
+        {
             nm.SceneManager.OnLoadEventCompleted += OnNetcodeLoadEventCompleted;
+            Debug.Log($"[TMS] Subscribed to NGO.OnLoadEventCompleted | IsServer={nm.IsServer} IsHost={nm.IsHost} LocalClientId={nm.LocalClientId}");
+        }
+        else
+        {
+            Debug.LogWarning("[TMS] NetworkManager or SceneManager is NULL on OnEnable");
+        }
     }
 
     private void OnDisable()
     {
+        Debug.Log($"[TMS] OnDisable | activeScene={SceneManager.GetActiveScene().name}");
+
         SceneManager.sceneLoaded -= OnUnitySceneLoaded;
 
         var nm = NetworkManager.Singleton;
@@ -30,74 +54,104 @@ public sealed class TutorialManagerSpawner : MonoBehaviour
 
     private void OnUnitySceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // זה נתפס גם אם טעינת הסצנה נעשתה עם SceneManager.LoadScene
-        TrySpawnForScene(scene.name, "Unity.sceneLoaded");
+        Debug.Log($"[TMS] Unity.sceneLoaded | scene={scene.name} mode={mode}");
+        QueueSpawnIfNeeded(scene.name, "Unity.sceneLoaded");
     }
 
     private void OnNetcodeLoadEventCompleted(
         string sceneName,
         LoadSceneMode mode,
-        System.Collections.Generic.List<ulong> completedClients,
-        System.Collections.Generic.List<ulong> timedOutClients)
+        List<ulong> completedClients,
+        List<ulong> timedOutClients)
     {
-        // זה נתפס כשנטען דרך NetworkManager.SceneManager.LoadScene
-        TrySpawnForScene(sceneName, "NGO.OnLoadEventCompleted");
+        Debug.Log($"[TMS] NGO.OnLoadEventCompleted | scene={sceneName} completed=[{string.Join(",", completedClients)}] timedOut=[{string.Join(",", timedOutClients)}]");
+        QueueSpawnIfNeeded(sceneName, "NGO.OnLoadEventCompleted");
     }
 
-    private void TrySpawnForScene(string sceneName, string source)
+    private void QueueSpawnIfNeeded(string sceneName, string source)
     {
         var nm = NetworkManager.Singleton;
-        if (nm == null)
+
+        Debug.Log($"[TMS] ({source}) QueueSpawnIfNeeded | scene={sceneName} wanted={tutorialSceneName} nm={(nm != null)} isServer={nm?.IsServer}");
+
+        if (nm == null) return;
+        if (!nm.IsServer) return;
+        if (sceneName != tutorialSceneName) return;
+
+        // Prevent double-queue from both callbacks
+        if (spawnQueued)
         {
-            Debug.LogWarning($"[TutorialManagerSpawner] ({source}) NetworkManager.Singleton is NULL");
+            Debug.Log("[TMS] Spawn already queued -> skip");
             return;
         }
 
-        if (!nm.IsServer)
-        {
-            // רק השרת עושה spawn
-            return;
-        }
-
-        if (sceneName != tutorialSceneName)
-            return;
-
-        Debug.Log($"[TutorialManagerSpawner] ({source}) In tutorial scene -> ensuring TutorialManager exists...");
-
-        EnsureTutorialManagerSpawned();
+        spawnQueued = true;
+        StartCoroutine(SpawnAfterSceneSettles());
     }
 
-    private void EnsureTutorialManagerSpawned()
+    private IEnumerator SpawnAfterSceneSettles()
     {
-        // אם כבר קיים בסצנה (גם אם inactive) - לא ליצור עוד אחד
-        var existing = Object.FindObjectsOfType<TutorialManager>(true);
-        for (int i = 0; i < existing.Length; i++)
+        // Let NGO finish all internal spawn/scene sync first
+        yield return null;
+        yield return new WaitForSeconds(0.2f);
+
+        try
         {
-            var existingNetObj = existing[i].GetComponent<NetworkObject>();
-            if (existingNetObj != null && existingNetObj.IsSpawned)
+            var nm = NetworkManager.Singleton;
+            if (nm == null || !nm.IsServer)
             {
-                Debug.Log("[TutorialManagerSpawner] TutorialManager already spawned.");
-                return;
+                Debug.LogWarning("[TMS] SpawnAfterSceneSettles aborted: not server / no NM");
+                spawnQueued = false;
+                yield break;
             }
-        }
 
-        if (tutorialManagerPrefab == null)
+            // If already exists spawned, do nothing
+            var existing = Object.FindObjectsOfType<TutorialManager>(true);
+            for (int i = 0; i < existing.Length; i++)
+            {
+                var tm = existing[i];
+                if (tm == null) continue;
+                var no = tm.GetComponent<NetworkObject>();
+                if (no != null && no.IsSpawned)
+                {
+                    Debug.Log($"[TMS] TutorialManager already spawned (found '{tm.gameObject.name}' ObjId={no.NetworkObjectId}).");
+                    spawnQueued = false;
+                    yield break;
+                }
+            }
+
+            if (tutorialManagerPrefab == null)
+            {
+                Debug.LogError("[TMS] tutorialManagerPrefab is NOT assigned in Inspector!");
+                spawnQueued = false;
+                yield break;
+            }
+
+            var prefabNO = tutorialManagerPrefab.GetComponent<NetworkObject>();
+            if (prefabNO == null)
+            {
+                Debug.LogError("[TMS] Prefab is missing NetworkObject component!");
+                spawnQueued = false;
+                yield break;
+            }
+
+            Debug.Log($"[TMS] Spawning TutorialManager | prefab='{tutorialManagerPrefab.name}' SpawnWithObservers={prefabNO.SpawnWithObservers}");
+
+            var go = Instantiate(tutorialManagerPrefab);
+            go.name = tutorialManagerPrefab.name + "_Spawned";
+            var noSpawned = go.GetComponent<NetworkObject>();
+
+            noSpawned.Spawn(true);
+
+            Debug.Log($"[TMS] TutorialManager Spawn() OK | ObjId={noSpawned.NetworkObjectId} IsSpawned={noSpawned.IsSpawned} ConnectedClients=[{string.Join(",", nm.ConnectedClientsIds)}]");
+        }
+        catch (System.SystemException e)
         {
-            Debug.LogError("[TutorialManagerSpawner] tutorialManagerPrefab is NOT assigned in Inspector!");
-            return;
+            Debug.LogError($"[TMS] EXCEPTION during spawn (won't crash NGO): {e}");
         }
-
-        var prefabNetObj = tutorialManagerPrefab.GetComponent<NetworkObject>();
-        if (prefabNetObj == null)
+        finally
         {
-            Debug.LogError("[TutorialManagerSpawner] Prefab is missing NetworkObject component!");
-            return;
+            spawnQueued = false;
         }
-
-        var go = Instantiate(tutorialManagerPrefab);
-        var spawnedNetObj = go.GetComponent<NetworkObject>();
-
-        spawnedNetObj.Spawn(true);
-        Debug.Log("[TutorialManagerSpawner] TutorialManager Spawn() called (server).");
     }
 }
