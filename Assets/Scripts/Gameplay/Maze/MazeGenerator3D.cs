@@ -48,6 +48,8 @@ public class MazeGenerator3D : MonoBehaviour
     [SerializeField] private GameObject normalDoorPrefab;
     [SerializeField] private GameObject puzzleDoorPrefab;
     [SerializeField] private GameObject winDoorPrefab;
+    [SerializeField] private float doorYawOffset = 0f; // try 90 or -90
+
 
     [Header("Puzzles (Prefabs)")]
     [SerializeField] private GameObject puzzleEasyPrefab;
@@ -548,60 +550,124 @@ public class MazeGenerator3D : MonoBehaviour
     // ================================================================
     //   DOORS
     // ================================================================
-    private List<GameObject> PlaceDoors()
+private List<GameObject> PlaceDoors()
+{
+    float minDist = 4f;
+    const float minAllowedDist = 0.5f;
+
+    List<GameObject> puzzleDoorInstances = new();
+
+    List<DoorSpot> spots = DoorPlacement.FromCarvedWalls(grid, carvedWalls, width, height);
+
+    // Track used spots (distance constraint)
+    List<DoorSpot> used = new();
+
+    // Treat exit area as "used" so doors won't spawn right on top of it
+    used.Add(new DoorSpot
     {
-        float minDist = 4f;
-        List<GameObject> puzzleDoorInstances = new();
+        cell = forcedExitCell,
+        rotation = Quaternion.identity,
+        aOpen = forcedExitCell,
+        bOpen = forcedExitCell
+    });
 
-        List<DoorSpot> spots = DoorPlacement.FromCarvedWalls(grid, carvedWalls, width, height);
+    // Path to exit
+    List<Vector2Int> solutionPath = FindPathBFS(StartCell, forcedExitCell);
+    HashSet<Vector2Int> pathSet = new(solutionPath);
 
-        List<DoorSpot> used = new();
-        used.Add(new DoorSpot { cell = forcedExitWallCell, rotation = forcedExitDoorRot });
+    // -------------------------
+    // PUZZLE DOORS: MUST be on path
+    // -------------------------
+    List<DoorSpot> puzzleCandidates = DoorPlacement.FilterOnPath(spots, pathSet);
 
-        List<Vector2Int> solutionPath = FindPathBFS(StartCell, forcedExitCell);
-        HashSet<Vector2Int> pathSet = new(solutionPath);
+    HashSet<Vector2Int> placedPuzzleCells = new();
+    int placedPuzzle = 0;
 
-        List<DoorSpot> puzzleCandidates = DoorPlacement.FilterOnPath(spots, pathSet);
-        List<DoorSpot> puzzlePicked = DoorPlacement.PickEvenlySpaced(puzzleCandidates, puzzleDoorsAmount, minDist);
+    float d = minDist;
+    while (placedPuzzle < puzzleDoorsAmount && d >= minAllowedDist)
+    {
+        // oversample; IsValidSpot might reject
+        List<DoorSpot> picked = DoorPlacement.PickEvenlySpaced(
+            puzzleCandidates,
+            Mathf.Max(puzzleDoorsAmount * 4, puzzleDoorsAmount),
+            d
+        );
 
-        foreach (var s in puzzlePicked)
+        foreach (var s in picked)
         {
-            if (!DoorPlacement.IsValidSpot(s, used, minDist)) continue;
+            if (placedPuzzle >= puzzleDoorsAmount) break;
+            if (!DoorPlacement.IsValidSpot(s, used, d)) continue;
+
             var go = SpawnDoorWorld(puzzleDoorPrefab, s);
-            if (go != null) puzzleDoorInstances.Add(go);
+            if (go == null) continue;
+
+            puzzleDoorInstances.Add(go);
             used.Add(s);
+            placedPuzzleCells.Add(s.cell);
+            placedPuzzle++;
         }
 
-        HashSet<Vector2Int> puzzleCells = new();
-        foreach (var p in puzzlePicked) puzzleCells.Add(p.cell);
-
-        List<DoorSpot> normalCandidates = new();
-        foreach (var s in spots)
-        {
-            if (s.cell == forcedExitWallCell) continue;
-            if (puzzleCells.Contains(s.cell)) continue;
-            normalCandidates.Add(s);
-        }
-
-        List<DoorSpot> normalPicked = DoorPlacement.PickEvenlySpaced(normalCandidates, normalDoorsAmount, minDist);
-
-        foreach (var s in normalPicked)
-        {
-            if (!DoorPlacement.IsValidSpot(s, used, minDist)) continue;
-            SpawnDoorWorld(normalDoorPrefab, s);
-            used.Add(s);
-        }
-
-        return puzzleDoorInstances;
+        d -= 1f; // relax spacing
     }
+
+    if (placedPuzzle < puzzleDoorsAmount)
+        Debug.LogWarning($"[Doors] Could only place {placedPuzzle}/{puzzleDoorsAmount} puzzle doors on the solution path.");
+
+    // -------------------------
+    // NORMAL DOORS: anywhere except puzzle cells
+    // -------------------------
+    List<DoorSpot> normalCandidates = new();
+    foreach (var s in spots)
+    {
+        if (placedPuzzleCells.Contains(s.cell)) continue;
+        normalCandidates.Add(s);
+    }
+
+    int placedNormal = 0;
+    float dn = minDist;
+
+    while (placedNormal < normalDoorsAmount && dn >= minAllowedDist)
+    {
+        List<DoorSpot> picked = DoorPlacement.PickEvenlySpaced(
+            normalCandidates,
+            Mathf.Max(normalDoorsAmount * 4, normalDoorsAmount),
+            dn
+        );
+
+        foreach (var s in picked)
+        {
+            if (placedNormal >= normalDoorsAmount) break;
+            if (!DoorPlacement.IsValidSpot(s, used, dn)) continue;
+
+            var go = SpawnDoorWorld(normalDoorPrefab, s);
+            if (go == null) continue;
+
+            used.Add(s);
+            placedNormal++;
+        }
+
+        dn -= 1f;
+    }
+
+    if (placedNormal < normalDoorsAmount)
+        Debug.LogWarning($"[Doors] Could only place {placedNormal}/{normalDoorsAmount} normal doors.");
+
+    return puzzleDoorInstances;
+}
+
 
     private GameObject SpawnDoorWorld(GameObject prefab, DoorSpot spot)
     {
         if (prefab == null) return null;
 
         Vector3 world = CellCenterWorld(spot.cell.x, spot.cell.y, 0f);
-        return Instantiate(prefab, world, spot.rotation, doorsRoot);
+
+        // Apply spot rotation first, then extra yaw in WORLD space (most intuitive for authoring)
+        Quaternion rot = Quaternion.Euler(0f, doorYawOffset, 0f) * spot.rotation;
+
+        return Instantiate(prefab, world, rot, doorsRoot);
     }
+
 
     // ================================================================
     //   RESOURCES

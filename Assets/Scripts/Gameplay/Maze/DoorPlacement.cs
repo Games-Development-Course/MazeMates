@@ -15,68 +15,69 @@ public static class DoorPlacement
     // - If passage is Left<->Right => door blocks across X => use identity (Z-facing door blocks X corridor)
     // - If passage is Down<->Up    => door blocks across Y => use 90° yaw
     // ----------------------------------------------------------
-    public static List<DoorSpot> FromCarvedWalls(
-        bool[,] grid,
-        List<Vector2Int> carvedWalls,
-        int width,
-        int height
-    )
+public static List<DoorSpot> FromCarvedWalls(
+    bool[,] grid,
+    List<Vector2Int> carvedWalls,
+    int width,
+    int height
+)
+{
+    List<DoorSpot> spots = new();
+    if (grid == null || carvedWalls == null) return spots;
+
+    foreach (var c in carvedWalls)
     {
-        List<DoorSpot> spots = new();
-        if (grid == null || carvedWalls == null) return spots;
+        int x = c.x;
+        int y = c.y;
 
-        foreach (var c in carvedWalls)
+        if (!Inside(x, y, width, height))
+            continue;
+
+        // carved cell is OPEN in your generator
+        if (grid[x, y])
+            continue;
+
+        bool leftOpen  = Inside(x - 1, y, width, height) && !grid[x - 1, y];
+        bool rightOpen = Inside(x + 1, y, width, height) && !grid[x + 1, y];
+        bool downOpen  = Inside(x, y - 1, width, height) && !grid[x, y - 1];
+        bool upOpen    = Inside(x, y + 1, width, height) && !grid[x, y + 1];
+
+        // IMPORTANT:
+        // Add a spot for EACH opposite open-pair.
+        // This makes junction cells produce 1–2 usable spots, so you can always place enough doors.
+
+        // Corridor along X (left<->right): blue axis should point along walking path (X) => yaw 90
+        if (leftOpen && rightOpen)
         {
-            int x = c.x;
-            int y = c.y;
-
-            if (!Inside(x, y, width, height))
-                continue;
-
-            // carved cell must be OPEN in your generator
-            if (grid[x, y])
-                continue;
-
-            bool leftOpen = Inside(x - 1, y, width, height) && !grid[x - 1, y];
-            bool rightOpen = Inside(x + 1, y, width, height) && !grid[x + 1, y];
-            bool downOpen = Inside(x, y - 1, width, height) && !grid[x, y - 1];
-            bool upOpen = Inside(x, y + 1, width, height) && !grid[x, y + 1];
-
-            // Perpendicular must be WALLS ("between 2 walls")
-            bool upWall = Inside(x, y + 1, width, height) && grid[x, y + 1];
-            bool downWall = Inside(x, y - 1, width, height) && grid[x, y - 1];
-            bool leftWall = Inside(x - 1, y, width, height) && grid[x - 1, y];
-            bool rightWall = Inside(x + 1, y, width, height) && grid[x + 1, y];
-
-            // Passage is LEFT<->RIGHT, walls are UP & DOWN
-            if (leftOpen && rightOpen && upWall && downWall)
+            spots.Add(new DoorSpot
             {
-                spots.Add(new DoorSpot
-                {
-                    cell = c,
-                    rotation = Quaternion.identity,
-                    score = Random.value,
-                    aOpen = new Vector2Int(x - 1, y),
-                    bOpen = new Vector2Int(x + 1, y),
-                });
-            }
-
-            // Passage is DOWN<->UP, walls are LEFT & RIGHT
-            if (downOpen && upOpen && leftWall && rightWall)
-            {
-                spots.Add(new DoorSpot
-                {
-                    cell = c,
-                    rotation = Quaternion.Euler(0, 90, 0),
-                    score = Random.value,
-                    aOpen = new Vector2Int(x, y - 1),
-                    bOpen = new Vector2Int(x, y + 1),
-                });
-            }
+                cell = c,
+                rotation = Quaternion.Euler(0f, 90f, 0f),
+                score = Random.value,
+                aOpen = new Vector2Int(x - 1, y),
+                bOpen = new Vector2Int(x + 1, y),
+            });
         }
 
-        return spots;
+        // Corridor along Z (down<->up): blue axis along Z => identity
+        if (downOpen && upOpen)
+        {
+            spots.Add(new DoorSpot
+            {
+                cell = c,
+                rotation = Quaternion.identity,
+                score = Random.value,
+                aOpen = new Vector2Int(x, y - 1),
+                bOpen = new Vector2Int(x, y + 1),
+            });
+        }
     }
+
+    return spots;
+}
+
+
+
 
     public static List<DoorSpot> FilterOnPath(List<DoorSpot> spots, HashSet<Vector2Int> pathSet)
     {
@@ -175,8 +176,7 @@ public static class DoorPlacement
         }
     }
 
-    static bool Inside(int x, int y, int width, int height)
-    {
-        return x > 0 && y > 0 && x < width - 1 && y < height - 1;
-    }
+    private static bool Inside(int x, int y, int width, int height)
+    => x > 0 && y > 0 && x < width - 1 && y < height - 1;
+
 }
