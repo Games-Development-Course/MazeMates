@@ -19,7 +19,7 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField] private float maxSpeed = 6f;
     [SerializeField] private float acceleration = 20f;
     [SerializeField] private float deceleration = 25f;
-    [SerializeField] private float rotateSpeed = 720f;
+    [SerializeField] private float rotateSpeed = 360f;
     [SerializeField] private bool faceMoveDirection = true;
 
     [Header("Gravity")]
@@ -154,80 +154,75 @@ public class PlayerMovement : NetworkBehaviour
     // =======================
     // Update
     // =======================
-    private void Update()
-    {
+   private void Update()
+{
 #if UNITY_EDITOR
-        bool allowLocal = true;
+    bool allowLocal = true;
 #else
-        bool allowLocal = false;
+    bool allowLocal = false;
 #endif
 
-        if ((!IsOwner && !allowLocal) || controller == null || !controller.enabled)
-            return;
+    if ((!IsOwner && !allowLocal) || controller == null || !controller.enabled)
+        return;
 
-        if (!ready)
-        {
-            ready = true;
-            moveAction?.Enable();
-            planarVelocity = Vector3.zero;
-            verticalVel = 0f;
-        }
-
-        if (tutorial == null && Time.time - lastTutorialResolveTime > 0.5f)
-        {
-            lastTutorialResolveTime = Time.time;
-            tutorial = Object.FindFirstObjectByType<TutorialManager>();
-        }
-
-        if (movementFrozen)
-        {
-            controller.Move(Vector3.zero);
-            return;
-        }
-
-        Vector2 input = moveAction.ReadValue<Vector2>();
-        Vector3 desiredDir = new Vector3(input.x, 0f, input.y);
-        desiredDir = Vector3.ClampMagnitude(desiredDir, 1f);
-
-        if (desiredDir.sqrMagnitude > 0.01f && Time.time - lastMoveNotifyTime > 0.25f)
-        {
-            lastMoveNotifyTime = Time.time;
-            NotifyMovementServerRpc();
-        }
-
-        Vector3 desiredVel = desiredDir * maxSpeed;
-        float rate = desiredDir.sqrMagnitude > 0.001f ? acceleration : deceleration;
-        planarVelocity = Vector3.MoveTowards(planarVelocity, desiredVel, rate * Time.deltaTime);
-
-        if (faceMoveDirection && planarVelocity.sqrMagnitude > 0.01f)
-        {
-            Quaternion targetRot = Quaternion.LookRotation(planarVelocity.normalized, Vector3.up);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, rotateSpeed * Time.deltaTime);
-        }
-
-        if (controller.isGrounded && verticalVel < 0f)
-            verticalVel = -2f;
-
-        verticalVel += gravity * Time.deltaTime;
-
-        Vector3 move = (planarVelocity + Vector3.up * verticalVel) * Time.deltaTime;
-        controller.Move(move);
-
-        // =======================
-        // Animation Update
-        // =======================
-        if (animator != null)
-        {
-            float speed = new Vector2(planarVelocity.x, planarVelocity.z).magnitude;
-            animator.SetFloat("Speed", speed);
-        }
-        if (animator != null)
-        {
-            bool isMoving = planarVelocity.sqrMagnitude > 0.01f;
-            animator.SetBool("IsMoving", isMoving);
-        }
-
+    if (!ready)
+    {
+        ready = true;
+        moveAction?.Enable();
+        planarVelocity = Vector3.zero;
+        verticalVel = 0f;
     }
+
+    if (tutorial == null && Time.time - lastTutorialResolveTime > 0.5f)
+    {
+        lastTutorialResolveTime = Time.time;
+        tutorial = Object.FindFirstObjectByType<TutorialManager>();
+    }
+
+    if (movementFrozen)
+    {
+        controller.Move(Vector3.zero);
+        return;
+    }
+
+    Vector2 input = moveAction.ReadValue<Vector2>();
+
+    // LEFT/RIGHT = rotate (yaw)
+    float turn = input.x;
+    if (Mathf.Abs(turn) > 0.01f)
+        transform.Rotate(Vector3.up, turn * rotateSpeed * Time.deltaTime);
+
+    // UP/DOWN = forward/back in local space
+    float forward = input.y;
+
+    Vector3 desiredVel = transform.forward * (forward * maxSpeed);
+
+    float rate = Mathf.Abs(forward) > 0.01f ? acceleration : deceleration;
+    planarVelocity = Vector3.MoveTowards(planarVelocity, desiredVel, rate * Time.deltaTime);
+
+    bool moved = planarVelocity.sqrMagnitude > 0.01f || Mathf.Abs(turn) > 0.01f;
+    if (moved && Time.time - lastMoveNotifyTime > 0.25f)
+    {
+        lastMoveNotifyTime = Time.time;
+        NotifyMovementServerRpc();
+    }
+
+    if (controller.isGrounded && verticalVel < 0f)
+        verticalVel = -2f;
+
+    verticalVel += gravity * Time.deltaTime;
+
+    Vector3 move = (planarVelocity + Vector3.up * verticalVel) * Time.deltaTime;
+    controller.Move(move);
+
+    if (animator != null)
+    {
+        float speed = new Vector2(planarVelocity.x, planarVelocity.z).magnitude;
+        animator.SetFloat("Speed", speed);
+        animator.SetBool("IsMoving", planarVelocity.sqrMagnitude > 0.01f);
+    }
+}
+
 
     // =======================
     // Tutorial RPC
