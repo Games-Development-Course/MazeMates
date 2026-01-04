@@ -165,7 +165,7 @@ public class PickupObject : NetworkBehaviour
                 break;
 
             case PickupType.Bomb:
-                gm.lives--;
+                //gm.lives--;
                 if (string.IsNullOrWhiteSpace(finalMessage))
                     finalMessage = "דרכת על פצצה! איבדת לב.";
 
@@ -195,10 +195,11 @@ public class PickupObject : NetworkBehaviour
                 }
                 else
                 {
+                    gm.lives--;
                     // Optional: if you want bomb to "shake/teleport" even when not dead, keep this.
                     // If you DON'T want any teleport unless dead, delete this block.
-                    if (pickedByTraveller)
-                        TryBombResetTeleportTo(playerNo, new Vector3(1f, 1f, 1f), Quaternion.identity);
+                    // if (pickedByTraveller)
+                    //     TryBombResetTeleportTo(playerNo, new Vector3(1f, 1f, 1f), Quaternion.identity);
                 }
 
                 break;
