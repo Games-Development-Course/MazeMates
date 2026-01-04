@@ -1,7 +1,7 @@
 ﻿// Assets/Scripts/Maze/MazeGenerator3D.cs
 using System.Collections.Generic;
 using UnityEngine;
-
+using Unity.Netcode;
 public class MazeGenerator3D : MonoBehaviour
 {
     [Header("Navigator Exit Anchor (in GameScene)")]
@@ -118,6 +118,11 @@ public class MazeGenerator3D : MonoBehaviour
 
     private void Start()
     {
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
+        {
+            return;
+        }
+        
         PullConfigIfExists();
         Random.InitState(seed);
 
@@ -660,12 +665,33 @@ private List<GameObject> PlaceDoors()
     {
         if (prefab == null) return null;
 
+        var nm = NetworkManager.Singleton;
+        if (nm != null && !nm.IsServer)
+            return null; // only server spawns doors
+
         Vector3 world = CellCenterWorld(spot.cell.x, spot.cell.y, 0f);
 
-        // Apply spot rotation first, then extra yaw in WORLD space (most intuitive for authoring)
+        // With your prefab axes (blue = corridor direction), doorYawOffset should usually be 0.
         Quaternion rot = Quaternion.Euler(0f, doorYawOffset, 0f) * spot.rotation;
 
-        return Instantiate(prefab, world, rot, doorsRoot);
+        // Spawn without parent first (safer for NGO)
+        var go = Instantiate(prefab, world, rot);
+
+        var netObj = go.GetComponent<NetworkObject>();
+        if (netObj == null)
+        {
+            Debug.LogError($"[Doors] Prefab '{prefab.name}' is missing NetworkObject.");
+            Destroy(go);
+            return null;
+        }
+
+        netObj.Spawn(true);
+
+        // Optional: parent for hierarchy cleanliness after spawn
+        if (doorsRoot != null)
+            go.transform.SetParent(doorsRoot, true);
+
+        return go;
     }
 
 

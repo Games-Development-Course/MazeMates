@@ -11,6 +11,9 @@ public class DoorController : NetworkBehaviour
     public float openAngle = 90f;
     public float openSpeed = 3f;
 
+    [Header("Pivot (Optional Override)")]
+    [SerializeField] private Transform pivotOverride;
+
     [Header("Puzzle Settings")]
     public GameObject puzzlePrefab;
     public Sprite navigatorPreview; // auto-filled from OriginalImage if null
@@ -58,6 +61,94 @@ public class DoorController : NetworkBehaviour
 
         InitDoorLogic();
     }
+
+    private void EnsurePivot()
+    {
+        if (pivotOverride != null)
+        {
+            pivot = pivotOverride;
+            return;
+        }
+
+        if (pivot == null)
+            FindOrCreatePivot();
+    }
+
+    private void FindOrCreatePivot()
+    {
+        // 1) Prefer tagged mesh
+        MeshFilter mf = GetComponentsInChildren<MeshFilter>(true)
+            .FirstOrDefault(m => m.CompareTag("Door"));
+
+        // 2) Fallback: first mesh that isn't pad/trigger
+        if (mf == null)
+        {
+            mf = GetComponentsInChildren<MeshFilter>(true)
+                .FirstOrDefault(m =>
+                {
+                    string n = m.name.ToLowerInvariant();
+                    return !n.Contains("trigger") && !n.Contains("pad");
+                });
+        }
+
+        if (mf == null)
+        {
+            Debug.LogError($"[DoorController] No suitable MeshFilter found for pivot on '{name}'. " +
+                           $"Either tag the moving mesh as 'Door' or assign Pivot Override.", this);
+            return;
+        }
+
+        Transform doorModel = mf.transform;
+        Bounds b = mf.sharedMesh.bounds;
+        float half = b.size.x * 0.5f;
+
+        Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
+        Vector3 pivotWorld = doorModel.TransformPoint(leftLocal);
+
+        GameObject pivotObj = new GameObject("Pivot");
+        pivotObj.transform.SetParent(transform, true);
+        pivotObj.transform.position = pivotWorld;
+        pivotObj.transform.rotation = doorModel.rotation;
+
+        foreach (Transform child in transform)
+        {
+            if (child == pivotObj.transform)
+                continue;
+
+            string cn = child.name.ToLowerInvariant();
+            if (cn.Contains("trigger") || cn.Contains("pad"))
+                continue;
+
+            child.SetParent(pivotObj.transform, true);
+        }
+
+        pivot = pivotObj.transform;
+    }
+
+    private IEnumerator OpenRoutine(float angle)
+    {
+        EnsurePivot();
+        if (pivot == null)
+        {
+            Debug.LogError($"[DoorController] OpenRoutine aborted: pivot is NULL on '{name}'.", this);
+            yield break;
+        }
+
+        Quaternion target = Quaternion.Euler(0, angle, 0);
+
+        while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
+        {
+            pivot.localRotation = Quaternion.Lerp(
+                pivot.localRotation,
+                target,
+                Time.deltaTime * openSpeed
+            );
+            yield return null;
+        }
+
+        pivot.localRotation = target;
+    }
+
 
     // ============================================================
     // FIND NAVIGATOR SCREEN QUAD
@@ -245,65 +336,65 @@ public class DoorController : NetworkBehaviour
         StartCoroutine(OpenRoutine(openAngle));
     }
 
-    private IEnumerator OpenRoutine(float angle)
-    {
-        Quaternion target = Quaternion.Euler(0, angle, 0);
+    // private IEnumerator OpenRoutine(float angle)
+    // {
+    //     Quaternion target = Quaternion.Euler(0, angle, 0);
 
-        while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
-        {
-            pivot.localRotation = Quaternion.Lerp(
-                pivot.localRotation,
-                target,
-                Time.deltaTime * openSpeed
-            );
+    //     while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
+    //     {
+    //         pivot.localRotation = Quaternion.Lerp(
+    //             pivot.localRotation,
+    //             target,
+    //             Time.deltaTime * openSpeed
+    //         );
 
-            yield return null;
-        }
+    //         yield return null;
+    //     }
 
-        pivot.localRotation = target;
-    }
+    //     pivot.localRotation = target;
+    // }
 
     // ============================================================
     // GENERATE DOOR PIVOT
     // ============================================================
 
-    private void FindOrCreatePivot()
-    {
-        MeshFilter mf = GetComponentsInChildren<MeshFilter>(true)
-            .FirstOrDefault(m => m.CompareTag("Door"));
+    // private void FindOrCreatePivot()
+    // {
+    //     MeshFilter mf = GetComponentsInChildren<MeshFilter>(true)
+    //         .FirstOrDefault(m => m.CompareTag("Door"));
 
-        if (mf == null)
-        {
-            Debug.LogError("DoorController: No child with tag 'Door' found.");
-            return;
-        }
+    //     if (mf == null)
+    //     {
+    //         Debug.LogError("DoorController: No child with tag 'Door' found.");
+    //         return;
+    //     }
 
-        Transform doorModel = mf.transform;
-        Bounds b = mf.sharedMesh.bounds;
-        float half = b.size.x * 0.5f;
+    //     Transform doorModel = mf.transform;
+    //     Bounds b = mf.sharedMesh.bounds;
+    //     float half = b.size.x * 0.5f;
 
-        Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
-        Vector3 pivotWorld = doorModel.TransformPoint(leftLocal);
+    //     Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
+    //     Vector3 pivotWorld = doorModel.TransformPoint(leftLocal);
 
-        GameObject pivotObj = new GameObject("Pivot");
-        pivotObj.transform.SetParent(transform, true);
-        pivotObj.transform.position = pivotWorld;
-        pivotObj.transform.rotation = doorModel.rotation;
+    //     GameObject pivotObj = new GameObject("Pivot");
+    //     pivotObj.transform.SetParent(transform, true);
+    //     pivotObj.transform.position = pivotWorld;
+    //     pivotObj.transform.rotation = doorModel.rotation;
 
-        foreach (Transform child in transform)
-        {
-            if (child == pivotObj.transform)
-                continue;
-            if (child.name.ToLower().Contains("trigger"))
-                continue;
-            if (child.name.ToLower().Contains("pad"))
-                continue;
+    //     foreach (Transform child in transform)
+    //     {
+    //         if (child == pivotObj.transform)
+    //             continue;
+    //         if (child.name.ToLower().Contains("trigger"))
+    //             continue;
+    //         if (child.name.ToLower().Contains("pad"))
+    //             continue;
 
-            child.SetParent(pivotObj.transform, true);
-        }
+    //         child.SetParent(pivotObj.transform, true);
+    //     }
 
-        pivot = pivotObj.transform;
-    }
+    //     pivot = pivotObj.transform;
+    // }
 
     // ============================================================
     // STATIC DOOR LOOKUP HELPERS
