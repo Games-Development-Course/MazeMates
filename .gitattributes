@@ -70,6 +70,18 @@
 *.unity    text eol=lf
 *.meta     text eol=lf
 
+# =========================
+# TextMesh Pro – avoid constant font asset conflicts
+# =========================
+
+# TMP generated font assets (SDF) tend to change often; don't attempt merges
+Assets/TextMesh Pro/Fonts/*.asset merge=theirs
+Assets/TextMesh Pro/Fonts/**/*.asset merge=theirs
+
+# (Optional) TMP fallback/settings assets can also churn
+Assets/TextMesh Pro/Resources/*.asset merge=theirs
+Assets/TextMesh Pro/Resources/**/*.asset merge=theirs
+
 # Project / Settings
 ProjectSettings/*.asset text eol=lf
 Packages/*.json        text eol=lf

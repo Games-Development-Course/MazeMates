@@ -1,4 +1,5 @@
 // Assets/Scripts/Player/PlayerCameraTopDown.cs
+// (Kept your networking/refs/API; swapped follow/yaw smoothing to "nicer" damped motion.)
 using Unity.Netcode;
 using UnityEngine;
 
@@ -11,14 +12,27 @@ public class PlayerCameraTopDown : NetworkBehaviour
 
     [Header("Follow")]
     [SerializeField] private Vector3 followOffset = new Vector3(0f, 10f, -6f);
-    [SerializeField, Range(1f, 30f)] private float followSmooth = 12f;
+
+    [Tooltip("Smoothing time (seconds). Smaller = snappier, bigger = smoother.")]
+    [SerializeField, Range(0.02f, 0.6f)] private float followSmoothTime = 0.18f;
 
     [Header("Look")]
     [SerializeField, Range(10f, 85f)] private float pitch = 60f;
-    [SerializeField, Range(1f, 30f)] private float yawSmooth = 10f;
+
+    [Tooltip("Smoothing time (seconds) for yaw follow.")]
+    [SerializeField, Range(0.02f, 0.6f)] private float yawSmoothTime = 0.12f;
+
     [SerializeField, Range(0f, 5f)] private float minSpeedToTurn = 0.2f;
 
+    [Header("Optional")]
+    [Tooltip("If true, yaw will follow movement direction; if false, camera keeps last yaw.")]
+    [SerializeField] private bool yawFollowsMovement = true;
+
     private Vector3 lastPlanarDir = Vector3.forward;
+
+    // SmoothDamp refs
+    private Vector3 posVelRef;
+    private float yawVelRef; // for SmoothDampAngle
 
     private void Awake()
     {
@@ -47,7 +61,9 @@ public class PlayerCameraTopDown : NetworkBehaviour
     {
         if (!IsOwner || target == null) return;
 
-        UpdateYawFromMovement();
+        if (yawFollowsMovement)
+            UpdateYawFromMovement();
+
         UpdateCameraTransform();
     }
 
@@ -63,23 +79,27 @@ public class PlayerCameraTopDown : NetworkBehaviour
 
     private void UpdateCameraTransform()
     {
-        float targetYaw = Quaternion.LookRotation(lastPlanarDir, Vector3.up).eulerAngles.y;
-        float currentYaw = transform.rotation.eulerAngles.y;
-        float newYaw = Mathf.LerpAngle(currentYaw, targetYaw, yawSmooth * Time.deltaTime);
+        float currentYaw = transform.eulerAngles.y;
+
+        // If we still don't really have a direction (e.g., at start), keep current yaw.
+        float targetYaw = currentYaw;
+        if (lastPlanarDir.sqrMagnitude > 0.0001f)
+            targetYaw = Quaternion.LookRotation(lastPlanarDir, Vector3.up).eulerAngles.y;
+
+        float newYaw = Mathf.SmoothDampAngle(currentYaw, targetYaw, ref yawVelRef, yawSmoothTime);
 
         Quaternion rot = Quaternion.Euler(pitch, newYaw, 0f);
 
         Vector3 desiredPos = target.position + rot * followOffset;
-        transform.position = Vector3.Lerp(transform.position, desiredPos, followSmooth * Time.deltaTime);
+        transform.position = Vector3.SmoothDamp(transform.position, desiredPos, ref posVelRef, followSmoothTime);
         transform.rotation = rot;
     }
 
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        // הגנה על ערכים גם בזמן עריכה
-        followSmooth = Mathf.Max(0.1f, followSmooth);
-        yawSmooth = Mathf.Max(0.1f, yawSmooth);
+        followSmoothTime = Mathf.Clamp(followSmoothTime, 0.02f, 0.6f);
+        yawSmoothTime = Mathf.Clamp(yawSmoothTime, 0.02f, 0.6f);
         minSpeedToTurn = Mathf.Max(0f, minSpeedToTurn);
     }
 #endif

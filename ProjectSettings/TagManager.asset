@@ -14,6 +14,8 @@ TagManager:
   - Tutorial_PlaceHeart
   - Tutorial_ShowHint
   - NavigatorScreenTV
+  - PuzzleScreen
+  - CinemachineTarget
   layers:
   - Default
   - TransparentFX
@@ -27,8 +29,8 @@ TagManager:
   - TravellerHUD
   - NavigatorHUD
   - MinimapIcon
-  - 
-  - 
+  - Walls
+  - CameraBlocker
   - 
   - 
   - 

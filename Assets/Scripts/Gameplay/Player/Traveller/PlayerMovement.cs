@@ -1,4 +1,6 @@
-﻿using System.Collections;
+﻿// Assets/Scripts/Player/PlayerMovement.cs
+// (Based on your current file, only movement/camera-relative smoothing logic replaced; deps & RPCs kept.)
+using System.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -17,13 +19,20 @@ public class PlayerMovement : NetworkBehaviour
     // =======================
     [Header("Move")]
     [SerializeField] private float maxSpeed = 6f;
-    [SerializeField] private float acceleration = 20f;
-    [SerializeField] private float deceleration = 25f;
-    [SerializeField] private float rotateSpeed = 360f;
+
+    [Tooltip("Time (seconds) to reach target speed. Smaller = snappier, bigger = smoother.")]
+    [SerializeField] private float accelTime = 0.12f;
+
+    [SerializeField] private float rotateSpeed = 12f;
     [SerializeField] private bool faceMoveDirection = true;
 
+    [Header("Move Relative To Camera (Yaw Only)")]
+    [SerializeField] private bool moveRelativeToCamera = true;
+    [SerializeField] private Transform cameraTransform; // if null -> uses Camera.main on owner
+
     [Header("Gravity")]
-    [SerializeField] private float gravity = -9.81f;
+    [SerializeField] private float gravity = -20f;
+    [SerializeField] private float groundedStick = -2f;
 
     [Header("Input (Arrow Keys Only)")]
     [SerializeField] private InputAction moveAction;
@@ -35,7 +44,10 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField] private Animator animator;
 
     private CharacterController controller;
-    private Vector3 planarVelocity;
+
+    // Smooth planar motion
+    private Vector3 planarVelocity;          // what we actually move with (XZ)
+    private Vector3 planarVelSmoothRef;      // SmoothDamp ref
     private float verticalVel;
 
     private bool movementFrozen;
@@ -65,6 +77,11 @@ public class PlayerMovement : NetworkBehaviour
                 .With("Left", "<Keyboard>/leftArrow")
                 .With("Right", "<Keyboard>/rightArrow");
         }
+
+        maxSpeed = Mathf.Max(0f, maxSpeed);
+        accelTime = Mathf.Max(0.01f, accelTime);
+        rotateSpeed = Mathf.Max(0f, rotateSpeed);
+        groundedStick = Mathf.Min(groundedStick, -0.01f); // should be negative
     }
 
     private void Awake()
@@ -73,6 +90,9 @@ public class PlayerMovement : NetworkBehaviour
 
         if (animator == null)
             animator = GetComponentInChildren<Animator>();
+
+        if (cameraTransform == null && Camera.main != null)
+            cameraTransform = Camera.main.transform;
     }
 
     private void OnDisable()
@@ -93,6 +113,10 @@ public class PlayerMovement : NetworkBehaviour
             ready = false;
             return;
         }
+
+        // Prefer owner's camera
+        if (cameraTransform == null && Camera.main != null)
+            cameraTransform = Camera.main.transform;
 
         moveAction?.Enable();
         StartCoroutine(EnableControllerNextFrame());
@@ -119,6 +143,7 @@ public class PlayerMovement : NetworkBehaviour
             controller.enabled = true;
 
         planarVelocity = Vector3.zero;
+        planarVelSmoothRef = Vector3.zero;
         verticalVel = 0f;
         ready = true;
     }
@@ -130,6 +155,7 @@ public class PlayerMovement : NetworkBehaviour
     {
         movementFrozen = freeze;
         planarVelocity = Vector3.zero;
+        planarVelSmoothRef = Vector3.zero;
         verticalVel = 0f;
 
         if (animator != null)
@@ -141,6 +167,7 @@ public class PlayerMovement : NetworkBehaviour
     public void TeleportToStart(Vector3 pos)
     {
         planarVelocity = Vector3.zero;
+        planarVelSmoothRef = Vector3.zero;
 
         if (controller != null)
             controller.enabled = false;
@@ -154,75 +181,124 @@ public class PlayerMovement : NetworkBehaviour
     // =======================
     // Update
     // =======================
-   private void Update()
-{
+    private void Update()
+    {
 #if UNITY_EDITOR
-    bool allowLocal = true;
+        bool allowLocal = true;
 #else
-    bool allowLocal = false;
+        bool allowLocal = false;
 #endif
 
-    if ((!IsOwner && !allowLocal) || controller == null || !controller.enabled)
-        return;
+        if ((!IsOwner && !allowLocal) || controller == null || !controller.enabled)
+            return;
 
-    if (!ready)
-    {
-        ready = true;
-        moveAction?.Enable();
-        planarVelocity = Vector3.zero;
-        verticalVel = 0f;
+        if (!ready)
+        {
+            ready = true;
+            moveAction?.Enable();
+            planarVelocity = Vector3.zero;
+            planarVelSmoothRef = Vector3.zero;
+            verticalVel = 0f;
+        }
+
+        if (tutorial == null && Time.time - lastTutorialResolveTime > 0.5f)
+        {
+            lastTutorialResolveTime = Time.time;
+            tutorial = Object.FindFirstObjectByType<TutorialManager>();
+        }
+
+        if (movementFrozen)
+        {
+            controller.Move(Vector3.zero);
+            return;
+        }
+
+        // ---------
+        // Input (arrows only, via InputAction)
+        // ---------
+        Vector2 input = moveAction.ReadValue<Vector2>();
+        Vector3 rawDir = new Vector3(input.x, 0f, input.y);
+        rawDir = Vector3.ClampMagnitude(rawDir, 1f);
+
+        // Tutorial notify (unchanged behavior)
+        if (rawDir.sqrMagnitude > 0.01f && Time.time - lastMoveNotifyTime > 0.25f)
+        {
+            lastMoveNotifyTime = Time.time;
+            NotifyMovementServerRpc();
+        }
+
+        // ---------
+        // Camera-relative yaw (optional)
+        // ---------
+        Vector3 desiredDir = rawDir;
+
+        if (moveRelativeToCamera)
+        {
+            if (cameraTransform == null && Camera.main != null)
+                cameraTransform = Camera.main.transform;
+
+            if (cameraTransform != null)
+            {
+                Vector3 camFwd = cameraTransform.forward;
+                camFwd.y = 0f;
+                camFwd.Normalize();
+
+                Vector3 camRight = cameraTransform.right;
+                camRight.y = 0f;
+                camRight.Normalize();
+
+                desiredDir = (camRight * rawDir.x + camFwd * rawDir.z);
+                if (desiredDir.sqrMagnitude > 1f) desiredDir.Normalize();
+            }
+        }
+
+        // ---------
+        // Smooth planar velocity (SmoothDamp -> premium-feel accel/decel)
+        // ---------
+        Vector3 desiredPlanarVel = desiredDir * maxSpeed;
+        planarVelocity = Vector3.SmoothDamp(planarVelocity, desiredPlanarVel, ref planarVelSmoothRef, accelTime);
+
+        // ---------
+        // Face move direction (smooth)
+        // ---------
+        if (faceMoveDirection)
+        {
+            Vector3 flat = new Vector3(planarVelocity.x, 0f, planarVelocity.z);
+            if (flat.sqrMagnitude > 0.0001f)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(flat.normalized, Vector3.up);
+                // exponential smoothing (stable across fps)
+                transform.rotation = Quaternion.Slerp(
+                    transform.rotation,
+                    targetRot,
+                    1f - Mathf.Exp(-rotateSpeed * Time.deltaTime)
+                );
+            }
+        }
+
+        // ---------
+        // Gravity (with grounded stick)
+        // ---------
+        if (controller.isGrounded && verticalVel < 0f)
+            verticalVel = groundedStick;
+
+        verticalVel += gravity * Time.deltaTime;
+
+        Vector3 move = (new Vector3(planarVelocity.x, 0f, planarVelocity.z) + Vector3.up * verticalVel) * Time.deltaTime;
+        controller.Move(move);
+
+        // =======================
+        // Animation Update (kept)
+        // =======================
+        if (animator != null)
+        {
+            float speed = new Vector2(planarVelocity.x, planarVelocity.z).magnitude;
+            animator.SetFloat("Speed", speed);
+
+            bool isMoving = planarVelocity.sqrMagnitude > 0.01f;
+            animator.SetBool("IsMoving", isMoving);
+        }
     }
-
-    if (tutorial == null && Time.time - lastTutorialResolveTime > 0.5f)
-    {
-        lastTutorialResolveTime = Time.time;
-        tutorial = Object.FindFirstObjectByType<TutorialManager>();
-    }
-
-    if (movementFrozen)
-    {
-        controller.Move(Vector3.zero);
-        return;
-    }
-
-    Vector2 input = moveAction.ReadValue<Vector2>();
-
-    // LEFT/RIGHT = rotate (yaw)
-    float turn = input.x;
-    if (Mathf.Abs(turn) > 0.01f)
-        transform.Rotate(Vector3.up, turn * rotateSpeed * Time.deltaTime);
-
-    // UP/DOWN = forward/back in local space
-    float forward = input.y;
-
-    Vector3 desiredVel = transform.forward * (forward * maxSpeed);
-
-    float rate = Mathf.Abs(forward) > 0.01f ? acceleration : deceleration;
-    planarVelocity = Vector3.MoveTowards(planarVelocity, desiredVel, rate * Time.deltaTime);
-
-    bool moved = planarVelocity.sqrMagnitude > 0.01f || Mathf.Abs(turn) > 0.01f;
-    if (moved && Time.time - lastMoveNotifyTime > 0.25f)
-    {
-        lastMoveNotifyTime = Time.time;
-        NotifyMovementServerRpc();
-    }
-
-    if (controller.isGrounded && verticalVel < 0f)
-        verticalVel = -2f;
-
-    verticalVel += gravity * Time.deltaTime;
-
-    Vector3 move = (planarVelocity + Vector3.up * verticalVel) * Time.deltaTime;
-    controller.Move(move);
-
-    if (animator != null)
-    {
-        float speed = new Vector2(planarVelocity.x, planarVelocity.z).magnitude;
-        animator.SetFloat("Speed", speed);
-        animator.SetBool("IsMoving", planarVelocity.sqrMagnitude > 0.01f);
-    }
-}
-
 
     // =======================
     // Tutorial RPC
@@ -270,6 +346,7 @@ public class PlayerMovement : NetworkBehaviour
         yield return new WaitForSeconds(delay);
 
         planarVelocity = Vector3.zero;
+        planarVelSmoothRef = Vector3.zero;
 
         if (controller != null)
             controller.enabled = false;
