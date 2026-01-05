@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading.Tasks;
+using MazeMates.Authentication;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Networking.Transport.Relay;
-using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
@@ -35,7 +35,7 @@ public class RelayManager : MonoBehaviour
     private async void Start()
     {
         await EnsureUnityServicesInitializedAsync();
-        Debug.Log("[Relay] Unity Services ready.");
+        Debug.Log("[Relay] Unity Services ready (no auto sign-in).");
     }
 
     private async Task EnsureUnityServicesInitializedAsync()
@@ -44,16 +44,18 @@ public class RelayManager : MonoBehaviour
 
         try
         {
-            if (UnityServices.State == ServicesInitializationState.Uninitialized)
+            // אם יש UgsAuthManager, נעדיף שהוא יבצע InitializeAsync כדי לשמור על אותה תצורה (Profile וכו').
+            if (UgsAuthManager.Instance != null)
             {
-                await UnityServices.InitializeAsync();
-                Debug.Log("[Relay] Unity Services initialized.");
+                await UgsAuthManager.Instance.InitializeAsync();
             }
-
-            if (!AuthenticationService.Instance.IsSignedIn)
+            else
             {
-                await AuthenticationService.Instance.SignInAnonymouslyAsync();
-                Debug.Log($"[Relay] Signed in as player {AuthenticationService.Instance.PlayerId}");
+                if (UnityServices.State == ServicesInitializationState.Uninitialized)
+                {
+                    await UnityServices.InitializeAsync();
+                    Debug.Log("[Relay] Unity Services initialized.");
+                }
             }
 
             _servicesInitialized = true;
@@ -62,6 +64,11 @@ public class RelayManager : MonoBehaviour
         {
             Debug.LogError($"[Relay] Failed to initialize Unity Services: {e}");
         }
+    }
+
+    private bool IsPlayerAllowedToUseRelay()
+    {
+        return UgsAuthManager.Instance != null && UgsAuthManager.Instance.IsSignedIn;
     }
 
     private UnityTransport GetTransport()
@@ -86,6 +93,12 @@ public class RelayManager : MonoBehaviour
     public async Task<string> StartHostWithRelayAsync()
     {
         await EnsureUnityServicesInitializedAsync();
+
+        if (!IsPlayerAllowedToUseRelay())
+        {
+            Debug.LogWarning("[Relay] Blocked: player is not signed in. Please login first.");
+            return null;
+        }
 
         var transport = GetTransport();
         if (transport == null) return null;
@@ -117,6 +130,12 @@ public class RelayManager : MonoBehaviour
     public async Task<bool> StartClientWithRelayAsync(string joinCode)
     {
         await EnsureUnityServicesInitializedAsync();
+
+        if (!IsPlayerAllowedToUseRelay())
+        {
+            Debug.LogWarning("[Relay] Blocked: player is not signed in. Please login first.");
+            return false;
+        }
 
         var transport = GetTransport();
         if (transport == null) return false;
