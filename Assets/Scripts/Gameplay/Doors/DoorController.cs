@@ -1,11 +1,19 @@
-﻿// Assets/Scripts/Gameplay/Doors/DoorController.cs
-// FIX: removed [Server] attribute (not part of NGO). Use IsServer checks instead.
+﻿// File: Assets/Scripts/Gameplay/Doors/DoorController.cs
+//
+// FIX (per your last request):
+// - DoorController NO LONGER touches Televisor/Quad MeshRenderer directly (no tags, no navigatorScreenQuad fields).
+// - TV is handled ONLY via NavigatorTVScreen component that lives on the scene's Televisor_00/Quad.
+// - This prevents doors (runtime-instantiated) from accidentally changing Televisor parent materials.
+//
+// Note: Make sure you have NavigatorTVScreen.cs on Televisor_00/Quad in the scene.
+//
+// Source base: your current DoorController.cs pasted file. :contentReference[oaicite:0]{index=0}
 
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Netcode;
 using Unity.Collections;
+using Unity.Netcode;
 using UnityEngine;
 
 public class DoorController : NetworkBehaviour
@@ -22,21 +30,9 @@ public class DoorController : NetworkBehaviour
     public GameObject puzzlePrefab;
     public Sprite navigatorPreview; // auto-filled from OriginalImage if null
 
-    [Header("Navigator TV Screen")]
-    [Tooltip("MeshRenderer של ה-Quad שעליו מוצגת התמונה בחדר הנווט")]
-    public MeshRenderer navigatorScreenQuad; // אפשר להשאיר ריק ולהסתמך על Tag
-    public int navigatorScreenMaterialIndex = 0;
+    // NOTE: Removed all "Navigator TV Screen" serialized fields (navigatorScreenQuad / tag / material index),
+    // because doors are instantiated at runtime and must not own/modify scene TV renderers.
 
-    [Range(0.3f, 1f)]
-    public float tvZoom = 1f;
-
-    [Tooltip("Tag של ה-Quad של הטלוויזיה בחדר הנווט (למשל NavigatorScreenTV)")]
-    [SerializeField] private string navigatorScreenTag = "NavigatorScreenTV";
-
-    // ✅ IMPORTANT:
-    // WebGL clients don't get runtime-assigned "puzzlePrefab" from server automatically.
-    // We replicate a Resources path string, and each client loads the prefab locally.
-    // Put your puzzle prefabs under: Assets/Resources/Puzzles/<PrefabName>.prefab (default folder is "Puzzles")
     [Header("Puzzle Prefab Replication (Resources)")]
     [SerializeField] private string puzzleResourcesFolder = "Puzzles";
 
@@ -53,11 +49,16 @@ public class DoorController : NetworkBehaviour
     private IDoor door;
     private PadTrigger pad;
 
-    private Material navigatorScreenMaterialInstance;
+    private Coroutine _tvApplyRoutine;
+
+    [Header("Puzzle-TV Robustness")]
+    [SerializeField] private int tvApplyRetries = 90;               // ~1.5s @ 60fps
+    [SerializeField] private float tvApplyRetryDelaySeconds = 0f;   // 0 = next frame
 
     private void Awake()
     {
-        TryFindNavigatorScreenQuad();
+        // Intentionally empty:
+        // TV is handled by NavigatorTVScreen (scene object), not by doors.
     }
 
     public override void OnNetworkSpawn()
@@ -74,12 +75,10 @@ public class DoorController : NetworkBehaviour
         if (pivot == null)
             FindOrCreatePivot();
 
-        // ✅ subscribe before init (for late join too)
         puzzlePrefabPath.OnValueChanged += OnPuzzlePrefabPathChanged;
 
-        // apply immediately for late joiners
         if (!puzzlePrefabPath.Value.IsEmpty)
-            EnsurePuzzleLoadedFromNet();
+            EnsurePuzzleLoadedFromNet(puzzlePrefabPath.Value);
 
         InitDoorLogic();
     }
@@ -89,9 +88,9 @@ public class DoorController : NetworkBehaviour
         puzzlePrefabPath.OnValueChanged -= OnPuzzlePrefabPathChanged;
     }
 
-    private void OnPuzzlePrefabPathChanged(FixedString128Bytes _, FixedString128Bytes __)
+    private void OnPuzzlePrefabPathChanged(FixedString128Bytes _, FixedString128Bytes newVal)
     {
-        EnsurePuzzleLoadedFromNet();
+        EnsurePuzzleLoadedFromNet(newVal);
 
         if (doorType == DoorType.Puzzle && navigatorPreview == null)
             navigatorPreview = ExtractPreviewFromPrefab();
@@ -100,7 +99,6 @@ public class DoorController : NetworkBehaviour
     // ---------------------------
     // Server API: set puzzle prefab + replicate
     // ---------------------------
-    // FIX: no [Server] attribute in NGO – just guard with IsServer.
     public void SetPuzzlePrefabServer(GameObject prefab)
     {
         if (!IsServer) return;
@@ -118,6 +116,83 @@ public class DoorController : NetworkBehaviour
             navigatorPreview = ExtractPreviewFromPrefab();
     }
 
+    // ============================================================
+    // TV ACCESS (per-world, NO static)
+    // ============================================================
+    private NavigatorTVScreen GetLocalTV()
+    {
+        // Important: no static/singleton usage.
+        // In Multiplayer Play Mode, each "world" should find its own scene TV object.
+        var tv = Object.FindFirstObjectByType<NavigatorTVScreen>(FindObjectsInactive.Include);
+
+        if (tv == null)
+        {
+            Debug.LogWarning(
+                $"[PUZZLE-TV] No NavigatorTVScreen found in this world | IsServer={IsServer} IsClient={IsClient} LocalId={NetworkManager.Singleton?.LocalClientId}",
+                this
+            );
+        }
+
+        return tv;
+    }
+
+    private void ApplyTextureToNavigatorScreenSlot(Texture tex)
+    {
+        var tv = GetLocalTV();
+        if (tv == null) return;
+        tv.Apply(tex);
+    }
+
+    private void ClearNavigatorScreen()
+    {
+        var tv = GetLocalTV();
+        if (tv == null) return;
+        tv.Clear();
+    }
+
+    // ============================================================
+    // DOOR INITIALIZATION
+    // ============================================================
+    private void InitDoorLogic()
+    {
+        switch (doorType)
+        {
+            case DoorType.Puzzle:
+                EnsurePuzzleLoadedFromNet(puzzlePrefabPath.Value);
+
+                if (navigatorPreview == null)
+                    navigatorPreview = ExtractPreviewFromPrefab();
+
+                door = new PuzzleDoor(this);
+                break;
+
+            case DoorType.Normal:
+                door = new NormalDoor(this);
+                break;
+
+            case DoorType.Exit:
+                door = new ExitDoor(this);
+                break;
+        }
+    }
+
+    // ============================================================
+    // INTERACTION
+    // ============================================================
+    public void Interact()
+    {
+        if (doorType == DoorType.Puzzle)
+            return;
+        RequestOpenDoorServerRpc();
+    }
+
+    public bool TravellerIsOnPad() => pad != null && pad.IsPlayerOnPad();
+    public bool IsOpen() => door != null && door.IsOpen();
+    public PuzzleDoor GetPuzzle() => door as PuzzleDoor;
+
+    // ============================================================
+    // PIVOT
+    // ============================================================
     private void EnsurePivot()
     {
         if (pivotOverride != null)
@@ -204,125 +279,18 @@ public class DoorController : NetworkBehaviour
     }
 
     // ============================================================
-    // FIND NAVIGATOR SCREEN QUAD
-    // ============================================================
-    private void TryFindNavigatorScreenQuad()
-    {
-        if (navigatorScreenQuad != null)
-            return;
-
-        if (!string.IsNullOrEmpty(navigatorScreenTag))
-        {
-            GameObject tvObj = GameObject.FindGameObjectWithTag(navigatorScreenTag);
-            if (tvObj != null)
-                navigatorScreenQuad = tvObj.GetComponent<MeshRenderer>();
-        }
-
-        if (navigatorScreenQuad == null)
-        {
-            Debug.LogWarning(
-                $"[PUZZLE-TV] navigatorScreenQuad is NULL on {name} – "
-                + "תוודא של-Quad של המסך יש Tag '"
-                + navigatorScreenTag
-                + "' או שגררת אותו ידנית ל-Inspector.",
-                this
-            );
-        }
-    }
-
-    // ============================================================
-    // MATERIAL HANDLING
-    // ============================================================
-    private void ApplyUnlitMaterial(Texture tex)
-    {
-        if (tex == null) return;
-
-        if (navigatorScreenQuad == null)
-            TryFindNavigatorScreenQuad();
-
-        if (navigatorScreenQuad == null)
-        {
-            Debug.LogWarning(
-                "[PUZZLE-TV] ApplyUnlitMaterial: navigatorScreenQuad עדיין NULL על " + name,
-                this
-            );
-            return;
-        }
-
-        Shader unlitShader = Shader.Find("Universal Render Pipeline/Unlit");
-        if (unlitShader == null)
-        {
-            Debug.LogError("[PUZZLE-TV] לא נמצא Shader 'Universal Render Pipeline/Unlit'", navigatorScreenQuad);
-            return;
-        }
-
-        navigatorScreenMaterialInstance = new Material(unlitShader);
-
-        navigatorScreenMaterialInstance.SetTexture("_BaseMap", tex);
-        navigatorScreenMaterialInstance.SetTexture("_MainTex", tex);
-
-        navigatorScreenQuad.material = navigatorScreenMaterialInstance;
-
-        Debug.Log(
-            "[PUZZLE-TV] Applied UNLIT material with puzzle texture on navigator screen ("
-            + navigatorScreenQuad.gameObject.name
-            + ")",
-            navigatorScreenQuad
-        );
-    }
-
-    // ============================================================
-    // DOOR INITIALIZATION
-    // ============================================================
-    private void InitDoorLogic()
-    {
-        switch (doorType)
-        {
-            case DoorType.Puzzle:
-                EnsurePuzzleLoadedFromNet();
-
-                if (navigatorPreview == null)
-                    navigatorPreview = ExtractPreviewFromPrefab();
-
-                door = new PuzzleDoor(this);
-                break;
-
-            case DoorType.Normal:
-                door = new NormalDoor(this);
-                break;
-
-            case DoorType.Exit:
-                door = new ExitDoor(this);
-                break;
-        }
-    }
-
-    // ============================================================
-    // INTERACTION
-    // ============================================================
-    public void Interact()
-    {
-        if (doorType == DoorType.Puzzle)
-            return;
-        RequestOpenDoorServerRpc();
-    }
-
-    public bool TravellerIsOnPad() => pad != null && pad.IsPlayerOnPad();
-    public bool IsOpen() => door != null && door.IsOpen();
-    public PuzzleDoor GetPuzzle() => door as PuzzleDoor;
-
-    // ============================================================
     // PUZZLE PREFAB LOAD (CLIENT)
     // ============================================================
-    private void EnsurePuzzleLoadedFromNet()
+    private void EnsurePuzzleLoadedFromNet(FixedString128Bytes explicitPath)
     {
         if (puzzlePrefab != null)
             return;
 
-        if (puzzlePrefabPath.Value.IsEmpty)
+        FixedString128Bytes pathVal = !explicitPath.IsEmpty ? explicitPath : puzzlePrefabPath.Value;
+        if (pathVal.IsEmpty)
             return;
 
-        string path = puzzlePrefabPath.Value.ToString();
+        string path = pathVal.ToString();
         var loaded = Resources.Load<GameObject>(path);
 
         if (loaded == null)
@@ -333,6 +301,11 @@ public class DoorController : NetworkBehaviour
         }
 
         puzzlePrefab = loaded;
+    }
+
+    private void EnsurePuzzleLoadedFromNet()
+    {
+        EnsurePuzzleLoadedFromNet(default);
     }
 
     private Sprite ExtractPreviewFromPrefab()
@@ -380,140 +353,85 @@ public class DoorController : NetworkBehaviour
     }
 
     // ============================================================
-    // STATIC DOOR LOOKUP HELPERS
-    // ============================================================
-    public static DoorController FindDoorPlayerIsOn()
-    {
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
-        {
-            if (door.TravellerIsOnPad())
-                return door;
-        }
-        return null;
-    }
-
-    public static DoorController FindDoorPlayerIsOn(GameObject _) => FindDoorPlayerIsOn();
-
-    public static DoorController FindDoorPlayerIsOn(DoorType type)
-    {
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
-        {
-            if (door.doorType == type && door.TravellerIsOnPad())
-                return door;
-        }
-        return null;
-    }
-
-    public static DoorController FindNearestDoorOnPad(Vector3 position, float maxDistance = 5f)
-    {
-        DoorController nearest = null;
-        float minDist = float.MaxValue;
-
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
-        {
-            if (!door.TravellerIsOnPad())
-                continue;
-
-            float dist = Vector3.Distance(position, door.transform.position);
-            if (dist < minDist && dist <= maxDistance)
-            {
-                nearest = door;
-                minDist = dist;
-            }
-        }
-        return nearest;
-    }
-
-    public static DoorController FindNearestDoorOnPad(
-        DoorType type,
-        Vector3 position,
-        float maxDistance = 5f
-    )
-    {
-        DoorController nearest = null;
-        float minDist = float.MaxValue;
-
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
-        {
-            if (door.doorType != type)
-                continue;
-            if (!door.TravellerIsOnPad())
-                continue;
-
-            float dist = Vector3.Distance(position, door.transform.position);
-            if (dist < minDist && dist <= maxDistance)
-            {
-                nearest = door;
-                minDist = dist;
-            }
-        }
-        return nearest;
-    }
-
-    public static DoorController FindPuzzleDoorWithTravellerOnPad()
-    {
-        foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
-        {
-            if (door.doorType == DoorType.Puzzle && door.TravellerIsOnPad())
-                return door;
-        }
-        return null;
-    }
-
-    // ============================================================
     // PUBLIC API FOR PUZZLE-TV
     // ============================================================
     public void ShowNavigatorPreviewOnScreen(Sprite sprite)
     {
         navigatorPreview = sprite;
+
         bool showPuzzle = sprite != null && sprite.texture != null;
 
         if (!IsServer)
             RequestSetNavigatorScreenServerRpc(showPuzzle);
         else
-            SetNavigatorScreenClientRpc(showPuzzle);
+            SetNavigatorScreenClientRpc(showPuzzle, puzzlePrefabPath.Value);
     }
 
     [ServerRpc(RequireOwnership = false)]
     private void RequestSetNavigatorScreenServerRpc(bool showPuzzle)
     {
-        SetNavigatorScreenClientRpc(showPuzzle);
+        SetNavigatorScreenClientRpc(showPuzzle, puzzlePrefabPath.Value);
     }
 
     [Rpc(SendTo.Everyone)]
-    private void SetNavigatorScreenClientRpc(bool showPuzzle)
+    private void SetNavigatorScreenClientRpc(bool showPuzzle, FixedString128Bytes prefabPath)
     {
         if (!showPuzzle)
+        {
+            ClearNavigatorScreen();
             return;
-
-        EnsurePuzzleLoadedFromNet();
-
-        if (navigatorPreview == null || navigatorPreview.texture == null)
-        {
-            var extracted = ExtractPreviewFromPrefab();
-            if (extracted != null)
-                navigatorPreview = extracted;
         }
 
-        if (navigatorPreview != null && navigatorPreview.texture != null)
+        if (_tvApplyRoutine != null)
+            StopCoroutine(_tvApplyRoutine);
+
+        _tvApplyRoutine = StartCoroutine(ApplyPuzzleToTVRoutine(prefabPath));
+    }
+
+    private IEnumerator ApplyPuzzleToTVRoutine(FixedString128Bytes prefabPath)
+    {
+        // NOTE: Removed TryFindNavigatorScreenQuad(); doors never touch Televisor renderers.
+
+        for (int i = 0; i < tvApplyRetries; i++)
         {
-            ApplyUnlitMaterial(navigatorPreview.texture);
-            Debug.LogFormat(
-                LogType.Log,
-                LogOption.NoStacktrace,
-                null,
-                $"[DoorController] Applied UNLIT puzzle texture '{navigatorPreview.name}' on '{name}'"
-            );
+            EnsurePuzzleLoadedFromNet(prefabPath);
+
+            if (navigatorPreview == null || navigatorPreview.texture == null)
+            {
+                var extracted = ExtractPreviewFromPrefab();
+                if (extracted != null)
+                    navigatorPreview = extracted;
+            }
+
+            if (navigatorPreview != null && navigatorPreview.texture != null)
+            {
+                ApplyTextureToNavigatorScreenSlot(navigatorPreview.texture);
+
+                Debug.LogFormat(
+                    LogType.Log,
+                    LogOption.NoStacktrace,
+                    null,
+                    $"[DoorController] Applied puzzle texture '{navigatorPreview.name}' on '{name}' (retries={i})"
+                );
+
+                _tvApplyRoutine = null;
+                yield break;
+            }
+
+            if (tvApplyRetryDelaySeconds > 0f)
+                yield return new WaitForSeconds(tvApplyRetryDelaySeconds);
+            else
+                yield return null;
         }
-        else
-        {
-            Debug.LogFormat(
-                LogType.Warning,
-                LogOption.NoStacktrace,
-                null,
-                $"[DoorController] Cannot apply puzzle texture — no valid sprite on {name}"
-            );
-        }
+
+        Debug.LogFormat(
+            LogType.Warning,
+            LogOption.NoStacktrace,
+            null,
+            $"[DoorController] Cannot apply puzzle texture — no valid sprite on {name} after retries. path='{prefabPath.ToString()}'"
+        );
+
+        _tvApplyRoutine = null;
     }
 
     // ============================================================
@@ -531,6 +449,14 @@ public class DoorController : NetworkBehaviour
 
         if (!IsServer)
             return;
+
+        EnsurePuzzleLoadedFromNet(puzzlePrefabPath.Value);
+
+        if (navigatorPreview == null)
+            navigatorPreview = ExtractPreviewFromPrefab();
+
+        bool canShow = navigatorPreview != null && navigatorPreview.texture != null;
+        SetNavigatorScreenClientRpc(canShow, puzzlePrefabPath.Value);
 
         OpenPuzzleForTravellerClientRpc(NetworkObjectId);
     }
@@ -586,4 +512,3 @@ public class DoorController : NetworkBehaviour
         }
     }
 }
-    
