@@ -142,13 +142,11 @@ public sealed class PlayerSpawnManager : MonoBehaviour
 
         sceneSpawnsReady = false;
 
-   
         if (!IsGameplayScene(sceneName))
             return;
 
         sceneLoadToken++;
 
-      
         if (sceneInitRoutine != null)
         {
             StopCoroutine(sceneInitRoutine);
@@ -184,7 +182,6 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         sceneSpawnsReady = true;
         SpawnOrMoveAllPlayers();
     }
-
 
     // -------------------------------------------------
     // Spawn resolution
@@ -227,10 +224,8 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             if (mg != null && mg.IsReady && mg.TravellerSpawn != null)
             {
                 travellerSpawn = mg.TravellerSpawn;
-
                 yield break;
             }
-
 
             yield return null;
         }
@@ -267,21 +262,25 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         if (nm == null || !nm.IsServer) return;
 
         var ids = nm.ConnectedClientsIds;
-        if (ids.Count == 0) return;
+        if (ids == null || ids.Count == 0) return;
 
         ulong travellerId = NetworkManager.ServerClientId;
-        ulong? navigatorId = ids.FirstOrDefault(id => id != travellerId);
+
+        // navigatorId exists only if there is a non-server client connected
+        bool hasNavigator = ids.Any(id => id != travellerId);
+        ulong navigatorId = ids.FirstOrDefault(id => id != travellerId);
 
         EnsurePlayer(travellerId, travellerPrefab, travellerSpawn, true);
 
-        if (navigatorId.HasValue && ids.Contains(navigatorId.Value))
-            EnsurePlayer(navigatorId.Value, navigatorPrefab, navigatorSpawn, false);
+        if (hasNavigator && ids.Contains(navigatorId))
+            EnsurePlayer(navigatorId, navigatorPrefab, navigatorSpawn, false);
     }
 
     private void EnsureOnlyThisClient(ulong clientId)
     {
         if (!sceneSpawnsReady)
             return;
+
         var nm = NetworkManager.Singleton;
         if (nm == null || !nm.IsServer) return;
 
@@ -302,10 +301,13 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         if (nm == null || !nm.IsServer) return;
 
         if (!nm.ConnectedClients.TryGetValue(clientId, out var cc)) return;
+
         if (!spawn)
         {
             if (isTraveller)
+            {
                 spawn = null; // Traveller allowed to fallback later
+            }
             else
             {
                 Debug.LogError("[SPAWN] ❌ Navigator has NO PlayerStartPoint in scene");
@@ -316,13 +318,15 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         Vector3 pos = spawn ? spawn.position : fallbackTravellerPos;
         Quaternion rot = spawn ? spawn.rotation : Quaternion.Euler(0f, fallbackYRotation, 0f);
 
-
+        // If already exists: teleport + re-apply role (Option A safety)
         if (cc.PlayerObject != null)
         {
+            ApplyRoleIfPresent(cc.PlayerObject, isTraveller);
             TeleportNetworkSafe(cc.PlayerObject, pos, rot);
             return;
         }
 
+        // Spawn new
         var obj = Instantiate(prefab, pos, rot);
         var netObj = obj.GetComponent<NetworkObject>();
         if (netObj == null)
@@ -331,11 +335,26 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             Destroy(obj);
             return;
         }
+
+        // ✅ Option A: same prefab for both roles — set role BEFORE SpawnAsPlayerObject
+        ApplyRoleIfPresent(netObj, isTraveller);
+
         netObj.SpawnAsPlayerObject(clientId, destroyWithScene);
-
-
     }
- 
+
+    /// <summary>
+    /// Option A helper:
+    /// Assumes PlayerMovement has: public void SetRole(PlayerMovement.PlayerRole r)
+    /// </summary>
+    private static void ApplyRoleIfPresent(NetworkObject playerObject, bool isTraveller)
+    {
+        if (playerObject == null) return;
+
+        var pm = playerObject.GetComponent<PlayerMovement>();
+        if (pm == null) return;
+
+        pm.SetRole(isTraveller ? PlayerMovement.PlayerRole.Traveller : PlayerMovement.PlayerRole.Navigator);
+    }
 
     private IEnumerator WaitForNavigatorSpawnPoint(string sceneName, int token)
     {
@@ -364,7 +383,6 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         var nt = obj.GetComponent<NetworkTransform>();
         if (nt != null)
         {
-           
             if (nt.CanCommitToTransform)
             {
                 nt.Teleport(pos, rot, obj.transform.localScale);
@@ -375,7 +393,6 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         // Fallback: at least set locally (authoritative side will replicate)
         obj.transform.SetPositionAndRotation(pos, rot);
     }
-
 
     // -------------------------------------------------
     // Tutorial helper (unchanged)

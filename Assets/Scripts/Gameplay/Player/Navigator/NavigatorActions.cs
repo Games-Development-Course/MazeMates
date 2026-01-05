@@ -11,6 +11,10 @@ public class NavigatorActions : NetworkBehaviour
 
     private TutorialManager tutorial;
 
+    // =====================================================================
+    // UNITY LIFECYCLE
+    // =====================================================================
+
     private void Awake()
     {
         Debug.LogFormat(
@@ -33,6 +37,7 @@ public class NavigatorActions : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        // owner instance (navigator client)
         if (IsOwner)
             Instance = this;
 
@@ -42,7 +47,7 @@ public class NavigatorActions : NetworkBehaviour
             LogType.Log,
             LogOption.NoStacktrace,
             null,
-            $"[NavigatorActions][OnNetworkSpawn] IsOwner={IsOwner} IsHost={IsHost} IsServer={IsServer} LocalClientId={(NetworkManager.Singleton != null ? NetworkManager.Singleton.LocalClientId : 9999)}"
+            $"[NavigatorActions][OnNetworkSpawn] IsOwner={IsOwner} IsHost={IsHost} IsServer={IsServer} IsSpawned={IsSpawned} LocalClientId={(NetworkManager.Singleton != null ? NetworkManager.Singleton.LocalClientId : 9999)}"
         );
     }
 
@@ -64,35 +69,39 @@ public class NavigatorActions : NetworkBehaviour
     // =====================================================================
 
     /// <summary>
-    /// כפתור יחיד: אם המטייל עומד על דלת רגילה -> פותח
-    /// אם על דלת חידה -> פותח פאזל
-    /// אם על דלת יציאה -> מנסה ניצחון (רק אם כל המפתחות נאספו)
+    /// כפתור יחיד:
+    /// - דלת רגילה → פותח
+    /// - דלת חידה → פותח פאזל
+    /// - דלת יציאה → מנסה ניצחון (אם כל המפתחות נאספו)
     /// </summary>
     public void UI_OpenDoor()
     {
-        // Route to local owner's instance (fixes IsOwner=False button wiring)
-        if (Instance != null && Instance != this)
-        {
-            Debug.LogFormat(
-                LogType.Log,
-                LogOption.NoStacktrace,
-                null,
-                $"[NAV-ACT] UI_OpenDoor routed -> local Instance (thisOwner={IsOwner}, instanceOwner={Instance.IsOwner})"
-            );
-            Instance.UI_OpenDoor();
+        // 1) Always try to route to the real local navigator instance (owner+spawned).
+        if (TryRouteToLocalOwnerInstance(nameof(UI_OpenDoor)))
             return;
-        }
 
         Debug.LogFormat(
             LogType.Log,
             LogOption.NoStacktrace,
             null,
-            $"[NAV-ACT] UI_OpenDoor pressed | IsHost={IsHost} IsOwner={IsOwner}"
+            $"[NAV-ACT] UI_OpenDoor pressed | IsOwner={IsOwner} IsHost={IsHost} IsServer={IsServer} IsSpawned={IsSpawned}"
         );
 
         if (!IsLocalNavigator())
         {
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[NAV-ACT] UI_OpenDoor aborted: not local navigator");
+            Debug.LogFormat(
+                LogType.Log,
+                LogOption.NoStacktrace,
+                null,
+                "[NAV-ACT] UI_OpenDoor aborted: not local navigator (not owner)"
+            );
+            return;
+        }
+
+        if (!IsSpawned)
+        {
+            Debug.LogWarning("[NAV-ACT] UI_OpenDoor aborted: NetworkObject not spawned yet");
+            HUDManager.Instance?.ShowMessageForNavigator("הנווט עדיין נטען… נסה שוב בעוד רגע");
             return;
         }
 
@@ -100,17 +109,11 @@ public class NavigatorActions : NetworkBehaviour
         UseDoorOnTravellerPadServerRpc();
     }
 
-    // תאימות לאחור: אם עדיין יש כפתורים ישנים בסצנה/Prefab – שלא יישבר
+    // Backward compatibility
     public void UI_ShowPuzzle() => UI_OpenDoor();
-
-    // אם יש לך כפתור “VictoryDoor”/דומה שקורא למתודה אחרת – תשאיר/תכוון אותו לזה
     public void UI_VictoryDoor() => UI_OpenDoor();
 
-    private bool IsLocalNavigator()
-    {
-        // אצלך: Host = Traveller, Client = Navigator
-        return !IsHost;
-    }
+    private bool IsLocalNavigator() => IsOwner;
 
     // =====================================================================
     // SERVER AUTHORITATIVE DOOR ACTIONS (unified)
@@ -130,10 +133,9 @@ public class NavigatorActions : NetworkBehaviour
             return;
         }
 
-        // Find door by authoritative pad triggers (server-side)
         DoorController door = FindDoorTravellerIsStandingOnServer(null);
 
-        Debug.Log($"[NAV-ACT][ServerRpc] FindDoorTravellerIsStandingOnServer(ANY) -> {(door == null ? "NULL" : door.name)}");
+        Debug.Log($"[NAV-ACT][ServerRpc] FindDoorTravellerIsStandingOnServer -> {(door == null ? "NULL" : door.name)}");
 
         if (door == null)
         {
@@ -143,11 +145,10 @@ public class NavigatorActions : NetworkBehaviour
 
         Debug.Log($"[NAV-ACT][ServerRpc] Door type={door.doorType} open={door.IsOpen()} name={door.name}");
 
-        // החלטה לפי סוג הדלת
         if (door.doorType == DoorType.Puzzle)
         {
             Debug.Log($"[NAV-ACT][ServerRpc] Puzzle door -> RequestOpenPuzzleDoorRpc() for {door.name}");
-            door.RequestOpenPuzzleDoorRpc();
+            door.RequestOpenPuzzleDoorServerRpc();
             tutorial?.NotifyNavigatorOpenedPuzzleDoor();
             return;
         }
@@ -165,22 +166,14 @@ public class NavigatorActions : NetworkBehaviour
             return;
         }
 
-        // Normal (וגם כל סוג אחר שאינו Puzzle/Exit)
         Debug.Log($"[NAV-ACT][ServerRpc] Normal door -> Interact() for {door.name}");
         door.Interact();
         tutorial?.NotifyNavigatorOpenedNormalDoor();
     }
 
-    /// <summary>
-    /// SERVER ONLY:
-    /// Find which door the traveller is standing on by scanning PadTrigger components.
-    /// PadTrigger.playerOnPad is local but on the server it is authoritative for traveller collisions.
-    /// </summary>
     private static DoorController FindDoorTravellerIsStandingOnServer(DoorType? filter)
     {
         var pads = Object.FindObjectsOfType<PadTrigger>(true);
-
-        DoorController best = null;
 
         for (int i = 0; i < pads.Length; i++)
         {
@@ -196,56 +189,43 @@ public class NavigatorActions : NetworkBehaviour
             if (filter.HasValue && door.doorType != filter.Value)
                 continue;
 
-            best = door;
-            break;
+            return door;
         }
 
-        return best;
+        return null;
     }
 
     // =====================================================================
-    // Existing features (kept)
+    // Existing features (kept) — routed the same way
     // =====================================================================
 
     public void UI_RemoveBomb()
     {
-        // Route to local owner's instance
-        if (Instance != null && Instance != this)
+        // If we're running on Host (traveller) - navigator actions shouldn't run here
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsHost)
         {
-            Instance.UI_RemoveBomb();
+            Debug.Log("[NAV] UI_RemoveBomb ignored on Host");
             return;
         }
 
-        Debug.LogFormat(
-            LogType.Log,
-            LogOption.NoStacktrace,
-            null,
-            $"[NAV] RemoveBomb pressed | Owner={IsOwner} Server={IsServer} Host={IsHost}"
-        );
-
-        if (!IsLocalNavigator())
-            return;
-
+        // Allow working even if this component isn't the owner instance
         if (ResourceManager.Instance == null)
         {
             HUDManager.Instance?.ShowMessageForNavigator("מערכת משאבים לא מוכנה");
             return;
         }
 
+        Debug.Log("[NAV] UI_RemoveBomb -> TryRemoveBomb()");
         ResourceManager.Instance.TryRemoveBomb();
     }
 
     public void UI_UseLifebuoy()
     {
-        // Route to local owner's instance
-        if (Instance != null && Instance != this)
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsHost)
         {
-            Instance.UI_UseLifebuoy();
+            Debug.Log("[NAV] UI_UseLifebuoy ignored on Host");
             return;
         }
-
-        if (!IsLocalNavigator())
-            return;
 
         if (ResourceManager.Instance == null)
         {
@@ -253,32 +233,95 @@ public class NavigatorActions : NetworkBehaviour
             return;
         }
 
+        Debug.Log("[NAV] UI_UseLifebuoy -> TryUseLifebuoy()");
         ResourceManager.Instance.TryUseLifebuoy();
     }
 
-    public void UI_PlaceHeart()
+
+
+
+    // =====================================================================
+    // Routing Helpers (THIS FIXES YOUR CURRENT LOG: IsOwner=False IsSpawned=False)
+    // =====================================================================
+
+    /// <summary>
+    /// If this UI call is hitting a non-owner/non-spawned NavigatorActions (common with shared UI),
+    /// route the call to the real local owner instance (IsOwner && IsSpawned).
+    /// </summary>
+    private bool TryRouteToLocalOwnerInstance(string uiMethodName)
     {
-        // Route to local owner's instance
+        // If our static instance exists and it's not us, route to it.
         if (Instance != null && Instance != this)
         {
-            Instance.UI_PlaceHeart();
-            return;
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                $"[NAV-ACT] {uiMethodName} routed -> static Instance (thisOwner={IsOwner}, thisSpawned={IsSpawned}, instanceOwner={Instance.IsOwner}, instanceSpawned={Instance.IsSpawned})");
+
+            // Call the same method on Instance
+            InvokeOn(Instance, uiMethodName);
+            return true;
         }
 
-        if (!IsLocalNavigator())
-            return;
-
-        if (ResourceManager.Instance == null)
+        // If Instance is null OR Instance accidentally points nowhere useful, try to find the real owner instance.
+        var resolved = ResolveLocalOwnerInstance();
+        if (resolved != null && resolved != this)
         {
-            HUDManager.Instance?.ShowMessageForNavigator("מערכת משאבים לא מוכנה");
-            return;
+            Instance = resolved; // cache it
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                $"[NAV-ACT] {uiMethodName} resolved owner instance -> {resolved.name} (owner={resolved.IsOwner}, spawned={resolved.IsSpawned})");
+
+            InvokeOn(resolved, uiMethodName);
+            return true;
         }
 
-        ResourceManager.Instance.TryPlaceHeart();
+        // If we are not the real owner/spawned instance, we should not proceed.
+        if (!IsOwner || !IsSpawned)
+        {
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                $"[NAV-ACT] {uiMethodName} blocked (no owner instance ready). thisOwner={IsOwner} thisSpawned={IsSpawned} instanceNull={(Instance == null)}");
+
+            HUDManager.Instance?.ShowMessageForNavigator("הנווט עדיין לא מוכן (Owner). נסה שוב בעוד רגע");
+            return true; // stop here, because continuing would fail anyway
+        }
+
+        return false;
+    }
+
+    private static NavigatorActions ResolveLocalOwnerInstance()
+    {
+        var all = Object.FindObjectsOfType<NavigatorActions>(true);
+        for (int i = 0; i < all.Length; i++)
+        {
+            var a = all[i];
+            if (a == null) continue;
+            if (a.IsOwner && a.IsSpawned)
+                return a;
+        }
+        return null;
+    }
+
+    private static void InvokeOn(NavigatorActions target, string uiMethodName)
+    {
+        // Avoid reflection allocations in hot paths? This is UI-only, so OK.
+        switch (uiMethodName)
+        {
+            case nameof(UI_OpenDoor):
+                target.UI_OpenDoor();
+                break;
+            case nameof(UI_RemoveBomb):
+                target.UI_RemoveBomb();
+                break;
+            case nameof(UI_UseLifebuoy):
+                target.UI_UseLifebuoy();
+                break;
+            default:
+                // fallback: do nothing
+                Debug.LogWarning($"[NAV-ACT] InvokeOn unknown UI method: {uiMethodName}");
+                break;
+        }
     }
 
     // =====================================================================
-    // Helpers
+    // Net helpers
     // =====================================================================
 
     private static NetworkObject FindTravellerNetworkObject()
@@ -289,9 +332,7 @@ public class NavigatorActions : NetworkBehaviour
         if (nm == null) return null;
 
         if (nm.ConnectedClients != null && nm.ConnectedClients.TryGetValue(travellerClientId, out var client))
-        {
             return client.PlayerObject;
-        }
 
         foreach (var no in Object.FindObjectsOfType<NetworkObject>(true))
         {
@@ -313,6 +354,7 @@ public class NavigatorActions : NetworkBehaviour
     [ClientRpc]
     private void SendNavigatorMessageTargetClientRpc(string msg, ClientRpcParams rpcParams = default)
     {
+        // Navigator is client-only
         if (IsHost) return;
         HUDManager.Instance?.ShowMessageForNavigator(msg);
     }

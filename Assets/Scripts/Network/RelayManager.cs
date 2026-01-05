@@ -14,15 +14,21 @@ public class RelayManager : MonoBehaviour
     public static RelayManager Instance { get; private set; }
 
     [Header("Relay Settings")]
-    [SerializeField] private int maxConnections = 2;
+    [SerializeField] private int maxConnections = 2; // total players (host + clients)
+
+    [Header("Dev")]
+    [Tooltip("Disable RelayManager in Editor/Development builds so RelayAutoFlow can own networking.")]
+    [SerializeField] private bool disableInDevBuilds = true;
 
     public int MaxConnections => maxConnections;
 
     private const string ConnectionType = "wss";
     private bool _servicesInitialized;
+    private Task _initTask; // prevents double init/sign-in
 
     private void Awake()
     {
+
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -34,11 +40,29 @@ public class RelayManager : MonoBehaviour
 
     private async void Start()
     {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (disableInDevBuilds)
+        {
+            Debug.Log("[RelayManager] DEV build -> disabled (RelayAutoFlow should own networking).");
+            enabled = false;
+            return;
+        }
+#endif
+
+        Debug.LogError($"[RelayManager] START name={gameObject.name} activeSelf={gameObject.activeSelf} activeInHierarchy={gameObject.activeInHierarchy} scene={gameObject.scene.name} id={GetInstanceID()}");
+
         await EnsureUnityServicesInitializedAsync();
         Debug.Log("[Relay] Unity Services ready.");
     }
 
-    private async Task EnsureUnityServicesInitializedAsync()
+    private Task EnsureUnityServicesInitializedAsync()
+    {
+        // If an init is already running or completed, reuse it.
+        _initTask ??= EnsureUnityServicesInitializedInternalAsync();
+        return _initTask;
+    }
+
+    private async Task EnsureUnityServicesInitializedInternalAsync()
     {
         if (_servicesInitialized) return;
 
@@ -50,6 +74,8 @@ public class RelayManager : MonoBehaviour
                 Debug.Log("[Relay] Unity Services initialized.");
             }
 
+            // No AuthenticationService.State API in some package versions.
+            // Using Task caching (_initTask) prevents concurrent SignIn calls.
             if (!AuthenticationService.Instance.IsSignedIn)
             {
                 await AuthenticationService.Instance.SignInAnonymouslyAsync();
@@ -60,6 +86,8 @@ public class RelayManager : MonoBehaviour
         }
         catch (Exception e)
         {
+            // Allow retry if it failed
+            _initTask = null;
             Debug.LogError($"[Relay] Failed to initialize Unity Services: {e}");
         }
     }
@@ -92,14 +120,16 @@ public class RelayManager : MonoBehaviour
 
         try
         {
-            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(maxConnections);
+            // Relay CreateAllocationAsync expects number of clients (excluding host).
+            int maxClients = Mathf.Max(0, maxConnections - 1);
+
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(maxClients);
             RelayServerData relayServerData = new RelayServerData(allocation, ConnectionType);
 
             transport.SetRelayServerData(relayServerData);
             transport.UseWebSockets = true;
 
             string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
-
             Debug.Log($"[Relay] Host allocation created. JoinCode = {joinCode}");
 
             bool started = NetworkManager.Singleton.StartHost();

@@ -1,9 +1,18 @@
-﻿using UnityEngine;
+﻿// File: Assets/Scripts/Gameplay/Door/PadTrigger.cs (או איפה שהקובץ שלך יושב)
+using Unity.Netcode;
+using UnityEngine;
 
-public class PadTrigger : MonoBehaviour
+[DisallowMultipleComponent]
+public class PadTrigger : NetworkBehaviour
 {
     private DoorController controller;
-    private bool playerOnPad = false;
+
+    // authoritative state on server, readable by everyone
+    private readonly NetworkVariable<bool> playerOnPadNet = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
 
     private void Awake()
     {
@@ -11,64 +20,117 @@ public class PadTrigger : MonoBehaviour
         Debug.Log($"[PadTrigger][Awake] controller={(controller != null ? controller.name : "NULL")}");
     }
 
-    void OnTriggerEnter(Collider other)
+    private void EnsureController()
     {
+        if (controller == null)
+            controller = GetComponentInParent<DoorController>();
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        // IMPORTANT: only server sets state
+        if (!IsServer)
+            return;
+
         if (!other.CompareTag("Player"))
             return;
 
-        playerOnPad = true;
+        // We only care if the TRAVELLER is on pad (host player object).
+        if (!IsTravellerPlayerCollider(other))
+            return;
 
-        if (controller == null)
-            controller = GetComponentInParent<DoorController>();
+        EnsureController();
+        playerOnPadNet.Value = true;
 
         Debug.Log(
-            $"[PadTrigger] Player ENTER pad | door={(controller != null ? controller.name : "NULL")} " +
+            $"[PadTrigger][Server] Traveller ENTER pad | door={(controller != null ? controller.name : "NULL")} " +
             $"isOpen={(controller != null && controller.IsOpen())}"
         );
 
+        // tell traveller what to do (space prompt) - ONLY if door isn't open
         if (controller != null && controller.IsOpen())
             return;
 
-        var hud = HUDManager.Instance;
-        var gm = GameManager.Instance;
+        // Only show messages if you allow space activation
+        if (!CanActivateDoorWithSpace())
+            return;
 
-        switch (controller.doorType)
-        {
-            case DoorType.Normal:
-                hud.ShowMessageForTraveller("לחץ רווח לפתוח את הדלת");
-                break;
-
-            case DoorType.Puzzle:
-                hud.ShowMessageForTraveller("לחץ רווח להתחיל את החידה");
-                break;
-
-            case DoorType.Exit:
-                if (gm != null && gm.AllKeysCollected())
-                    hud.ShowMessageForTraveller("יש לך את כל המפתחות! הקש רווח לניצחון!");
-                else
-                    hud.ShowMessageForTraveller("עליך לאסוף את כל המפתחות");
-                break;
-        }
+        ShowTravellerPadMessageServer();
     }
 
-    void OnTriggerExit(Collider other)
+    private void OnTriggerExit(Collider other)
     {
+        // IMPORTANT: only server sets state
+        if (!IsServer)
+            return;
+
         if (!other.CompareTag("Player"))
             return;
 
-        playerOnPad = false;
+        if (!IsTravellerPlayerCollider(other))
+            return;
 
-        Debug.Log($"[PadTrigger] Player EXIT pad | door={(controller != null ? controller.name : "NULL")}");
+        EnsureController();
+        playerOnPadNet.Value = false;
 
+        Debug.Log($"[PadTrigger][Server] Traveller EXIT pad | door={(controller != null ? controller.name : "NULL")}");
+
+        // If leaving while puzzle open -> force close (server decides, but close is local puzzle UI)
+        // We'll keep your previous behavior but only execute it on everyone so traveller closes it.
         if (controller != null && !controller.IsOpen())
         {
             var puzzle = controller.GetPuzzle();
             if (puzzle != null)
-                puzzle.ForceClosePuzzle();
+                ForceClosePuzzleClientRpc();
         }
     }
 
-    public bool IsPlayerOnPad() => playerOnPad;
+    // Called by server to instruct traveller UI
+    private void ShowTravellerPadMessageServer()
+    {
+        if (controller == null)
+            return;
+
+        var gm = GameManager.Instance;
+        string msg = null;
+
+        switch (controller.doorType)
+        {
+            case DoorType.Normal:
+                msg = "לחץ רווח לפתוח את הדלת";
+                break;
+
+            case DoorType.Puzzle:
+                msg = "לחץ רווח להתחיל את החידה";
+                break;
+
+            case DoorType.Exit:
+                if (gm != null && gm.AllKeysCollected())
+                    msg = "יש לך את כל המפתחות! הקש רווח לניצחון!";
+                else
+                    msg = "עליך לאסוף את כל המפתחות";
+                break;
+        }
+
+        if (!string.IsNullOrEmpty(msg))
+            SendTravellerMessageTargetClientRpc(msg, MakeTargetParams(NetworkManager.ServerClientId));
+    }
+
+    private bool IsTravellerPlayerCollider(Collider other)
+    {
+        // traveller is always host (ServerClientId)
+        var no = other.GetComponentInParent<NetworkObject>();
+        if (no == null || !no.IsSpawned || !no.IsPlayerObject)
+            return false;
+
+        return no.OwnerClientId == NetworkManager.ServerClientId;
+    }
+
+    public bool IsPlayerOnPad()
+    {
+        // Everyone can read the authoritative value
+        return playerOnPadNet.Value;
+    }
 
     public bool CanActivateDoorWithSpace()
     {
@@ -76,5 +138,31 @@ public class PadTrigger : MonoBehaviour
             return true;
 
         return DoorPadToggle.Instance.allowSpaceActivation;
+    }
+
+    private static ClientRpcParams MakeTargetParams(ulong clientId)
+    {
+        return new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams { TargetClientIds = new[] { clientId } }
+        };
+    }
+
+    [ClientRpc]
+    private void SendTravellerMessageTargetClientRpc(string msg, ClientRpcParams rpcParams = default)
+    {
+        // Runs only on the targeted client
+        HUDManager.Instance?.ShowMessageForTraveller(msg);
+    }
+
+    [ClientRpc]
+    private void ForceClosePuzzleClientRpc()
+    {
+        if (controller == null)
+            controller = GetComponentInParent<DoorController>();
+
+        var puzzle = controller != null ? controller.GetPuzzle() : null;
+        if (puzzle != null)
+            puzzle.ForceClosePuzzle();
     }
 }

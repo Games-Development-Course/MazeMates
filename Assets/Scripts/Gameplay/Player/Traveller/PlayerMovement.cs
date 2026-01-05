@@ -1,5 +1,6 @@
 ﻿// Assets/Scripts/Player/PlayerMovement.cs
-// (Based on your current file, only movement/camera-relative smoothing logic replaced; deps & RPCs kept.)
+// Networked version that behaves like Sandbox PlayerMoveLocal (arrows-only: forward/back + turn),
+// while KEEPING your existing dependencies (TutorialManager notify RPCs, bomb reset, HUD, teleport confirm).
 using System.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -14,55 +15,77 @@ public class PlayerMovement : NetworkBehaviour
     [Header("Role (kept for tutorial / bomb logic)")]
     [SerializeField] private PlayerRole role = PlayerRole.Traveller;
 
-    // =======================
-    // Movement (TOP DOWN)
-    // =======================
+    // =========================
+    // Move (Sandbox-like)
+    // =========================
     [Header("Move")]
     [SerializeField] private float maxSpeed = 6f;
+    [SerializeField] private float acceleration = 30f;
+    [SerializeField] private float deceleration = 40f;
 
-    [Tooltip("Time (seconds) to reach target speed. Smaller = snappier, bigger = smoother.")]
-    [SerializeField] private float accelTime = 0.12f;
+    [Tooltip("When ONLY Left/Right is pressed (no Up/Down), acceleration is multiplied by this (slower ramp).")]
+    [SerializeField, Range(0.05f, 1f)] private float sideAccelerationMultiplier = 0.4f;
 
-    [SerializeField] private float rotateSpeed = 12f;
-    [SerializeField] private bool faceMoveDirection = true;
+    [Tooltip("How fast the movement direction turns when steering (deg/sec).")]
+    [SerializeField] private float turnSpeed = 120f;
 
-    [Header("Move Relative To Camera (Yaw Only)")]
-    [SerializeField] private bool moveRelativeToCamera = true;
-    [SerializeField] private Transform cameraTransform; // if null -> uses Camera.main on owner
+    [Tooltip("How fast the body aligns to the movement direction (deg/sec).")]
+    [SerializeField] private float rotateSpeed = 720f;
 
+    [Tooltip("When pressing Left/Right with no forward/back input, this is the speed used to 'step' + turn.")]
+    [SerializeField] private float idleTurnMoveSpeed = 2.0f;
+
+    // =========================
+    // Camera buffer (Sandbox Solution 1)
+    // =========================
+    [Header("Camera buffer (Solution 1)")]
+    [SerializeField] private Camera mainCam;
+    [Tooltip("Point on/near the head. If empty, we try to use head bone, else fallback to this transform.")]
+    [SerializeField] private Transform headPoint;
+    [Tooltip("Minimum distance allowed between camera and headPoint. If closer, backward input is blocked.")]
+    [SerializeField] private float minCamHeadDistance = 0.7f;
+    [Tooltip("Extra slack before fully blocking (smooths the stop).")]
+    [SerializeField] private float bufferSoftRange = 0.25f;
+
+    // =========================
+    // Gravity
+    // =========================
     [Header("Gravity")]
     [SerializeField] private float gravity = -20f;
     [SerializeField] private float groundedStick = -2f;
 
+    // =========================
+    // Input (Arrow Keys Only)
+    // =========================
     [Header("Input (Arrow Keys Only)")]
     [SerializeField] private InputAction moveAction;
 
-    // =======================
+    // =========================
     // Animation
-    // =======================
+    // =========================
     [Header("Animation")]
     [SerializeField] private Animator animator;
 
-    private CharacterController controller;
+    private CharacterController cc;
 
-    // Smooth planar motion
-    private Vector3 planarVelocity;          // what we actually move with (XZ)
-    private Vector3 planarVelSmoothRef;      // SmoothDamp ref
+    // Sandbox state
+    private float speed;           // signed forward/back speed
+    private Vector3 moveDir;       // current planar movement direction
     private float verticalVel;
 
+    // Freeze / readiness
     private bool movementFrozen;
     private bool ready;
 
-    // =======================
     // Tutorial
-    // =======================
     private TutorialManager tutorial;
     private float lastMoveNotifyTime = -999f;
     private float lastTutorialResolveTime = -999f;
 
-    // =======================
-    // Setup
-    // =======================
+    // Animator params (match your existing controller if using these names)
+    private static readonly int SpeedParam = Animator.StringToHash("Speed");
+    private static readonly int IsMovingParam = Animator.StringToHash("IsMoving");
+
     private void OnValidate()
     {
         if (moveAction == null)
@@ -79,20 +102,32 @@ public class PlayerMovement : NetworkBehaviour
         }
 
         maxSpeed = Mathf.Max(0f, maxSpeed);
-        accelTime = Mathf.Max(0.01f, accelTime);
+        acceleration = Mathf.Max(0f, acceleration);
+        deceleration = Mathf.Max(0f, deceleration);
+        sideAccelerationMultiplier = Mathf.Clamp(sideAccelerationMultiplier, 0.05f, 1f);
+        turnSpeed = Mathf.Max(0f, turnSpeed);
         rotateSpeed = Mathf.Max(0f, rotateSpeed);
-        groundedStick = Mathf.Min(groundedStick, -0.01f); // should be negative
+        idleTurnMoveSpeed = Mathf.Max(0f, idleTurnMoveSpeed);
+        groundedStick = Mathf.Min(groundedStick, -0.01f);
     }
 
     private void Awake()
     {
-        controller = GetComponent<CharacterController>();
+        cc = GetComponent<CharacterController>();
+        moveDir = transform.forward;
 
         if (animator == null)
             animator = GetComponentInChildren<Animator>();
 
-        if (cameraTransform == null && Camera.main != null)
-            cameraTransform = Camera.main.transform;
+        if (mainCam == null)
+            mainCam = Camera.main;
+
+        // Head fallback
+        if (headPoint == null && animator != null && animator.isHuman)
+            headPoint = animator.GetBoneTransform(HumanBodyBones.Head);
+
+        if (headPoint == null)
+            headPoint = transform;
     }
 
     private void OnDisable()
@@ -104,8 +139,9 @@ public class PlayerMovement : NetworkBehaviour
     {
         tutorial = Object.FindFirstObjectByType<TutorialManager>();
 
-        if (controller != null)
-            controller.enabled = false;
+        // Prevent CC weird first-frame offsets
+        if (cc != null)
+            cc.enabled = false;
 
         if (!IsOwner)
         {
@@ -114,13 +150,14 @@ public class PlayerMovement : NetworkBehaviour
             return;
         }
 
-        // Prefer owner's camera
-        if (cameraTransform == null && Camera.main != null)
-            cameraTransform = Camera.main.transform;
+        // Owner uses local camera
+        if (mainCam == null)
+            mainCam = Camera.main;
 
         moveAction?.Enable();
         StartCoroutine(EnableControllerNextFrame());
 
+        // Keep your existing tutorial registration behavior (Traveller on server)
         if (IsServer && role == PlayerRole.Traveller)
         {
             var tm = Object.FindFirstObjectByType<TutorialManager>();
@@ -139,67 +176,69 @@ public class PlayerMovement : NetworkBehaviour
     {
         yield return null;
 
-        if (controller != null)
-            controller.enabled = true;
+        if (cc != null)
+            cc.enabled = true;
 
-        planarVelocity = Vector3.zero;
-        planarVelSmoothRef = Vector3.zero;
+        speed = 0f;
+        moveDir = transform.forward;
         verticalVel = 0f;
         ready = true;
     }
 
     // =======================
-    // Public API
+    // Public API (kept)
     // =======================
     public void SetFrozen(bool freeze)
     {
         movementFrozen = freeze;
-        planarVelocity = Vector3.zero;
-        planarVelSmoothRef = Vector3.zero;
+        speed = 0f;
         verticalVel = 0f;
 
         if (animator != null)
-            animator.SetFloat("Speed", 0f);
+        {
+            animator.SetFloat(SpeedParam, 0f);
+            animator.SetBool(IsMovingParam, false);
+        }
     }
 
     public bool IsFrozen => movementFrozen;
 
     public void TeleportToStart(Vector3 pos)
     {
-        planarVelocity = Vector3.zero;
-        planarVelSmoothRef = Vector3.zero;
+        speed = 0f;
+        verticalVel = 0f;
 
-        if (controller != null)
-            controller.enabled = false;
+        if (cc != null)
+            cc.enabled = false;
 
         transform.position = pos;
 
-        if (controller != null)
-            controller.enabled = true;
+        if (cc != null)
+            cc.enabled = true;
     }
+
+    public void SetRole(PlayerRole r) => role = r;
 
     // =======================
     // Update
     // =======================
     private void Update()
     {
-#if UNITY_EDITOR
-        bool allowLocal = true;
-#else
-        bool allowLocal = false;
-#endif
-
-        if ((!IsOwner && !allowLocal) || controller == null || !controller.enabled)
+        if (!IsOwner || cc == null)
             return;
 
         if (!ready)
         {
+            // safety if something spawned weirdly
             ready = true;
             moveAction?.Enable();
-            planarVelocity = Vector3.zero;
-            planarVelSmoothRef = Vector3.zero;
+            speed = 0f;
             verticalVel = 0f;
+            moveDir = transform.forward;
         }
+
+        if (!cc.enabled)
+            return;
 
         if (tutorial == null && Time.time - lastTutorialResolveTime > 0.5f)
         {
@@ -209,99 +248,133 @@ public class PlayerMovement : NetworkBehaviour
 
         if (movementFrozen)
         {
-            controller.Move(Vector3.zero);
+            cc.Move(Vector3.zero);
             return;
         }
 
-        // ---------
-        // Input (arrows only, via InputAction)
-        // ---------
+        // =========================
+        // INPUT (ARROWS ONLY)
+        // InputAction gives us a 2DVector:
+        //   x = Left/Right (TURN), y = Up/Down (FORWARD)
+        // =========================
         Vector2 input = moveAction.ReadValue<Vector2>();
-        Vector3 rawDir = new Vector3(input.x, 0f, input.y);
-        rawDir = Vector3.ClampMagnitude(rawDir, 1f);
+        float turnInput = Mathf.Clamp(input.x, -1f, 1f);
+        float forwardInput = Mathf.Clamp(input.y, -1f, 1f);
+
+        // =========================
+        // Solution 1: Block backward if camera too close
+        // =========================
+        if (forwardInput < -0.01f)
+        {
+            if (mainCam == null) mainCam = Camera.main;
+
+            if (mainCam != null && headPoint != null)
+            {
+                float d = Vector3.Distance(mainCam.transform.position, headPoint.position);
+
+                if (d <= minCamHeadDistance)
+                {
+                    forwardInput = 0f;
+                }
+                else if (bufferSoftRange > 0.001f)
+                {
+                    float scale = Mathf.InverseLerp(minCamHeadDistance, minCamHeadDistance + bufferSoftRange, d);
+                    forwardInput *= Mathf.Clamp01(scale);
+                }
+            }
+        }
+
+        bool hasForwardInput = Mathf.Abs(forwardInput) > 0.01f;
+        bool hasTurnInput = Mathf.Abs(turnInput) > 0.01f;
 
         // Tutorial notify (unchanged behavior)
-        if (rawDir.sqrMagnitude > 0.01f && Time.time - lastMoveNotifyTime > 0.25f)
+        // Notify when there is meaningful motion intent (forward or turning step)
+        if ((hasForwardInput || hasTurnInput) && Time.time - lastMoveNotifyTime > 0.25f)
         {
             lastMoveNotifyTime = Time.time;
             NotifyMovementServerRpc();
         }
 
-        // ---------
-        // Camera-relative yaw (optional)
-        // ---------
-        Vector3 desiredDir = rawDir;
+        // =========================
+        // SPEED (ACCEL / DECEL) - sandbox logic
+        // =========================
+        float targetSpeed = forwardInput * maxSpeed;
 
-        if (moveRelativeToCamera)
+        // If no forward/back but turning -> small forward step + turn
+        bool idleTurnStep = !hasForwardInput && hasTurnInput;
+        if (idleTurnStep)
+            targetSpeed = idleTurnMoveSpeed;
+
+        // ✅ Accel slower when ONLY Left/Right is pressed (idle turn step)
+        float accelRate = idleTurnStep ? (acceleration * sideAccelerationMultiplier) : acceleration;
+
+        float rate = (hasForwardInput || idleTurnStep) ? accelRate : deceleration;
+        speed = Mathf.MoveTowards(speed, targetSpeed, rate * Time.deltaTime);
+
+        if (!hasForwardInput && !hasTurnInput && Mathf.Abs(speed) < 0.05f && Mathf.Abs(targetSpeed) < 0.01f)
+            speed = 0f;
+
+        // =========================
+        // STEERING (TURN) - sandbox logic
+        // rotate moveDir while moving
+        // =========================
+        if (hasTurnInput && Mathf.Abs(speed) > 0.01f)
         {
-            if (cameraTransform == null && Camera.main != null)
-                cameraTransform = Camera.main.transform;
-
-            if (cameraTransform != null)
-            {
-                Vector3 camFwd = cameraTransform.forward;
-                camFwd.y = 0f;
-                camFwd.Normalize();
-
-                Vector3 camRight = cameraTransform.right;
-                camRight.y = 0f;
-                camRight.Normalize();
-
-                desiredDir = (camRight * rawDir.x + camFwd * rawDir.z);
-                if (desiredDir.sqrMagnitude > 1f) desiredDir.Normalize();
-            }
+            float turn = turnInput * turnSpeed * Time.deltaTime;
+            moveDir = Quaternion.Euler(0f, turn, 0f) * moveDir;
+            moveDir.Normalize();
         }
 
-        // ---------
-        // Smooth planar velocity (SmoothDamp -> premium-feel accel/decel)
-        // ---------
-        Vector3 desiredPlanarVel = desiredDir * maxSpeed;
-        planarVelocity = Vector3.SmoothDamp(planarVelocity, desiredPlanarVel, ref planarVelSmoothRef, accelTime);
+        // If not moving -> keep moveDir synced with facing
+        if (Mathf.Abs(speed) <= 0.01f)
+            moveDir = transform.forward;
 
-        // ---------
-        // Face move direction (smooth)
-        // ---------
-        if (faceMoveDirection)
+        // =========================
+        // FACE MOVE DIRECTION (Yaw) - sandbox logic
+        // =========================
+        if (moveDir.sqrMagnitude > 0.001f && Mathf.Abs(speed) > 0.01f)
         {
-            Vector3 flat = new Vector3(planarVelocity.x, 0f, planarVelocity.z);
-            if (flat.sqrMagnitude > 0.0001f)
-            {
-                Quaternion targetRot = Quaternion.LookRotation(flat.normalized, Vector3.up);
-                // exponential smoothing (stable across fps)
-                transform.rotation = Quaternion.Slerp(
-                    transform.rotation,
-                    targetRot,
-                    1f - Mathf.Exp(-rotateSpeed * Time.deltaTime)
-                );
-            }
+            Quaternion targetRot = Quaternion.LookRotation(moveDir, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRot,
+                rotateSpeed * Time.deltaTime
+            );
         }
 
-        // ---------
-        // Gravity (with grounded stick)
-        // ---------
-        if (controller.isGrounded && verticalVel < 0f)
+        // =========================
+        // GRAVITY
+        // =========================
+        if (cc.isGrounded && verticalVel < 0f)
             verticalVel = groundedStick;
 
         verticalVel += gravity * Time.deltaTime;
 
-        Vector3 move = (new Vector3(planarVelocity.x, 0f, planarVelocity.z) + Vector3.up * verticalVel) * Time.deltaTime;
-        controller.Move(move);
+        // =========================
+        // APPLY MOVE
+        // =========================
+        Vector3 move = (moveDir * speed + Vector3.up * verticalVel) * Time.deltaTime;
+        cc.Move(move);
 
-        // =======================
-        // Animation Update (kept)
-        // =======================
+        // =========================
+        // ANIMATION UPDATE (safe)
+        // =========================
         if (animator != null)
         {
-            float speed = new Vector2(planarVelocity.x, planarVelocity.z).magnitude;
-            animator.SetFloat("Speed", speed);
+            float planarSpeed01 = Mathf.Clamp01(new Vector2(cc.velocity.x, cc.velocity.z).magnitude / Mathf.Max(0.001f, maxSpeed));
 
-            bool isMoving = planarVelocity.sqrMagnitude > 0.01f;
-            animator.SetBool("IsMoving", isMoving);
+            // Only set if parameters exist in the controller (prevents "Hash ... does not exist")
+            if (HasAnimParam(animator, AnimatorControllerParameterType.Float, "Speed"))
+                animator.SetFloat("Speed", planarSpeed01);
+
+            if (HasAnimParam(animator, AnimatorControllerParameterType.Bool, "IsMoving"))
+                animator.SetBool("IsMoving", planarSpeed01 > 0.05f);
         }
+
     }
 
     // =======================
-    // Tutorial RPC
+    // Tutorial RPC (kept)
     // =======================
     [ServerRpc(RequireOwnership = false)]
     private void NotifyMovementServerRpc(ServerRpcParams rpcParams = default)
@@ -315,7 +388,7 @@ public class PlayerMovement : NetworkBehaviour
     }
 
     // =======================
-    // BOMB RESET
+    // BOMB RESET (kept)
     // =======================
     [ClientRpc]
     public void BombResetAndTeleportClientRpc(
@@ -345,16 +418,17 @@ public class PlayerMovement : NetworkBehaviour
     {
         yield return new WaitForSeconds(delay);
 
-        planarVelocity = Vector3.zero;
-        planarVelSmoothRef = Vector3.zero;
+        speed = 0f;
+        verticalVel = 0f;
+        moveDir = transform.forward;
 
-        if (controller != null)
-            controller.enabled = false;
+        if (cc != null)
+            cc.enabled = false;
 
         transform.SetPositionAndRotation(pos, rot);
 
-        if (controller != null)
-            controller.enabled = true;
+        if (cc != null)
+            cc.enabled = true;
 
         ConfirmTeleportServerRpc(pos, rot);
 
@@ -365,10 +439,23 @@ public class PlayerMovement : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     private void ConfirmTeleportServerRpc(Vector3 pos, Quaternion rot)
     {
+        // If you use NetworkTransform/ClientNetworkTransform, Teleport helps snap remote interpolation cleanly
         var nt = GetComponent<NetworkTransform>();
         if (nt != null)
             nt.Teleport(pos, rot, transform.localScale);
         else
             transform.SetPositionAndRotation(pos, rot);
     }
+    private static bool HasAnimParam(Animator a, AnimatorControllerParameterType type, string name)
+    {
+        if (a == null || a.runtimeAnimatorController == null) return false;
+
+        foreach (var p in a.parameters)
+            if (p.type == type && p.name == name)
+                return true;
+
+        return false;
+    }
+
 }
+

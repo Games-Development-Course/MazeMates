@@ -77,7 +77,7 @@ public class ResourceManager : NetworkBehaviour
         if (!IsServer)
         {
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[CLIENT] Sending RequestRemoveBombRpc");
-            RequestRemoveBombRpc();
+            RequestRemoveBombServerRpc();
             return;
         }
 
@@ -89,7 +89,7 @@ public class ResourceManager : NetworkBehaviour
         if (!IsServer)
         {
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[CLIENT] Sending RequestPlaceHeartRpc");
-            RequestPlaceHeartRpc();
+            RequestPlaceHeartServerRpc();
             return;
         }
 
@@ -101,7 +101,7 @@ public class ResourceManager : NetworkBehaviour
         if (!IsServer)
         {
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[CLIENT] Sending RequestUseLifebuoyRpc");
-            RequestUseLifebuoyRpc();
+            RequestUseLifebuoyServerRpc();
             return;
         }
 
@@ -283,8 +283,8 @@ public class ResourceManager : NetworkBehaviour
     // RPC – CLIENT → SERVER
     // ============================================================
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestRemoveBombRpc()
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestRemoveBombServerRpc()
     {
         Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[SERVER] RequestRemoveBombRpc received");
         ServerRemoveBomb();
@@ -303,15 +303,15 @@ public class ResourceManager : NetworkBehaviour
         }
     }
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestPlaceHeartRpc()
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestPlaceHeartServerRpc()
     {
         Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[SERVER] RequestPlaceHeartRpc received");
         ServerPlaceHeart();
     }
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestUseLifebuoyRpc()
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestUseLifebuoyServerRpc()
     {
         Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[SERVER] RequestUseLifebuoyRpc received");
         ServerUseLifebuoy();

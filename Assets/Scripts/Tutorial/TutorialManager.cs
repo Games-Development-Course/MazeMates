@@ -636,7 +636,7 @@ public class TutorialManager : NetworkBehaviour
         else NotifyConditionServerRpc(condition);
     }
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    [ServerRpc(RequireOwnership = false)]
     private void NotifyConditionServerRpc(TutorialConditionType condition)
     {
         Debug.Log($"[TUTORIAL][ServerRpc] received condition: {condition}");

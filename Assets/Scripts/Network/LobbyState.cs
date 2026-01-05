@@ -6,6 +6,7 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkObject))]
 public sealed class LobbyState : NetworkBehaviour
 {
+    // Total players INCLUDING the host.
     public NetworkVariable<int> MaxPlayers { get; } = new(
         2, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -19,6 +20,7 @@ public sealed class LobbyState : NetworkBehaviour
     {
         if (!IsServer) return;
 
+        // RelayManager.MaxConnections is "total players" (host + clients) in your project.
         if (RelayManager.Instance != null)
             MaxPlayers.Value = Mathf.Max(1, RelayManager.Instance.MaxConnections);
 
@@ -46,21 +48,26 @@ public sealed class LobbyState : NetworkBehaviour
 
     private void RecomputeServer()
     {
-        int connected = NetworkManager.Singleton != null
-            ? NetworkManager.Singleton.ConnectedClientsIds.Count
+        // IMPORTANT:
+        // ConnectedClientsIds.Count can look like "1" immediately (host),
+        // and you were comparing it to MaxPlayers that was effectively "clients allowed" elsewhere.
+        // We standardize: MaxPlayers = total players INCLUDING host.
+        int connectedTotal = NetworkManager.Singleton != null
+            ? NetworkManager.Singleton.ConnectedClientsList.Count // includes host
             : 0;
 
-        ConnectedPlayers.Value = connected;
+        ConnectedPlayers.Value = connectedTotal;
 
-        bool full = connected >= MaxPlayers.Value;
+        bool full = connectedTotal >= MaxPlayers.Value;
+
         if (SessionFull.Value != full)
         {
             SessionFull.Value = full;
-            Debug.Log($"[LobbyState] SessionFull changed -> {SessionFull.Value} (connected={connected}/{MaxPlayers.Value})");
+            Debug.Log($"[LobbyState] SessionFull changed -> {SessionFull.Value} (connectedTotal={connectedTotal}/{MaxPlayers.Value})");
         }
         else
         {
-            Debug.Log($"[LobbyState] Recompute (no change) (connected={connected}/{MaxPlayers.Value}) full={SessionFull.Value}");
+            Debug.Log($"[LobbyState] Recompute (no change) (connectedTotal={connectedTotal}/{MaxPlayers.Value}) full={SessionFull.Value}");
         }
     }
 }

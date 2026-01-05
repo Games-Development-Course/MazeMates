@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
+
 public class MazeGenerator3D : MonoBehaviour
 {
     [Header("Navigator Exit Anchor (in GameScene)")]
@@ -12,6 +13,7 @@ public class MazeGenerator3D : MonoBehaviour
     [SerializeField] private int width = 21;
     [SerializeField] private int height = 21;
     [SerializeField] private float cellSize = 2f;
+    [SerializeField] private float doorPrefabYawOffset = 0f; // use ONLY if prefab faces wrong direction
 
     [Header("Layers")]
     [SerializeField] private int wallsLayer = 0; // 0 = Default
@@ -19,14 +21,10 @@ public class MazeGenerator3D : MonoBehaviour
     [Header("Traveller Spawn")]
     [SerializeField] private Transform travellerSpawn;
 
-
-
     // -------------------------------
     // Public API for deterministic spawning (read-only)
     // -------------------------------
     public Transform TravellerSpawn => travellerSpawn;
-
-
 
     public bool IsReady { get; private set; }
     public event System.Action Ready;
@@ -50,11 +48,11 @@ public class MazeGenerator3D : MonoBehaviour
     [SerializeField] private GameObject winDoorPrefab;
     [SerializeField] private float doorYawOffset = 0f; // try 90 or -90
 
-
     [Header("Puzzles (Prefabs)")]
     [SerializeField] private GameObject puzzleEasyPrefab;
     [SerializeField] private GameObject puzzleMediumPrefab;
-    [SerializeField] private GameObject puzzleHardPrefab; // HARD should be used twice
+    [SerializeField] private GameObject puzzleHardPrefab;     // HARD #1
+    [SerializeField] private GameObject puzzleHardPrefab2;    // ✅ HARD #2 (NEW)
 
     [Header("Resources (Prefabs)")]
     [SerializeField] private GameObject heartPrefab;
@@ -71,6 +69,9 @@ public class MazeGenerator3D : MonoBehaviour
     private Transform wallsRoot;
     private Transform doorsRoot;
     private Transform resourcesRoot;
+
+    private readonly List<GameObject> spawnedDoors = new();
+    private GameObject spawnedWinDoor;
 
     private bool[,] grid;
     private readonly List<Vector2Int> pathCells = new();
@@ -96,7 +97,6 @@ public class MazeGenerator3D : MonoBehaviour
     // =========================
     //   GRID <-> WORLD MAPPING
     // =========================
-    // אנחנו עובדים תמיד על "מרכז תא"
     private Vector3 CellCenterLocal(int x, int y, float localY = 0f)
     {
         return new Vector3((x + 0.5f) * cellSize, localY, (y + 0.5f) * cellSize);
@@ -110,7 +110,6 @@ public class MazeGenerator3D : MonoBehaviour
     private Vector2Int WorldToCell(Vector3 worldPos)
     {
         Vector3 local = transform.InverseTransformPoint(worldPos);
-        // הפוך של (x+0.5)*cellSize
         int cx = Mathf.FloorToInt(local.x / cellSize);
         int cy = Mathf.FloorToInt(local.z / cellSize);
         return new Vector2Int(cx, cy);
@@ -119,25 +118,23 @@ public class MazeGenerator3D : MonoBehaviour
     private void Start()
     {
         if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
-        {
             return;
-        }
-        
+
         PullConfigIfExists();
+
+        // ✅ enforce puzzle-door counts by difficulty (as requested)
+        puzzleDoorsAmount = (difficulty == 2) ? 2 : 1;
+
         Random.InitState(seed);
 
         CreateHierarchyFolders();
-
         GenerateMaze();
 
-        // ✅ קיבוע: התא התחלתית תמיד פתוח
+        // ✅ start is always open
         grid[StartCell.x, StartCell.y] = false;
         if (!pathCells.Contains(StartCell)) pathCells.Add(StartCell);
 
-        // ✅ שינוי חשוב: בוחרים יציאה "רחוקה" (border-adjacent)
         ComputeForcedExitCells_FarthestBorderAdjacent();
-
-        // Ensure exit inward cell is open
         OpenForcedExit();
 
         BuildMaze();
@@ -146,20 +143,18 @@ public class MazeGenerator3D : MonoBehaviour
         AlignMazeToNavigatorEntrance();
         UpdateTravellerSpawn();
 
-
-
-
+        // DOORS (logic moved to DoorPlacement)
         List<GameObject> puzzleDoorInstances = PlaceDoors();
         PlaceResources();
         AssignPuzzlesToPuzzleDoors(puzzleDoorInstances);
+
         MarkReady();
     }
 
     private void PullConfigIfExists()
     {
         var cfg = GameConfigNet.Instance;
-        if (cfg == null)
-            return;
+        if (cfg == null) return;
 
         width = cfg.MazeWidth.Value;
         height = cfg.MazeHeight.Value;
@@ -169,7 +164,7 @@ public class MazeGenerator3D : MonoBehaviour
         keysAmount = cfg.Keys.Value;
 
         normalDoorsAmount = cfg.NormalDoors.Value;
-        puzzleDoorsAmount = cfg.PuzzleDoors.Value;
+        puzzleDoorsAmount = cfg.PuzzleDoors.Value; // overridden by difficulty rule above
 
         difficulty = cfg.Difficulty.Value;
         seed = cfg.Seed.Value;
@@ -209,10 +204,7 @@ public class MazeGenerator3D : MonoBehaviour
         float groundWidth = width * cellSize;
         float groundHeight = height * cellSize;
 
-        // מרכז עולם של הגריד (כי אנחנו עובדים על +0.5 מרכזי תאים)
         ground.transform.localPosition = new Vector3(groundWidth / 2f, 0f, groundHeight / 2f);
-
-        // אם ה-prefab שלך הוא Quad שמוטה/ציר שונה, תצטרך לכוון Scale בהתאם.
         ground.transform.localScale = new Vector3(groundWidth, groundHeight, 1f);
     }
 
@@ -228,7 +220,6 @@ public class MazeGenerator3D : MonoBehaviour
         carvedWalls.Clear();
 
         grid = new bool[width, height];
-
         for (int x = 0; x < width; x++)
             for (int y = 0; y < height; y++)
                 grid[x, y] = true;
@@ -241,7 +232,7 @@ public class MazeGenerator3D : MonoBehaviour
         grid[x, y] = false;
         pathCells.Add(new Vector2Int(x, y));
 
-        List<Vector2Int> dirs = new List<Vector2Int>()
+        List<Vector2Int> dirs = new()
         {
             new Vector2Int(2, 0),
             new Vector2Int(-2, 0),
@@ -272,10 +263,7 @@ public class MazeGenerator3D : MonoBehaviour
         }
     }
 
-    private bool IsInside(int x, int y)
-    {
-        return x > 0 && y > 0 && x < width - 1 && y < height - 1;
-    }
+    private bool IsInside(int x, int y) => x > 0 && y > 0 && x < width - 1 && y < height - 1;
 
     private void Shuffle(List<Vector2Int> list)
     {
@@ -322,8 +310,6 @@ public class MazeGenerator3D : MonoBehaviour
 
         forcedExitCell = best;
 
-        // קובעים איפה על הגבול הדלת יושבת ואיזה כיוון היא פונה,
-        // ואז מייצרים forcedExitDoorLocalPos במרכז תא + חצי תא החוצה בכיוון.
         Vector3 borderCenterLocal;
         Vector3 outward;
 
@@ -409,19 +395,31 @@ public class MazeGenerator3D : MonoBehaviour
     private void BuildMaze()
     {
         foreach (Transform c in wallsRoot) Destroy(c.gameObject);
-        foreach (Transform c in doorsRoot) Destroy(c.gameObject);
         foreach (Transform c in resourcesRoot) Destroy(c.gameObject);
+
+        if (spawnedWinDoor != null)
+        {
+            Destroy(spawnedWinDoor);
+            spawnedWinDoor = null;
+        }
+
+        for (int i = spawnedDoors.Count - 1; i >= 0; i--)
+        {
+            if (spawnedDoors[i] != null)
+                Destroy(spawnedDoors[i]);
+        }
+        spawnedDoors.Clear();
+
+        foreach (Transform c in doorsRoot) Destroy(c.gameObject);
 
         for (int x = 0; x < width; x++)
             for (int y = 0; y < height; y++)
             {
                 if (!grid[x, y]) continue;
 
-                // אל תיצור קיר במקום של דלת הניצחון
                 if (x == forcedExitWallCell.x && y == forcedExitWallCell.y)
                     continue;
 
-                // ✅ קירות במרכז תא
                 Vector3 worldPos = CellCenterWorld(x, y, 1f);
                 GameObject wall = Instantiate(wallPrefab, worldPos, Quaternion.identity, wallsRoot);
 
@@ -525,7 +523,6 @@ public class MazeGenerator3D : MonoBehaviour
 
         Quaternion rotDelta = Quaternion.FromToRotation(exitForwardWorld, targetForwardWorld);
 
-        // ✅ rotate around door pivot (world)
         transform.RotateAround(doorWorldBefore, Vector3.up, rotDelta.eulerAngles.y);
 
         Vector3 doorWorldAfter = transform.TransformPoint(forcedExitDoorLocalPos);
@@ -541,125 +538,81 @@ public class MazeGenerator3D : MonoBehaviour
     {
         if (winDoorPrefab == null) return;
 
-        var existing = doorsRoot.Find("WinDoor");
-        if (existing != null) Destroy(existing.gameObject);
+        if (spawnedWinDoor != null)
+        {
+            Destroy(spawnedWinDoor);
+            spawnedWinDoor = null;
+        }
 
-        GameObject door = Instantiate(winDoorPrefab, doorsRoot);
+        Vector3 worldPos = transform.TransformPoint(forcedExitDoorLocalPos);
+        Quaternion worldRot = transform.rotation * forcedExitDoorRot;
+
+        GameObject door = Instantiate(winDoorPrefab, worldPos, worldRot);
         door.name = "WinDoor";
 
-        // ✅ local => יורש רוטציה/מיקום של המבוך
-        door.transform.localPosition = forcedExitDoorLocalPos;
-        door.transform.localRotation = forcedExitDoorRot;
+        var netObj = door.GetComponent<NetworkObject>();
+        if (netObj != null)
+            netObj.Spawn(true);
+
+        spawnedWinDoor = door;
     }
 
     // ================================================================
-    //   DOORS
+    //   DOORS (selection logic moved to DoorPlacement)
     // ================================================================
-private List<GameObject> PlaceDoors()
-{
-    float minDist = 4f;
-    const float minAllowedDist = 0.5f;
-
-    List<GameObject> puzzleDoorInstances = new();
-
-    List<DoorSpot> spots = DoorPlacement.FromCarvedWalls(grid, carvedWalls, width, height);
-
-    // Track used spots (distance constraint)
-    List<DoorSpot> used = new();
-
-    // Treat exit area as "used" so doors won't spawn right on top of it
-    used.Add(new DoorSpot
+    private List<GameObject> PlaceDoors()
     {
-        cell = forcedExitCell,
-        rotation = Quaternion.identity,
-        aOpen = forcedExitCell,
-        bOpen = forcedExitCell
-    });
-
-    // Path to exit
-    List<Vector2Int> solutionPath = FindPathBFS(StartCell, forcedExitCell);
-    HashSet<Vector2Int> pathSet = new(solutionPath);
-
-    // -------------------------
-    // PUZZLE DOORS: MUST be on path
-    // -------------------------
-    List<DoorSpot> puzzleCandidates = DoorPlacement.FilterOnPath(spots, pathSet);
-
-    HashSet<Vector2Int> placedPuzzleCells = new();
-    int placedPuzzle = 0;
-
-    float d = minDist;
-    while (placedPuzzle < puzzleDoorsAmount && d >= minAllowedDist)
-    {
-        // oversample; IsValidSpot might reject
-        List<DoorSpot> picked = DoorPlacement.PickEvenlySpaced(
-            puzzleCandidates,
-            Mathf.Max(puzzleDoorsAmount * 4, puzzleDoorsAmount),
-            d
+        Debug.Log(
+            $"[Doors] WANT normal={normalDoorsAmount}, puzzle={puzzleDoorsAmount} | " +
+            $"difficulty={difficulty} | seed={seed} | size={width}x{height}"
         );
 
-        foreach (var s in picked)
-        {
-            if (placedPuzzle >= puzzleDoorsAmount) break;
-            if (!DoorPlacement.IsValidSpot(s, used, d)) continue;
+        // clear corridor direction for "don't place near traveller start"
+        Vector2Int forwardDir = GetStartCorridorDir();
 
-            var go = SpawnDoorWorld(puzzleDoorPrefab, s);
-            if (go == null) continue;
+        // min dist relaxation in CELL units
+        float[] distSteps = { 4f, 3f, 2f, 1f, 0.5f, 0f };
 
-            puzzleDoorInstances.Add(go);
-            used.Add(s);
-            placedPuzzleCells.Add(s.cell);
-            placedPuzzle++;
-        }
-
-        d -= 1f; // relax spacing
-    }
-
-    if (placedPuzzle < puzzleDoorsAmount)
-        Debug.LogWarning($"[Doors] Could only place {placedPuzzle}/{puzzleDoorsAmount} puzzle doors on the solution path.");
-
-    // -------------------------
-    // NORMAL DOORS: anywhere except puzzle cells
-    // -------------------------
-    List<DoorSpot> normalCandidates = new();
-    foreach (var s in spots)
-    {
-        if (placedPuzzleCells.Contains(s.cell)) continue;
-        normalCandidates.Add(s);
-    }
-
-    int placedNormal = 0;
-    float dn = minDist;
-
-    while (placedNormal < normalDoorsAmount && dn >= minAllowedDist)
-    {
-        List<DoorSpot> picked = DoorPlacement.PickEvenlySpaced(
-            normalCandidates,
-            Mathf.Max(normalDoorsAmount * 4, normalDoorsAmount),
-            dn
+        var plan = DoorPlacement.PlanDoors(
+            grid: grid,
+            carvedWalls: carvedWalls,
+            width: width,
+            height: height,
+            startCell: StartCell,
+            forcedExitCell: forcedExitCell,
+            wantNormal: normalDoorsAmount,
+            wantPuzzle: puzzleDoorsAmount,
+            keepClearStepsForward: 3,
+            startForwardDir: forwardDir,
+            minDistStepsCells: distSteps,
+            nearPathManhattanRadius: 1
         );
 
-        foreach (var s in picked)
+        Debug.Log($"[Doors] PLAN placed normal={plan.PlacedNormal}/{plan.WantNormal}, puzzle={plan.PlacedPuzzle}/{plan.WantPuzzle}");
+
+        List<GameObject> puzzleDoorInstances = new();
+
+        // Spawn puzzle doors first
+        for (int i = 0; i < plan.Puzzle.Count; i++)
         {
-            if (placedNormal >= normalDoorsAmount) break;
-            if (!DoorPlacement.IsValidSpot(s, used, dn)) continue;
-
-            var go = SpawnDoorWorld(normalDoorPrefab, s);
-            if (go == null) continue;
-
-            used.Add(s);
-            placedNormal++;
+            var go = SpawnDoorWorld(puzzleDoorPrefab, plan.Puzzle[i]);
+            if (go != null) puzzleDoorInstances.Add(go);
         }
 
-        dn -= 1f;
+        // Spawn normal doors
+        for (int i = 0; i < plan.Normal.Count; i++)
+        {
+            SpawnDoorWorld(normalDoorPrefab, plan.Normal[i]);
+        }
+
+        if (plan.PlacedPuzzle < plan.WantPuzzle)
+            Debug.LogWarning($"[Doors] Could only plan {plan.PlacedPuzzle}/{plan.WantPuzzle} puzzle doors (after relaxing).");
+
+        if (plan.PlacedNormal < plan.WantNormal)
+            Debug.LogWarning($"[Doors] Could only plan {plan.PlacedNormal}/{plan.WantNormal} normal doors (after relaxing).");
+
+        return puzzleDoorInstances;
     }
-
-    if (placedNormal < normalDoorsAmount)
-        Debug.LogWarning($"[Doors] Could only place {placedNormal}/{normalDoorsAmount} normal doors.");
-
-    return puzzleDoorInstances;
-}
-
 
     private GameObject SpawnDoorWorld(GameObject prefab, DoorSpot spot)
     {
@@ -667,14 +620,15 @@ private List<GameObject> PlaceDoors()
 
         var nm = NetworkManager.Singleton;
         if (nm != null && !nm.IsServer)
-            return null; // only server spawns doors
+            return null;
 
         Vector3 world = CellCenterWorld(spot.cell.x, spot.cell.y, 0f);
 
-        // With your prefab axes (blue = corridor direction), doorYawOffset should usually be 0.
-        Quaternion rot = Quaternion.Euler(0f, doorYawOffset, 0f) * spot.rotation;
+        Quaternion rot =
+            transform.rotation *
+            spot.rotation *
+            Quaternion.Euler(0f, doorPrefabYawOffset, 0f);
 
-        // Spawn without parent first (safer for NGO)
         var go = Instantiate(prefab, world, rot);
 
         var netObj = go.GetComponent<NetworkObject>();
@@ -686,14 +640,9 @@ private List<GameObject> PlaceDoors()
         }
 
         netObj.Spawn(true);
-
-        // Optional: parent for hierarchy cleanliness after spawn
-        if (doorsRoot != null)
-            go.transform.SetParent(doorsRoot, true);
-
+        spawnedDoors.Add(go);
         return go;
     }
-
 
     // ================================================================
     //   RESOURCES
@@ -702,37 +651,44 @@ private List<GameObject> PlaceDoors()
     {
         HashSet<Vector2Int> blocked = new();
 
-        // ✅ חסימת תאים של דלתות (עם World->Cell נכון ל+0.5)
-        foreach (Transform child in doorsRoot)
+        if (spawnedWinDoor != null)
         {
-            Vector2Int c = WorldToCell(child.position);
+            Vector2Int c = WorldToCell(spawnedWinDoor.transform.position);
+            if (InBounds(c)) blocked.Add(c);
+        }
+
+        for (int i = 0; i < spawnedDoors.Count; i++)
+        {
+            var d = spawnedDoors[i];
+            if (d == null) continue;
+
+            Vector2Int c = WorldToCell(d.transform.position);
             if (InBounds(c)) blocked.Add(c);
         }
 
         Vector2Int forwardDir = GetStartCorridorDir();
 
         ResourcePlacement.PlaceAllResourcesEvenly(
-        grid,
-        pathCells,
-        blocked,
-        cellSize,
-        resourcesRoot,
-        new ResourcePlacement.ResourceRequest[]
-        {
-        new ResourcePlacement.ResourceRequest(heartPrefab, heartsAmount),
-        new ResourcePlacement.ResourceRequest(bombPrefab, bombsAmount),
-        new ResourcePlacement.ResourceRequest(keyPrefab, keysAmount),
-        },
-        startCell: StartCell,
-        keepClearStepsForward: 3,
-        forwardDir: forwardDir,
-        yOffset: 0.58f,
-      minSeparationCells: 4,
-maxNeighborWallsAllowed: 2,
-wallsLayer: wallsLayer,
-collisionRadiusMultiplier: 0.22f
-
-    );
+            grid,
+            pathCells,
+            blocked,
+            cellSize,
+            resourcesRoot,
+            new ResourcePlacement.ResourceRequest[]
+            {
+                new ResourcePlacement.ResourceRequest(heartPrefab, heartsAmount),
+                new ResourcePlacement.ResourceRequest(bombPrefab, bombsAmount),
+                new ResourcePlacement.ResourceRequest(keyPrefab, keysAmount),
+            },
+            startCell: StartCell,
+            keepClearStepsForward: 3,
+            forwardDir: forwardDir,
+            yOffset: 0.58f,
+            minSeparationCells: 4,
+            maxNeighborWallsAllowed: 2,
+            wallsLayer: wallsLayer,
+            collisionRadiusMultiplier: 0.22f
+        );
     }
 
     private Vector2Int GetStartCorridorDir()
@@ -763,7 +719,8 @@ collisionRadiusMultiplier: 0.22f
         if (openDirs.Count == 1)
             return openDirs[0];
 
-        List<Vector2Int> solution = FindPathBFS(StartCell, forcedExitCell);
+        // Prefer the direction that leads along the solution path
+        List<Vector2Int> solution = DoorPlacement.FindPathBFS(grid, width, height, StartCell, forcedExitCell);
         if (solution.Count >= 2)
         {
             Vector2Int next = solution[1];
@@ -776,54 +733,51 @@ collisionRadiusMultiplier: 0.22f
     }
 
     // ================================================================
-    //   PUZZLE ASSIGNMENT
+    //   PUZZLE ASSIGNMENT (NEW RULES)
     // ================================================================
     private void AssignPuzzlesToPuzzleDoors(List<GameObject> puzzleDoors)
     {
         if (puzzleDoors == null || puzzleDoors.Count == 0) return;
 
-        List<GameObject> toAssign = new();
+        int desired = (difficulty == 2) ? 2 : 1;
+        int count = Mathf.Min(desired, puzzleDoors.Count);
 
-        if (difficulty == 0 && puzzleEasyPrefab != null)
-        {
-            for (int i = 0; i < puzzleDoors.Count; i++) toAssign.Add(puzzleEasyPrefab);
-        }
-        else if (difficulty == 1 && puzzleMediumPrefab != null)
-        {
-            for (int i = 0; i < puzzleDoors.Count; i++) toAssign.Add(puzzleMediumPrefab);
-        }
-        else
-        {
-            if (puzzleHardPrefab != null)
-            {
-                int hardCount = Mathf.Min(2, puzzleDoors.Count);
-                for (int i = 0; i < hardCount; i++) toAssign.Add(puzzleHardPrefab);
-                for (int i = hardCount; i < puzzleDoors.Count; i++) toAssign.Add(puzzleHardPrefab);
-            }
-        }
-
-        for (int i = 0; i < puzzleDoors.Count; i++)
+        for (int i = 0; i < count; i++)
         {
             var controller = puzzleDoors[i].GetComponent<DoorController>();
-            if (controller != null)
-                controller.puzzlePrefab = toAssign[Mathf.Clamp(i, 0, toAssign.Count - 1)];
+            if (controller == null) continue;
+
+            GameObject chosen = null;
+
+            if (difficulty == 0)
+                chosen = puzzleEasyPrefab;
+            else if (difficulty == 1)
+                chosen = puzzleMediumPrefab;
+            else
+                chosen = (i == 0) ? puzzleHardPrefab : (puzzleHardPrefab2 != null ? puzzleHardPrefab2 : puzzleHardPrefab);
+
+            if (chosen == null)
+            {
+                Debug.LogWarning($"[Doors] Puzzle prefab is NULL for difficulty={difficulty}, index={i}.");
+                continue;
+            }
+
+            controller.SetPuzzlePrefabServer(chosen);
         }
     }
 
-    // החלף את UpdateTravellerSpawn בגרסה הזו + הוסף את הפונקציה העוזרת מתחתיה
-
+    // ================================================================
+    //   TRAVELLER SPAWN
+    // ================================================================
     private void UpdateTravellerSpawn()
     {
         if (travellerSpawn == null) return;
 
-        // ✅ ספאון במרכז התא (1,1)
         Vector3 spawnPos = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
         travellerSpawn.position = spawnPos;
 
-        // ✅ רוטציה: פונה לכיוון התא הכי קרוב אליו שאינו קיר (מתוך 4 שכנים)
         Vector2Int dir = GetClosestOpenNeighborDir(StartCell);
 
-        // אם אין שכן פתוח (מקרה קצה נדיר) – נשאר עם forward של המבוך
         Vector3 lookDirWorld;
         if (dir == Vector2Int.zero)
         {
@@ -841,16 +795,15 @@ collisionRadiusMultiplier: 0.22f
             travellerSpawn.rotation = Quaternion.LookRotation(lookDirWorld.normalized, Vector3.up);
     }
 
-    // מחזיר את השכן הפתוח (לא קיר) "הכי קרוב" לספאון (בפועל כולם באותו מרחק, אז נשבר שוויון לפי סדר)
     private Vector2Int GetClosestOpenNeighborDir(Vector2Int cell)
     {
         Vector2Int[] dirs =
         {
-        new Vector2Int(1, 0),
-        new Vector2Int(-1, 0),
-        new Vector2Int(0, 1),
-        new Vector2Int(0, -1),
-    };
+            new Vector2Int(1, 0),
+            new Vector2Int(-1, 0),
+            new Vector2Int(0, 1),
+            new Vector2Int(0, -1),
+        };
 
         Vector3 center = CellCenterWorld(cell.x, cell.y, 0.5f);
 
@@ -861,7 +814,7 @@ collisionRadiusMultiplier: 0.22f
         {
             Vector2Int n = cell + d;
             if (!InBounds(n)) continue;
-            if (grid[n.x, n.y]) continue; // true = קיר
+            if (grid[n.x, n.y]) continue;
 
             Vector3 nCenter = CellCenterWorld(n.x, n.y, 0.5f);
             float dist = (nCenter - center).sqrMagnitude;
@@ -876,70 +829,8 @@ collisionRadiusMultiplier: 0.22f
         return bestDir;
     }
 
-
-
-
     // ================================================================
-    //   BFS PATHFINDING
+    //   Bounds helper
     // ================================================================
-    private List<Vector2Int> FindPathBFS(Vector2Int start, Vector2Int goal)
-    {
-        List<Vector2Int> empty = new();
-        if (!InBounds(start) || !InBounds(goal)) return empty;
-        if (grid[start.x, start.y] || grid[goal.x, goal.y]) return empty;
-
-        Queue<Vector2Int> q = new();
-        Dictionary<Vector2Int, Vector2Int> parent = new();
-        HashSet<Vector2Int> visited = new();
-
-        q.Enqueue(start);
-        visited.Add(start);
-
-        Vector2Int[] dirs = new[]
-        {
-            new Vector2Int(1,0),
-            new Vector2Int(-1,0),
-            new Vector2Int(0,1),
-            new Vector2Int(0,-1),
-        };
-
-        while (q.Count > 0)
-        {
-            var cur = q.Dequeue();
-            if (cur == goal) break;
-
-            foreach (var d in dirs)
-            {
-                var nxt = cur + d;
-                if (!InBounds(nxt)) continue;
-                if (visited.Contains(nxt)) continue;
-                if (grid[nxt.x, nxt.y]) continue;
-
-                visited.Add(nxt);
-                parent[nxt] = cur;
-                q.Enqueue(nxt);
-            }
-        }
-
-        if (!visited.Contains(goal))
-            return empty;
-
-        List<Vector2Int> path = new();
-        Vector2Int t = goal;
-        path.Add(t);
-
-        while (t != start)
-        {
-            t = parent[t];
-            path.Add(t);
-        }
-
-        path.Reverse();
-        return path;
-    }
-
-    private bool InBounds(Vector2Int c)
-    {
-        return c.x >= 0 && c.y >= 0 && c.x < width && c.y < height;
-    }
+    private bool InBounds(Vector2Int c) => c.x >= 0 && c.y >= 0 && c.x < width && c.y < height;
 }
