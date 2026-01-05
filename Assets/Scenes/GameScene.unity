@@ -9023,6 +9023,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7891888598475178501, guid: 28bf6442c374a134d983e7252d52726f, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 88688b14c67f1b24996088d672137450, type: 2}
+    - target: {fileID: 7891888598475178501, guid: 28bf6442c374a134d983e7252d52726f, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 88688b14c67f1b24996088d672137450, type: 2}
     - target: {fileID: 8437653137800076550, guid: 28bf6442c374a134d983e7252d52726f, type: 3}
       propertyPath: m_TagString
       value: NavigatorScreenTV
@@ -9030,8 +9038,35 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 8437653137800076550, guid: 28bf6442c374a134d983e7252d52726f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4710913486476742676}
   m_SourcePrefab: {fileID: 100100000, guid: 28bf6442c374a134d983e7252d52726f, type: 3}
+--- !u!1 &4710913486476742674 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8437653137800076550, guid: 28bf6442c374a134d983e7252d52726f, type: 3}
+  m_PrefabInstance: {fileID: 4710913486476742673}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &4710913486476742675 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 5580253193860615020, guid: 28bf6442c374a134d983e7252d52726f, type: 3}
+  m_PrefabInstance: {fileID: 4710913486476742673}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &4710913486476742676
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4710913486476742674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1c516ff25e92044a45b13260636379, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  quadRenderer: {fileID: 4710913486476742675}
+  materialIndex: 0
 --- !u!224 &4735095644398958866
 RectTransform:
   m_ObjectHideFlags: 0

@@ -1,4 +1,4 @@
-﻿// PuzzleDoor.cs
+﻿// File: Assets/Scripts/Gameplay/Doors/PuzzleDoor.cs
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,10 +38,25 @@ public class PuzzleDoor : IDoor
         GameObject slot = HUDManager.Instance.TravellerHUD.PuzzleSlot;
         Debug.Log("PuzzleSlot = " + slot);
 
-        puzzleInstance = Object.Instantiate(controller.puzzlePrefab, slot.transform);
+        puzzleInstance = Object.Instantiate(controller.puzzlePrefab);
 
-        puzzleInstance.transform.localPosition = Vector3.zero;
-        puzzleInstance.transform.localScale = Vector3.one;
+        // 👈 זה ה־puzzleSlot שלך
+        puzzleInstance.transform.SetParent(slot.transform, false);
+
+        puzzleInstance.SetActive(true);
+        slot.SetActive(true);
+
+        // חובה ל־UI
+        if (puzzleInstance.TryGetComponent<RectTransform>(out var rt))
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;
+            rt.localRotation = Quaternion.identity;
+            rt.localScale = Vector3.one;
+        }
+
 
         // ===== שליפות לפי ההיררכיה שלך =====
         Transform piecesParent = puzzleInstance.transform.Find("Pieces");
@@ -149,11 +164,17 @@ public class PuzzleDoor : IDoor
 
         HUDManager.Instance.TravellerHUD.ShowPuzzle();
         puzzleInstance.SetActive(true);
+
         // ⭐ הטוטוריאל צריך לדעת שהחידה נפתחה
         var tm = Object.FindFirstObjectByType<TutorialManager>();
         tm?.NotifyNavigatorOpenedPuzzleDoor();
 
-        // לוודא שיש לנו Sprite למסך
+        // NOTE:
+        // הצגת התמונה על מסך הנווט נעשית *בשרת* (DoorController.RequestOpenPuzzleDoorServerRpc),
+        // כדי שלא תהיה תלות ב-Client של ה-Traveller ובזמני טעינה/Owner.
+        // לכן לא קוראים פה ל-ShowNavigatorPreviewOnScreen.
+
+        // (אפשר עדיין לשמור preview מקומי לשימושים UI/Debug, אבל לא לסנכרון TV)
         if (controller.navigatorPreview == null)
         {
             Transform original = puzzleInstance.transform.Find("OriginalImage");
@@ -164,8 +185,6 @@ public class PuzzleDoor : IDoor
                     controller.navigatorPreview = img.sprite;
             }
         }
-
-        controller.ShowNavigatorPreviewOnScreen(controller.navigatorPreview);
 
         GameManager.Instance.inPuzzle = true;
         GameManager.Instance.activePuzzleDoor = controller;
@@ -194,7 +213,7 @@ public class PuzzleDoor : IDoor
         GameManager.Instance.inPuzzle = false;
         GameManager.Instance.activePuzzleDoor = null;
 
-        // כשנפתרה החידה נחזור ל־noise במסך
+        // כשנפתרה החידה נחזור ל־noise/ננקה במסך
         controller.ShowNavigatorPreviewOnScreen(null);
 
         // ⭐ הטוטוריאל צריך לדעת שהחידה נפתרה
@@ -218,7 +237,7 @@ public class PuzzleDoor : IDoor
         GameManager.Instance.inPuzzle = false;
         GameManager.Instance.activePuzzleDoor = null;
 
-        // גם כאן נחזור ל-noise
+        // גם כאן נחזור ל-noise/ננקה
         controller.ShowNavigatorPreviewOnScreen(null);
     }
 

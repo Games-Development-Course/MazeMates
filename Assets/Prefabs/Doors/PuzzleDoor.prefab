@@ -156,6 +156,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06ffa9add8fca65489663b40fa446866, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PadTrigger
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &6140175986804884243
 GameObject:
   m_ObjectHideFlags: 0
@@ -435,6 +436,14 @@ MonoBehaviour:
   doorType: 1
   openAngle: -90
   openSpeed: 3
+  pivotOverride: {fileID: 0}
   puzzlePrefab: {fileID: 0}
   navigatorPreview: {fileID: 0}
+  navigatorScreenQuad: {fileID: 0}
+  navigatorScreenMaterialIndex: 0
+  tvZoom: 1
+  navigatorScreenTag: NavigatorScreenTV
+  puzzleResourcesFolder: Puzzles
   spawnedHints: []
+  tvApplyRetries: 90
+  tvApplyRetryDelaySeconds: 0

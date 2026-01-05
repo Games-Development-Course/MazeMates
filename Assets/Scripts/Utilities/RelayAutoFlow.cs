@@ -1,4 +1,16 @@
-// Assets/Scripts/Net/RelayAutoFlow.cs
+﻿// Assets/Scripts/Utilities/RelayAutoFlow.cs
+// Deterministic MPE Host/Client selection (Editor hosts, Player2 joins) + hard gating:
+// - Prefer MPE Tags: HOST / CLIENT
+// - Else prefer CurrentPlayer.IsMainEditor
+// - Else prefer cmdline -name Player1/Player2...
+// - Else fallback to UnityEditor.MPE playerIndex (0 host)
+// Client does NOTHING (even no Unity Services sign-in) until Host published join code.
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -15,156 +27,326 @@ using UnityEditor;
 
 public sealed class RelayAutoFlow : MonoBehaviour
 {
-    [Header("Auto")]
-    [SerializeField] private bool autoLoadGameScene = true;
-    [SerializeField] private string gameSceneName = "GameScene";
+    private enum Role { Host, Client }
+
+    [Header("Players")]
     [SerializeField] private int expectedPlayers = 2;
 
-    [Header("Flow Control")]
-    [Tooltip("If true: when all players connected, DO NOT load scene automatically. Host can show UI and later call HostLoadGameSceneNow().")]
+    [Header("Scene (optional)")]
+    [SerializeField] private bool autoLoadGameScene = false;
+    [SerializeField] private string gameSceneName = "GameScene";
     [SerializeField] private bool pauseAfterAllPlayersConnected = true;
 
-    [Header("Dev / Safety")]
-    [Tooltip("When using Unity Multiplayer Play Mode (Virtual Players), PlayerIndex=0 becomes Host and PlayerIndex>0 becomes Client.")]
-    [SerializeField] private bool useEditorMultiplayerPlayModeRole = true;
+    [Header("Join code gate")]
+    [SerializeField] private float hostSignalWaitSeconds = 120f;
+    [SerializeField] private float joinCodeMaxAgeSeconds = 600f; // 10 min
 
-    [Tooltip("If true, clears cached join/lock keys at the start of play (recommended for Editor/MPE).")]
-    [SerializeField] private bool clearStoredKeysOnStart = true;
+    [Header("Client retry")]
+    [SerializeField] private int clientJoinRetries = 6;
+    [SerializeField] private int joinRetryDelayMs = 500;
 
-    [Header("Client Join Retry")]
-    [SerializeField] private int clientJoinRetries = 3;
-    [SerializeField] private int joinRetryDelayMs = 400;
+    // Shared Join Code file (works across MPE virtual player processes)
+    // Format: "<unixSeconds>|<joinCode>"
+    private static string SharedDir => Path.Combine(Path.GetTempPath(), "MazeMates");
+    private static string JoinCodeFile => Path.Combine(SharedDir, "relay_joincode.txt");
 
-    // Fallback keys (non-MPE editor cases)
-    private const string JoinKey = "mm_join_code";
-    private const string HostLockKey = "mm_host_lock";
-
-    // Unity Multiplayer Play Mode (Virtual Players) in Editor: shared across virtual players (same process)
+#if UNITY_EDITOR
+    // same-process convenience (not relied upon)
     private static string s_editorJoinCode;
+#endif
 
-    // NEW: becomes true once we detected all expected players
+    private string _prefetchedJoinCode;
+
     public bool AllPlayersConnected { get; private set; }
-
-    // NEW: Host can subscribe to open difficulty menu
-    public event System.Action PlayersReadyOnHost;
+    public event Action PlayersReadyOnHost;
 
     private async void Start()
     {
-        if (NetworkManager.Singleton == null)
+        // Wait until NetworkManager exists (fixes early OnEnable order issues in some scenes)
+        await WaitForNetworkManagerReady();
+
+        Role role = DecideRoleDeterministic(out string reason);
+        Debug.Log($"[RelayAutoFlow] role={role} ({reason}) | platform={Application.platform} | buildTargetWebGL={(IsBuildTargetWebGL() ? "YES" : "NO")}");
+
+        // ✅ CLIENT does NOTHING before host published join code
+        if (role == Role.Client)
         {
-            Debug.LogError("[RelayAutoFlow] NetworkManager missing");
-            return;
+            bool ok = await WaitForHostJoinCodeSignal(hostSignalWaitSeconds);
+            if (!ok)
+            {
+                Debug.LogError("[RelayAutoFlow] Timeout waiting for host join code.");
+                return;
+            }
         }
 
-        if (clearStoredKeysOnStart)
-        {
-#if UNITY_EDITOR
-            s_editorJoinCode = null;
-#endif
-            PlayerPrefs.DeleteKey(JoinKey);
-            PlayerPrefs.DeleteKey(HostLockKey);
-            PlayerPrefs.Save();
-        }
+        await EnsureUnityServicesSignedIn_WithRetries();
 
-        await EnsureUnityServicesSignedIn();
-
-        bool isHost = DecideIsHost();
-        Debug.Log($"[RelayAutoFlow] role={(isHost ? "HOST" : "CLIENT")}");
-
-        if (isHost)
-            await StartHost();
-        else
-            await StartClient();
+        if (role == Role.Host) await StartHost();
+        else await StartClient();
     }
 
-    private bool DecideIsHost()
+    private async Task WaitForNetworkManagerReady()
+    {
+        float t = 0f;
+        while (NetworkManager.Singleton == null)
+        {
+            await Task.Delay(50);
+            t += 0.05f;
+            if (t > 10f)
+            {
+                Debug.LogWarning("[RelayAutoFlow] Still waiting for NetworkManager.Singleton...");
+                t = 0f;
+            }
+        }
+
+        // wait one frame so components settle
+        await Task.Yield();
+
+        if (NetworkManager.Singleton.GetComponent<UnityTransport>() == null)
+            Debug.LogWarning("[RelayAutoFlow] UnityTransport missing on NetworkManager.");
+    }
+
+    // ---------------------------
+    // Role decision (deterministic)
+    // ---------------------------
+
+    private Role DecideRoleDeterministic(out string reason)
     {
 #if UNITY_EDITOR
-        if (useEditorMultiplayerPlayModeRole && IsMultiplayerPlayModeEnabled(out int playerIndex))
-            return playerIndex == 0;
-#endif
-        var lockVal = PlayerPrefs.GetString(HostLockKey, null);
-        if (!string.IsNullOrEmpty(lockVal))
-            return false;
+        // 1) Prefer Tags: HOST/CLIENT
+        if (TryGetMpeCurrentPlayerTags(out var tags))
+        {
+            if (tags.Contains("HOST"))
+            {
+                reason = "tag=HOST";
+                return Role.Host;
+            }
+            if (tags.Contains("CLIENT"))
+            {
+                reason = "tag=CLIENT";
+                return Role.Client;
+            }
+        }
 
-        PlayerPrefs.SetString(HostLockKey, Time.realtimeSinceStartup.ToString("0.000"));
-        PlayerPrefs.Save();
-        return true;
+        // 2) Prefer IsMainEditor (most stable when available)
+        if (TryGetMpeIsMainEditor(out bool isMain) && isMain)
+        {
+            reason = "IsMainEditor=true";
+            return Role.Host;
+        }
+        if (TryGetMpeIsMainEditor(out isMain) && !isMain)
+        {
+            reason = "IsMainEditor=false";
+            return Role.Client;
+        }
+
+        // 3) Prefer command line -name Player1/Player2...
+        if (TryGetCmdlinePlayerName(out string pname))
+        {
+            if (string.Equals(pname, "Player1", StringComparison.OrdinalIgnoreCase))
+            {
+                reason = "-name Player1";
+                return Role.Host;
+            }
+            if (pname.StartsWith("Player", StringComparison.OrdinalIgnoreCase))
+            {
+                reason = $"-name {pname}";
+                return Role.Client;
+            }
+        }
+
+        // 4) Fallback: UnityEditor.MPE player index
+        if (TryGetMpePlayerIndex(out int idx))
+        {
+            reason = $"playerIndex={idx}";
+            return (idx == 0) ? Role.Host : Role.Client;
+        }
+
+        // 5) Not MPE (regular editor play)
+        reason = "regular editor play";
+        return Role.Host;
+#else
+        reason = "build";
+        return Role.Client;
+#endif
+    }
+
+#if UNITY_EDITOR
+    private static bool TryGetCmdlinePlayerName(out string name)
+    {
+        name = null;
+        try
+        {
+            var args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+            {
+                if (args[i] == "-name")
+                {
+                    name = args[i + 1];
+                    return !string.IsNullOrWhiteSpace(name);
+                }
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    private static bool TryGetMpeIsMainEditor(out bool isMainEditor)
+    {
+        isMainEditor = false;
+        try
+        {
+            // Unity.Multiplayer.PlayMode.CurrentPlayer.IsMainEditor (package dependent)
+            var t = FindTypeInLoadedAssemblies("Unity.Multiplayer.PlayMode.CurrentPlayer");
+            if (t == null) return false;
+
+            var p = t.GetProperty("IsMainEditor", BindingFlags.Public | BindingFlags.Static);
+            if (p == null) return false;
+
+            object v = p.GetValue(null);
+            if (v is bool b)
+            {
+                isMainEditor = b;
+                return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    private static bool TryGetMpeCurrentPlayerTags(out HashSet<string> tags)
+    {
+        tags = null;
+        try
+        {
+            var t = FindTypeInLoadedAssemblies("Unity.Multiplayer.PlayMode.CurrentPlayer");
+            if (t == null) return false;
+
+            var p = t.GetProperty("Tags", BindingFlags.Public | BindingFlags.Static);
+            if (p == null) return false;
+
+            object v = p.GetValue(null);
+            if (v is IEnumerable<string> es)
+            {
+                tags = new HashSet<string>(
+                    es.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()),
+                    StringComparer.OrdinalIgnoreCase);
+                return tags.Count > 0;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    private static Type FindTypeInLoadedAssemblies(string fullName)
+    {
+        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                var t = asm.GetType(fullName, throwOnError: false);
+                if (t != null) return t;
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    private static bool TryGetMpePlayerIndex(out int playerIndex)
+    {
+        playerIndex = 0;
+        try
+        {
+            var mpeType = typeof(Editor).Assembly.GetType("UnityEditor.MPE.MultiplayerPlayMode");
+            if (mpeType == null) return false;
+
+            var isEnabled = mpeType.GetMethod("IsEnabled", BindingFlags.Public | BindingFlags.Static);
+            var getIndex = mpeType.GetMethod("GetCurrentPlayerIndex", BindingFlags.Public | BindingFlags.Static);
+            if (isEnabled == null || getIndex == null) return false;
+
+            bool enabled = (bool)isEnabled.Invoke(null, null);
+            if (!enabled) return false;
+
+            playerIndex = (int)getIndex.Invoke(null, null);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+#endif
+
+    private bool IsBuildTargetWebGL()
+    {
+#if UNITY_EDITOR
+        try { return EditorUserBuildSettings.activeBuildTarget == BuildTarget.WebGL; }
+        catch { return false; }
+#else
+        return false;
+#endif
+    }
+
+    // ---------------------------
+    // Host / Client
+    // ---------------------------
+
+    private async Task<bool> WaitForHostJoinCodeSignal(float timeoutSeconds)
+    {
+        float elapsed = 0f;
+        while (elapsed < timeoutSeconds)
+        {
+#if UNITY_EDITOR
+            // optional convenience
+            if (!string.IsNullOrEmpty(s_editorJoinCode))
+            {
+                _prefetchedJoinCode = s_editorJoinCode;
+                return true;
+            }
+#endif
+            if (TryReadJoinCodeFromFile(out string code))
+            {
+                _prefetchedJoinCode = code;
+                return true;
+            }
+
+            await Task.Delay(100);
+            elapsed += 0.1f;
+        }
+
+        return false;
     }
 
     private async Task StartHost()
     {
-        int maxClients = Mathf.Max(0, expectedPlayers - 1);
-        Allocation alloc = await RelayService.Instance.CreateAllocationAsync(maxClients);
-        string joinCode = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
+        try
+        {
+            PrepareSharedJoinCodeFileForHost();
 
-        var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
-        utp.SetRelayServerData(new RelayServerData(alloc, "wss"));
-        utp.UseWebSockets = true;
+            int maxClients = Mathf.Max(0, expectedPlayers - 1);
+            Allocation alloc = await RelayService.Instance.CreateAllocationAsync(maxClients);
+            string joinCode = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
+
+            var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            utp.SetRelayServerData(new RelayServerData(alloc, "wss"));
+            utp.UseWebSockets = true;
 
 #if UNITY_EDITOR
-        if (useEditorMultiplayerPlayModeRole && IsMultiplayerPlayModeEnabled(out _))
             s_editorJoinCode = joinCode;
 #endif
+            PublishJoinCode(joinCode);
 
-        PlayerPrefs.SetString(JoinKey, joinCode);
-        PlayerPrefs.Save();
+            Debug.Log($"[RelayAutoFlow] HOST join code: {joinCode}");
 
-        Debug.Log($"[RelayAutoFlow] HOST join code: {joinCode}");
+            bool started = NetworkManager.Singleton.StartHost();
+            Debug.Log($"[RelayAutoFlow] StartHost={started}");
 
-        bool started = NetworkManager.Singleton.StartHost();
-        Debug.Log($"[RelayAutoFlow] StartHost={started}");
-
-        // IMPORTANT: we always listen for client connections to detect "players ready"
-        NetworkManager.Singleton.OnClientConnectedCallback += _ => OnAnyClientConnectedOnHost();
-
-        // If you still want old behavior sometimes:
-        if (!pauseAfterAllPlayersConnected && autoLoadGameScene)
-        {
-            // keep legacy behavior
+            NetworkManager.Singleton.OnClientConnectedCallback += _ => OnAnyClientConnectedOnHost();
         }
-    }
-
-    // NEW: host-side connection handler
-    private void OnAnyClientConnectedOnHost()
-    {
-        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
-
-        int total = NetworkManager.Singleton.ConnectedClientsList.Count; // includes host
-        Debug.Log($"[RelayAutoFlow] Connected clients: {total}/{expectedPlayers}");
-
-        if (AllPlayersConnected) return;
-
-        if (total >= expectedPlayers)
+        catch (Exception e)
         {
-            AllPlayersConnected = true;
-            Debug.Log("[RelayAutoFlow] All players connected.");
-
-            // Stop here and let your host UI (difficulty menu) open
-            if (pauseAfterAllPlayersConnected)
-            {
-                PlayersReadyOnHost?.Invoke();
-                return;
-            }
-
-            // Legacy auto-load
-            if (autoLoadGameScene)
-            {
-                HostLoadGameSceneNow();
-            }
+            Debug.LogError($"[RelayAutoFlow] HOST failed: {e}");
         }
-    }
-
-    // NEW: Call this from your difficulty menu AFTER player chooses difficulty
-    public void HostLoadGameSceneNow()
-    {
-        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
-        if (NetworkManager.Singleton.SceneManager == null) return;
-
-        Debug.Log($"[RelayAutoFlow] Host loading {gameSceneName}");
-        NetworkManager.Singleton.SceneManager.LoadScene(
-            gameSceneName,
-            UnityEngine.SceneManagement.LoadSceneMode.Single);
     }
 
     private async Task StartClient()
@@ -173,10 +355,19 @@ public sealed class RelayAutoFlow : MonoBehaviour
 
         for (int attempt = 1; attempt <= retries; attempt++)
         {
-            string code = await WaitForJoinCode(10f);
+            string code = _prefetchedJoinCode;
+
+            if (string.IsNullOrEmpty(code) && TryReadJoinCodeFromFile(out var fileCode))
+                code = fileCode;
+
+#if UNITY_EDITOR
+            if (string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(s_editorJoinCode))
+                code = s_editorJoinCode;
+#endif
+
             if (string.IsNullOrEmpty(code))
             {
-                Debug.LogError("[RelayAutoFlow] No join code found (timeout).");
+                Debug.LogError("[RelayAutoFlow] No join code available for client.");
                 return;
             }
 
@@ -196,19 +387,18 @@ public sealed class RelayAutoFlow : MonoBehaviour
             }
             catch (RelayServiceException e) when (IsJoinCodeNotFound(e))
             {
-                Debug.LogWarning($"[RelayAutoFlow] Join code not found/expired. Clearing cached code and retrying {attempt}/{retries}...");
+                int backoff = Mathf.Clamp(joinRetryDelayMs * attempt, 300, 5000);
+                Debug.LogWarning($"[RelayAutoFlow] Join code not found/expired. Retrying {attempt}/{retries} after {backoff}ms...");
 
+                _prefetchedJoinCode = null;
 #if UNITY_EDITOR
                 s_editorJoinCode = null;
 #endif
-                PlayerPrefs.DeleteKey(JoinKey);
-                PlayerPrefs.Save();
-
-                await Task.Delay(joinRetryDelayMs);
+                await Task.Delay(backoff);
             }
-            catch (RelayServiceException e)
+            catch (Exception e)
             {
-                Debug.LogError($"[RelayAutoFlow] Relay join failed: {e}");
+                Debug.LogError($"[RelayAutoFlow] Client failed: {e}");
                 return;
             }
         }
@@ -216,74 +406,94 @@ public sealed class RelayAutoFlow : MonoBehaviour
         Debug.LogError("[RelayAutoFlow] Failed to join after retries.");
     }
 
-    private async Task<string> WaitForJoinCode(float timeoutSeconds)
+    private void OnAnyClientConnectedOnHost()
     {
-#if UNITY_EDITOR
-        if (useEditorMultiplayerPlayModeRole && IsMultiplayerPlayModeEnabled(out int playerIndex))
-        {
-            if (playerIndex > 0)
-            {
-                float t = 0f;
-                while (t < timeoutSeconds)
-                {
-                    if (!string.IsNullOrEmpty(s_editorJoinCode))
-                        return s_editorJoinCode;
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
 
-                    await Task.Delay(100);
-                    t += 0.1f;
-                }
-                return null;
+        int total = NetworkManager.Singleton.ConnectedClientsList.Count; // includes host
+        Debug.Log($"[RelayAutoFlow] Connected clients: {total}/{expectedPlayers}");
+
+        if (AllPlayersConnected) return;
+
+        if (total >= expectedPlayers)
+        {
+            AllPlayersConnected = true;
+            Debug.Log("[RelayAutoFlow] All players connected.");
+
+            if (pauseAfterAllPlayersConnected)
+            {
+                PlayersReadyOnHost?.Invoke();
+                return;
+            }
+
+            if (autoLoadGameScene && NetworkManager.Singleton.SceneManager != null)
+            {
+                Debug.Log($"[RelayAutoFlow] Host loading {gameSceneName}");
+                NetworkManager.Singleton.SceneManager.LoadScene(gameSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
             }
         }
-#endif
+    }
 
-        float elapsed = 0f;
-        while (elapsed < timeoutSeconds)
+    // ---------------------------
+    // Join code file helpers
+    // ---------------------------
+
+    private void PrepareSharedJoinCodeFileForHost()
+    {
+        try
         {
-            var code = PlayerPrefs.GetString(JoinKey, null);
-            if (!string.IsNullOrEmpty(code))
-                return code;
-
-            await Task.Delay(200);
-            elapsed += 0.2f;
+            Directory.CreateDirectory(SharedDir);
+            if (File.Exists(JoinCodeFile))
+                File.Delete(JoinCodeFile);
         }
-
-        return null;
+        catch { }
     }
 
-    private static bool IsJoinCodeNotFound(System.Exception e)
+    private void PublishJoinCode(string joinCode)
     {
-        string t = e.ToString();
-        return t.Contains("404") || t.Contains("Not Found") || t.Contains("join code not found");
+        try
+        {
+            Directory.CreateDirectory(SharedDir);
+            long unix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            File.WriteAllText(JoinCodeFile, $"{unix}|{joinCode}");
+        }
+        catch { }
     }
 
-    private static async Task EnsureUnityServicesSignedIn()
+    private bool TryReadJoinCodeFromFile(out string code)
     {
-        if (UnityServices.State != ServicesInitializationState.Initialized)
-            await UnityServices.InitializeAsync();
-
-        if (!AuthenticationService.Instance.IsSignedIn)
-            await AuthenticationService.Instance.SignInAnonymouslyAsync();
-    }
-
-#if UNITY_EDITOR
-    private static bool IsMultiplayerPlayModeEnabled(out int playerIndex)
-    {
-        playerIndex = 0;
+        code = null;
 
         try
         {
-            var mpeType = typeof(Editor).Assembly.GetType("UnityEditor.MPE.MultiplayerPlayMode");
-            if (mpeType == null) return false;
+            if (!File.Exists(JoinCodeFile))
+                return false;
 
-            var isEnabled = mpeType.GetMethod("IsEnabled", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            var getIndex = mpeType.GetMethod("GetCurrentPlayerIndex", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            if (isEnabled == null || getIndex == null) return false;
+            string text = File.ReadAllText(JoinCodeFile);
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
 
-            bool enabled = (bool)isEnabled.Invoke(null, null);
-            if (!enabled) return false;
+            int sep = text.IndexOf('|');
+            if (sep <= 0 || sep >= text.Length - 1)
+                return false;
 
-            playerIndex = (int)getIndex.Invoke(null, null);
+            string tsStr = text.Substring(0, sep).Trim();
+            string joinCode = text.Substring(sep + 1).Trim();
+
+            if (string.IsNullOrEmpty(joinCode))
+                return false;
+
+            if (!long.TryParse(tsStr, out long unix))
+                return false;
+
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            long age = now - unix;
+            if (age < 0) age = 0;
+
+            if (age > (long)joinCodeMaxAgeSeconds)
+                return false;
+
+            code = joinCode;
             return true;
         }
         catch
@@ -291,5 +501,43 @@ public sealed class RelayAutoFlow : MonoBehaviour
             return false;
         }
     }
-#endif
+
+    private static bool IsJoinCodeNotFound(Exception e)
+    {
+        string t = e.ToString();
+        return t.Contains("404") || t.Contains("Not Found") || t.Contains("join code not found");
+    }
+
+    // ---------------------------
+    // Unity Services
+    // ---------------------------
+
+    private static async Task EnsureUnityServicesSignedIn_WithRetries()
+    {
+        const int maxAttempts = 3;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                if (UnityServices.State != ServicesInitializationState.Initialized)
+                    await UnityServices.InitializeAsync();
+
+                if (!AuthenticationService.Instance.IsSignedIn)
+                    await AuthenticationService.Instance.SignInAnonymouslyAsync();
+
+                return;
+            }
+            catch
+            {
+                await Task.Delay(400 * attempt);
+            }
+        }
+
+        if (UnityServices.State != ServicesInitializationState.Initialized)
+            await UnityServices.InitializeAsync();
+
+        if (!AuthenticationService.Instance.IsSignedIn)
+            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+    }
 }
