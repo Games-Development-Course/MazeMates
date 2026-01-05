@@ -1,5 +1,5 @@
-// Assets/Scripts/Net/RelayAutoFlow.cs
 using System.Threading.Tasks;
+using MazeMates.Authentication;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Networking.Transport.Relay;
@@ -39,14 +39,15 @@ public sealed class RelayAutoFlow : MonoBehaviour
     private const string JoinKey = "mm_join_code";
     private const string HostLockKey = "mm_host_lock";
 
+#if UNITY_EDITOR
     // Unity Multiplayer Play Mode (Virtual Players) in Editor: shared across virtual players (same process)
     private static string s_editorJoinCode;
+#endif
 
-    // NEW: becomes true once we detected all expected players
     public bool AllPlayersConnected { get; private set; }
-
-    // NEW: Host can subscribe to open difficulty menu
     public event System.Action PlayersReadyOnHost;
+
+    private bool _subscribedHostCallback;
 
     private async void Start()
     {
@@ -66,7 +67,12 @@ public sealed class RelayAutoFlow : MonoBehaviour
             PlayerPrefs.Save();
         }
 
-        await EnsureUnityServicesSignedIn();
+        bool ready = await EnsureUnityServicesReadyAndRequireSignIn();
+        if (!ready)
+        {
+            Debug.LogWarning("[RelayAutoFlow] Not signed in. Relay auto flow will not start.");
+            return;
+        }
 
         bool isHost = DecideIsHost();
         Debug.Log($"[RelayAutoFlow] role={(isHost ? "HOST" : "CLIENT")}");
@@ -75,6 +81,15 @@ public sealed class RelayAutoFlow : MonoBehaviour
             await StartHost();
         else
             await StartClient();
+    }
+
+    private void OnDestroy()
+    {
+        if (NetworkManager.Singleton != null && _subscribedHostCallback)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= _ => OnAnyClientConnectedOnHost();
+            _subscribedHostCallback = false;
+        }
     }
 
     private bool DecideIsHost()
@@ -115,17 +130,19 @@ public sealed class RelayAutoFlow : MonoBehaviour
         bool started = NetworkManager.Singleton.StartHost();
         Debug.Log($"[RelayAutoFlow] StartHost={started}");
 
-        // IMPORTANT: we always listen for client connections to detect "players ready"
-        NetworkManager.Singleton.OnClientConnectedCallback += _ => OnAnyClientConnectedOnHost();
+        // Listen for client connections to detect "players ready"
+        if (!_subscribedHostCallback)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback += _ => OnAnyClientConnectedOnHost();
+            _subscribedHostCallback = true;
+        }
 
-        // If you still want old behavior sometimes:
         if (!pauseAfterAllPlayersConnected && autoLoadGameScene)
         {
-            // keep legacy behavior
+            // legacy behavior placeholder (kept intentionally)
         }
     }
 
-    // NEW: host-side connection handler
     private void OnAnyClientConnectedOnHost()
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
@@ -140,14 +157,12 @@ public sealed class RelayAutoFlow : MonoBehaviour
             AllPlayersConnected = true;
             Debug.Log("[RelayAutoFlow] All players connected.");
 
-            // Stop here and let your host UI (difficulty menu) open
             if (pauseAfterAllPlayersConnected)
             {
                 PlayersReadyOnHost?.Invoke();
                 return;
             }
 
-            // Legacy auto-load
             if (autoLoadGameScene)
             {
                 HostLoadGameSceneNow();
@@ -155,7 +170,6 @@ public sealed class RelayAutoFlow : MonoBehaviour
         }
     }
 
-    // NEW: Call this from your difficulty menu AFTER player chooses difficulty
     public void HostLoadGameSceneNow()
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
@@ -257,13 +271,24 @@ public sealed class RelayAutoFlow : MonoBehaviour
         return t.Contains("404") || t.Contains("Not Found") || t.Contains("join code not found");
     }
 
-    private static async Task EnsureUnityServicesSignedIn()
+    /// <summary>
+    /// Initializes Unity Services, but does NOT auto sign-in.
+    /// Requires the player to already be signed in (via your Auth UI).
+    /// </summary>
+    private static async Task<bool> EnsureUnityServicesReadyAndRequireSignIn()
     {
+        // Prefer your Auth manager initialization (keeps same profile/options)
+        if (UgsAuthManager.Instance != null)
+        {
+            await UgsAuthManager.Instance.InitializeAsync();
+            return UgsAuthManager.Instance.IsSignedIn;
+        }
+
+        // Fallback: initialize services directly, but do not sign-in.
         if (UnityServices.State != ServicesInitializationState.Initialized)
             await UnityServices.InitializeAsync();
 
-        if (!AuthenticationService.Instance.IsSignedIn)
-            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+        return AuthenticationService.Instance != null && AuthenticationService.Instance.IsSignedIn;
     }
 
 #if UNITY_EDITOR
