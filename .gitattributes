@@ -74,13 +74,11 @@
 # TextMesh Pro – avoid constant font asset conflicts
 # =========================
 
-# TMP generated font assets (SDF) tend to change often; don't attempt merges
-Assets/TextMesh\ Pro/Fonts/*.asset merge=theirs
-Assets/TextMesh\ Pro/Fonts/**/*.asset merge=theirs
-
-# (Optional) TMP fallback/settings assets can also churn
-Assets/TextMesh\ Pro/Resources/*.asset merge=theirs
-Assets/TextMesh\ Pro/Resources/**/*.asset merge=theirs
+# TMP generated font assets (SDF) tend to change often; disable merges for them
+Assets/TextMesh\ Pro/Fonts/*.asset -merge
+Assets/TextMesh\ Pro/Fonts/**/*.asset -merge
+Assets/TextMesh\ Pro/Resources/*.asset -merge
+Assets/TextMesh\ Pro/Resources/**/*.asset -merge
 
 # Project / Settings
 ProjectSettings/*.asset text eol=lf
