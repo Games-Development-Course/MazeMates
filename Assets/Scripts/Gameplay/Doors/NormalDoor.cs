@@ -17,6 +17,6 @@
 
         opened = true;
 
-        controller.RequestOpenDoorRpc(); // ← גרסה מתוקנת ל־RPC
+        controller.RequestOpenDoorServerRpc(); // ← גרסה מתוקנת ל־RPC
     }
 }

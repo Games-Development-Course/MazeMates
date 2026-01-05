@@ -1,156 +1,238 @@
-﻿using System.Collections.Generic;
+﻿// Assets/Scripts/Maze/MazeGenerator3D.cs
+using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
 public class MazeGenerator3D : MonoBehaviour
 {
-    [Header("Maze Settings")]
-    public int width = 20;
-    public int height = 20;
-    public float cellSize = 2f;
+    [Header("Navigator Exit Anchor (in GameScene)")]
+    [Tooltip("גרור לפה Transform שנמצא בדיוק על הכניסה לחדר הנווט (הנקודה שבה דלת הניצחון צריכה לשבת).")]
+    [SerializeField] private Transform navigatorEntranceAnchor;
+
+    [Header("Maze Settings (fallback if no GameConfigNet)")]
+    [SerializeField] private int width = 21;
+    [SerializeField] private int height = 21;
+    [SerializeField] private float cellSize = 2f;
+    [SerializeField] private float doorPrefabYawOffset = 0f; // use ONLY if prefab faces wrong direction
+
+    [Header("Layers")]
+    [SerializeField] private int wallsLayer = 0; // 0 = Default
+
+    [Header("Traveller Spawn")]
+    [SerializeField] private Transform travellerSpawn;
+
+    // -------------------------------
+    // Public API for deterministic spawning (read-only)
+    // -------------------------------
+    public Transform TravellerSpawn => travellerSpawn;
+
+    public bool IsReady { get; private set; }
+    public event System.Action Ready;
+
+    private void MarkReady()
+    {
+        if (IsReady) return;
+        IsReady = true;
+        Ready?.Invoke();
+    }
 
     [Header("Ground")]
-    public GameObject groundPrefab;
+    [SerializeField] private GameObject groundPrefab;
 
     [Header("Prefabs")]
-    public GameObject wallPrefab;
+    [SerializeField] private GameObject wallPrefab;
 
-    public GameObject normalDoorPrefab;
-    public int normalDoorsAmount = 3;
+    [Header("Doors (Prefabs)")]
+    [SerializeField] private GameObject normalDoorPrefab;
+    [SerializeField] private GameObject puzzleDoorPrefab;
+    [SerializeField] private GameObject winDoorPrefab;
+    [SerializeField] private float doorYawOffset = 0f; // try 90 or -90
 
-    public GameObject puzzleDoorPrefab;
-    public int puzzleDoorsAmount = 2;
+    [Header("Puzzles (Prefabs)")]
+    [SerializeField] private GameObject puzzleEasyPrefab;
+    [SerializeField] private GameObject puzzleMediumPrefab;
+    [SerializeField] private GameObject puzzleHardPrefab;     // HARD #1
+    [SerializeField] private GameObject puzzleHardPrefab2;    // ✅ HARD #2 (NEW)
 
-    public GameObject exitDoorPrefab;
+    [Header("Resources (Prefabs)")]
+    [SerializeField] private GameObject heartPrefab;
+    [SerializeField] private GameObject bombPrefab;
+    [SerializeField] private GameObject keyPrefab;
 
-    [Header("Puzzle Prefabs (match puzzleDoorsAmount)")]
-    public List<GameObject> puzzlePrefabs = new List<GameObject>();
-
-    [Header("Resources")]
-    public GameObject heartPrefab;
-    public int heartsAmount = 3;
-
-    public GameObject bombPrefab;
-    public int bombsAmount = 2;
-
-    public GameObject keyPrefab;
-    public int keysAmount = 2;
+    [Header("Wall Material (optional)")]
+    [SerializeField] private Material wallMaterial;
+    [SerializeField] private bool applyWallMaterialToChildren = true;
+    [SerializeField] private bool useSharedMaterial = true;
+    [SerializeField] private bool replaceAllMaterialSlots = true;
+    [SerializeField] private int materialSlotIndex = 0;
 
     private Transform wallsRoot;
     private Transform doorsRoot;
     private Transform resourcesRoot;
 
+    private readonly List<GameObject> spawnedDoors = new();
+    private GameObject spawnedWinDoor;
+
     private bool[,] grid;
-    private List<Vector2Int> pathCells = new List<Vector2Int>();
-    private List<Vector2Int> carvedWalls = new List<Vector2Int>();
+    private readonly List<Vector2Int> pathCells = new();
+    private readonly List<Vector2Int> carvedWalls = new();
 
-    // our forced exit position
-    private Vector2Int forcedExitCell;
+    private Vector2Int forcedExitCell;     // open cell inside (adjacent to border)
+    private Vector2Int forcedExitWallCell; // border wall cell where the victory door sits
+    private Vector3 forcedExitDoorLocalPos;
+    private Quaternion forcedExitDoorRot;
 
-    void Start()
+    private int normalDoorsAmount = 3;
+    private int puzzleDoorsAmount = 2;
+
+    private int heartsAmount = 3;
+    private int bombsAmount = 2;
+    private int keysAmount = 2;
+
+    private int difficulty = 0; // 0 easy, 1 medium, 2 hard
+    private int seed = 0;
+
+    private static readonly Vector2Int StartCell = new Vector2Int(1, 1);
+
+    // =========================
+    //   GRID <-> WORLD MAPPING
+    // =========================
+    private Vector3 CellCenterLocal(int x, int y, float localY = 0f)
     {
+        return new Vector3((x + 0.5f) * cellSize, localY, (y + 0.5f) * cellSize);
+    }
+
+    private Vector3 CellCenterWorld(int x, int y, float localY = 0f)
+    {
+        return transform.TransformPoint(CellCenterLocal(x, y, localY));
+    }
+
+    private Vector2Int WorldToCell(Vector3 worldPos)
+    {
+        Vector3 local = transform.InverseTransformPoint(worldPos);
+        int cx = Mathf.FloorToInt(local.x / cellSize);
+        int cy = Mathf.FloorToInt(local.z / cellSize);
+        return new Vector2Int(cx, cy);
+    }
+
+    private void Start()
+    {
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
+            return;
+
+        PullConfigIfExists();
+
+        // ✅ enforce puzzle-door counts by difficulty (as requested)
+        puzzleDoorsAmount = (difficulty == 2) ? 2 : 1;
+
+        Random.InitState(seed);
+
         CreateHierarchyFolders();
-
         GenerateMaze();
-        BuildMaze();
 
-        // Ground generation – MUST be after BuildMaze()
+        // ✅ start is always open
+        grid[StartCell.x, StartCell.y] = false;
+        if (!pathCells.Contains(StartCell)) pathCells.Add(StartCell);
+
+        ComputeForcedExitCells_FarthestBorderAdjacent();
+        OpenForcedExit();
+
+        BuildMaze();
         CreateGround();
 
-        // ------------------------------------------
-        // FORCE EXIT POSITION BEFORE PLACING DOORS
-        // ------------------------------------------
-        forcedExitCell = new Vector2Int(width - 2, height - 1);
+        AlignMazeToNavigatorEntrance();
+        UpdateTravellerSpawn();
 
-        grid[forcedExitCell.x, forcedExitCell.y] = false;
-        pathCells.Add(forcedExitCell);
-
-        PlaceForcedExitDoor();
-
+        // DOORS (logic moved to DoorPlacement)
         List<GameObject> puzzleDoorInstances = PlaceDoors();
-
         PlaceResources();
-        AssignPuzzlePrefabsToPuzzleDoors(puzzleDoorInstances);
+        AssignPuzzlesToPuzzleDoors(puzzleDoorInstances);
+
+        MarkReady();
+    }
+
+    private void PullConfigIfExists()
+    {
+        var cfg = GameConfigNet.Instance;
+        if (cfg == null) return;
+
+        width = cfg.MazeWidth.Value;
+        height = cfg.MazeHeight.Value;
+
+        heartsAmount = cfg.Hearts.Value;
+        bombsAmount = cfg.Bombs.Value;
+        keysAmount = cfg.Keys.Value;
+
+        normalDoorsAmount = cfg.NormalDoors.Value;
+        puzzleDoorsAmount = cfg.PuzzleDoors.Value; // overridden by difficulty rule above
+
+        difficulty = cfg.Difficulty.Value;
+        seed = cfg.Seed.Value;
+        if (seed == 0) seed = 1234567;
     }
 
     // ================================================================
     //   CREATE FOLDER STRUCTURE
     // ================================================================
-    void CreateHierarchyFolders()
+    private void CreateHierarchyFolders()
     {
-        Transform mazeRoot = transform;
-
-        wallsRoot = mazeRoot.Find("Walls");
-        if (wallsRoot == null)
-        {
-            wallsRoot = new GameObject("Walls").transform;
-            wallsRoot.SetParent(mazeRoot);
-        }
-
-        doorsRoot = mazeRoot.Find("Doors");
-        if (doorsRoot == null)
-        {
-            doorsRoot = new GameObject("Doors").transform;
-            doorsRoot.SetParent(mazeRoot);
-        }
-
-        resourcesRoot = mazeRoot.Find("Resources");
-        if (resourcesRoot == null)
-        {
-            resourcesRoot = new GameObject("Resources").transform;
-            resourcesRoot.SetParent(mazeRoot);
-        }
+        wallsRoot = EnsureFolder("Walls");
+        doorsRoot = EnsureFolder("Doors");
+        resourcesRoot = EnsureFolder("Resources");
     }
 
-    void CreateGround()
+    private Transform EnsureFolder(string name)
     {
-        if (groundPrefab == null)
-        {
-            Debug.LogWarning("Ground prefab is missing!");
-            return;
-        }
+        var t = transform.Find(name);
+        if (t != null) return t;
+        var go = new GameObject(name);
+        go.transform.SetParent(transform, false);
+        return go.transform;
+    }
 
-        // יצירת אובייקט חדש
+    private void CreateGround()
+    {
+        if (groundPrefab == null) return;
+
+        var existing = transform.Find("Ground");
+        if (existing != null) Destroy(existing.gameObject);
+
         GameObject ground = Instantiate(groundPrefab);
-
-        // שמים אותו הילד של המבוך
         ground.name = "Ground";
-        ground.transform.SetParent(transform);
+        ground.transform.SetParent(transform, false);
 
-        // גודל הרצפה לפי מספר תאים * cellSize
         float groundWidth = width * cellSize;
         float groundHeight = height * cellSize;
 
-        // מניחים אותו במרכז של כל המבוך
-        ground.transform.localPosition = new Vector3(
-            (groundWidth / 2f) - (cellSize / 2f),
-            0,
-            (groundHeight / 2f) - (cellSize / 2f)
-        );
-
-        // אם זו רצפה עם Scale רגיל (1,1,1) — נשנה Scale לפי הגודל
-        ground.transform.localScale = new Vector3(groundWidth, groundHeight, 1);
+        ground.transform.localPosition = new Vector3(groundWidth / 2f, 0f, groundHeight / 2f);
+        ground.transform.localScale = new Vector3(groundWidth, groundHeight, 1f);
     }
 
     // ================================================================
-    //   MAZE GENERATION
+    //   MAZE GENERATION (DFS CARVE) - PERFECT MAZE
     // ================================================================
-    void GenerateMaze()
+    private void GenerateMaze()
     {
+        if (width % 2 == 0) width++;
+        if (height % 2 == 0) height++;
+
+        pathCells.Clear();
+        carvedWalls.Clear();
+
         grid = new bool[width, height];
-
         for (int x = 0; x < width; x++)
-        for (int y = 0; y < height; y++)
-            grid[x, y] = true;
+            for (int y = 0; y < height; y++)
+                grid[x, y] = true;
 
-        DFS(1, 1);
+        DFS(StartCell.x, StartCell.y);
     }
 
-    void DFS(int x, int y)
+    private void DFS(int x, int y)
     {
         grid[x, y] = false;
         pathCells.Add(new Vector2Int(x, y));
 
-        List<Vector2Int> dirs = new List<Vector2Int>()
+        List<Vector2Int> dirs = new()
         {
             new Vector2Int(2, 0),
             new Vector2Int(-2, 0),
@@ -181,12 +263,9 @@ public class MazeGenerator3D : MonoBehaviour
         }
     }
 
-    bool IsInside(int x, int y)
-    {
-        return x > 0 && y > 0 && x < width - 1 && y < height - 1;
-    }
+    private bool IsInside(int x, int y) => x > 0 && y > 0 && x < width - 1 && y < height - 1;
 
-    void Shuffle(List<Vector2Int> list)
+    private void Shuffle(List<Vector2Int> list)
     {
         for (int i = 0; i < list.Count; i++)
         {
@@ -196,192 +275,562 @@ public class MazeGenerator3D : MonoBehaviour
     }
 
     // ================================================================
-    //   BUILD WALLS
+    //   EXIT: choose farthest reachable border-adjacent cell from Start
     // ================================================================
-    void BuildMaze()
+    private void ComputeForcedExitCells_FarthestBorderAdjacent()
     {
-        for (int x = 0; x < width; x++)
-        for (int y = 0; y < height; y++)
-            if (grid[x, y])
-            {
-                Vector3 pos = new Vector3(x * cellSize, 1, y * cellSize);
-                Instantiate(wallPrefab, pos, Quaternion.identity, wallsRoot);
-            }
-        int wx = width - 2;
-        int wy = height - 1;
+        List<Vector2Int> candidates = new();
 
-        // פותחים אותו ברשת
-        grid[wx, wy] = false;
-
-        // מוחקים את קיר ה-GameObject מהסצנה
-        foreach (Transform w in wallsRoot)
+        for (int x = 1; x < width - 1; x++)
         {
-            Vector2Int c = new Vector2Int(
-                Mathf.RoundToInt(w.position.x / cellSize),
-                Mathf.RoundToInt(w.position.z / cellSize)
-            );
+            if (!grid[x, 1]) candidates.Add(new Vector2Int(x, 1));
+            if (!grid[x, height - 2]) candidates.Add(new Vector2Int(x, height - 2));
+        }
 
-            if (c.x == wx && c.y == wy)
+        for (int y = 1; y < height - 1; y++)
+        {
+            if (!grid[1, y]) candidates.Add(new Vector2Int(1, y));
+            if (!grid[width - 2, y]) candidates.Add(new Vector2Int(width - 2, y));
+        }
+
+        Dictionary<Vector2Int, int> dist = BFS_Distances(StartCell);
+
+        Vector2Int best = new Vector2Int(width - 2, height - 2);
+        int bestD = -1;
+
+        foreach (var c in candidates)
+        {
+            if (!dist.TryGetValue(c, out int d)) continue;
+            if (d > bestD)
             {
-                Destroy(w.gameObject);
-                break;
+                bestD = d;
+                best = c;
             }
         }
 
-        Debug.Log($"Removed wall at ({wx}, {wy})");
+        forcedExitCell = best;
+
+        Vector3 borderCenterLocal;
+        Vector3 outward;
+
+        if (forcedExitCell.y == height - 2)
+        {
+            forcedExitWallCell = new Vector2Int(forcedExitCell.x, height - 1);
+            forcedExitDoorRot = Quaternion.LookRotation(Vector3.forward);
+            borderCenterLocal = CellCenterLocal(forcedExitWallCell.x, forcedExitWallCell.y, 0f);
+            outward = new Vector3(0f, 0f, cellSize * 0.5f);
+        }
+        else if (forcedExitCell.y == 1)
+        {
+            forcedExitWallCell = new Vector2Int(forcedExitCell.x, 0);
+            forcedExitDoorRot = Quaternion.LookRotation(Vector3.back);
+            borderCenterLocal = CellCenterLocal(forcedExitWallCell.x, forcedExitWallCell.y, 0f);
+            outward = new Vector3(0f, 0f, -cellSize * 0.5f);
+        }
+        else if (forcedExitCell.x == 1)
+        {
+            forcedExitWallCell = new Vector2Int(0, forcedExitCell.y);
+            forcedExitDoorRot = Quaternion.LookRotation(Vector3.left);
+            borderCenterLocal = CellCenterLocal(forcedExitWallCell.x, forcedExitWallCell.y, 0f);
+            outward = new Vector3(-cellSize * 0.5f, 0f, 0f);
+        }
+        else
+        {
+            forcedExitWallCell = new Vector2Int(width - 1, forcedExitCell.y);
+            forcedExitDoorRot = Quaternion.LookRotation(Vector3.right);
+            borderCenterLocal = CellCenterLocal(forcedExitWallCell.x, forcedExitWallCell.y, 0f);
+            outward = new Vector3(cellSize * 0.5f, 0f, 0f);
+        }
+
+        forcedExitDoorLocalPos = borderCenterLocal + outward;
     }
 
-    // ================================================================
-    //   FORCE EXIT DOOR
-    // ================================================================
-    void PlaceForcedExitDoor()
+    private Dictionary<Vector2Int, int> BFS_Distances(Vector2Int start)
     {
-        // 1) פותח את תיבת הדלת
+        Dictionary<Vector2Int, int> dist = new();
+        if (!InBounds(start) || grid[start.x, start.y]) return dist;
+
+        Queue<Vector2Int> q = new();
+        q.Enqueue(start);
+        dist[start] = 0;
+
+        Vector2Int[] dirs = new[]
+        {
+            new Vector2Int(1,0),
+            new Vector2Int(-1,0),
+            new Vector2Int(0,1),
+            new Vector2Int(0,-1),
+        };
+
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+            int cd = dist[cur];
+
+            foreach (var d in dirs)
+            {
+                var nxt = cur + d;
+                if (!InBounds(nxt)) continue;
+                if (grid[nxt.x, nxt.y]) continue;
+                if (dist.ContainsKey(nxt)) continue;
+
+                dist[nxt] = cd + 1;
+                q.Enqueue(nxt);
+            }
+        }
+
+        return dist;
+    }
+
+    private void OpenForcedExit()
+    {
         grid[forcedExitCell.x, forcedExitCell.y] = false;
         if (!pathCells.Contains(forcedExitCell))
             pathCells.Add(forcedExitCell);
-
-        // 2) פותח את התא שמתחתיה (הקיר שמפריע)
-        Vector2Int below = new Vector2Int(forcedExitCell.x, forcedExitCell.y - 1);
-        if (below.y >= 0)
-        {
-            grid[below.x, below.y] = false;
-            if (!pathCells.Contains(below))
-                pathCells.Add(below);
-        }
-
-        // 3) מציב את הדלת בדיוק על הקצה התחתון של התיבה
-        float half = cellSize * 0.5f;
-
-        Vector3 exitPos = new Vector3(
-            forcedExitCell.x * cellSize,
-            0,
-            forcedExitCell.y * cellSize - half // זה נותן Z=9.5 במקרה של cellSize=1
-        );
-
-        // 4) מסובב שתפנה "למטה" (south / -Z)
-        Quaternion rot = Quaternion.LookRotation(Vector3.forward);
-
-        Instantiate(exitDoorPrefab, exitPos, rot, doorsRoot);
     }
 
     // ================================================================
-    //   DOOR PLACEMENT (NORMAL + PUZZLE)
-    //   * Exit door already handled *
+    //   BUILD WALLS
     // ================================================================
-    List<GameObject> PlaceDoors()
+    private void BuildMaze()
     {
-        float minDist = 4f;
-        List<GameObject> puzzleDoorInstances = new List<GameObject>();
+        foreach (Transform c in wallsRoot) Destroy(c.gameObject);
+        foreach (Transform c in resourcesRoot) Destroy(c.gameObject);
 
-        List<DoorSpot> spots = DoorPlacement.FromCarvedWalls(grid, carvedWalls, width, height);
-
-        // List for already-used spots, including forced exit position
-        List<DoorSpot> used = new List<DoorSpot>();
-
-        // NORMAL DOORS
-        for (int i = 0; i < normalDoorsAmount; i++)
+        if (spawnedWinDoor != null)
         {
-            var s = DoorPlacement.PickRandomSpot(spots, used, minDist);
-            if (s == null)
-                break;
-
-            SpawnDoor(normalDoorPrefab, s);
-            used.Add(s);
+            Destroy(spawnedWinDoor);
+            spawnedWinDoor = null;
         }
 
-        // PUZZLE DOORS
-        spots.Sort(
-            (a, b) =>
-                Vector2
-                    .Distance(new Vector2(1, 1), b.cell)
-                    .CompareTo(Vector2.Distance(new Vector2(1, 1), a.cell))
+        for (int i = spawnedDoors.Count - 1; i >= 0; i--)
+        {
+            if (spawnedDoors[i] != null)
+                Destroy(spawnedDoors[i]);
+        }
+        spawnedDoors.Clear();
+
+        foreach (Transform c in doorsRoot) Destroy(c.gameObject);
+
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+            {
+                if (!grid[x, y]) continue;
+
+                if (x == forcedExitWallCell.x && y == forcedExitWallCell.y)
+                    continue;
+
+                Vector3 worldPos = CellCenterWorld(x, y, 1f);
+                GameObject wall = Instantiate(wallPrefab, worldPos, Quaternion.identity, wallsRoot);
+
+                SetLayerRecursive(wall, wallsLayer);
+                ApplyWallMaterial(wall);
+            }
+    }
+
+    private void ApplyWallMaterial(GameObject wall)
+    {
+        if (wall == null || wallMaterial == null) return;
+
+        Renderer[] renderers = applyWallMaterialToChildren
+            ? wall.GetComponentsInChildren<Renderer>(true)
+            : wall.GetComponents<Renderer>();
+
+        if (renderers == null || renderers.Length == 0) return;
+
+        foreach (var r in renderers)
+        {
+            if (r == null) continue;
+
+            if (replaceAllMaterialSlots)
+            {
+                if (useSharedMaterial)
+                {
+                    var mats = r.sharedMaterials;
+                    if (mats == null || mats.Length == 0) { r.sharedMaterial = wallMaterial; continue; }
+                    for (int i = 0; i < mats.Length; i++) mats[i] = wallMaterial;
+                    r.sharedMaterials = mats;
+                }
+                else
+                {
+                    var mats = r.materials;
+                    if (mats == null || mats.Length == 0) { r.material = wallMaterial; continue; }
+                    for (int i = 0; i < mats.Length; i++) mats[i] = wallMaterial;
+                    r.materials = mats;
+                }
+            }
+            else
+            {
+                if (useSharedMaterial)
+                {
+                    var mats = r.sharedMaterials;
+                    if (mats == null || mats.Length == 0) { r.sharedMaterial = wallMaterial; continue; }
+                    if (materialSlotIndex < 0 || materialSlotIndex >= mats.Length) continue;
+                    mats[materialSlotIndex] = wallMaterial;
+                    r.sharedMaterials = mats;
+                }
+                else
+                {
+                    var mats = r.materials;
+                    if (mats == null || mats.Length == 0) { r.material = wallMaterial; continue; }
+                    if (materialSlotIndex < 0 || materialSlotIndex >= mats.Length) continue;
+                    mats[materialSlotIndex] = wallMaterial;
+                    r.materials = mats;
+                }
+            }
+        }
+    }
+
+    private void SetLayerRecursive(GameObject go, int layer)
+    {
+        if (go == null) return;
+        go.layer = layer;
+        foreach (Transform child in go.transform)
+            SetLayerRecursive(child.gameObject, layer);
+    }
+
+    // ================================================================
+    //   ALIGNMENT TO NAVIGATOR ENTRANCE + WIN DOOR
+    // ================================================================
+    private void AlignMazeToNavigatorEntrance()
+    {
+        if (navigatorEntranceAnchor == null)
+        {
+            SpawnVictoryDoorLocal();
+            return;
+        }
+
+        Vector3 doorWorldBefore = transform.TransformPoint(forcedExitDoorLocalPos);
+
+        Vector3 exitForwardWorld = transform.TransformDirection(forcedExitDoorRot * Vector3.forward);
+        Vector3 targetForwardWorld = navigatorEntranceAnchor.forward;
+
+        exitForwardWorld.y = 0f;
+        targetForwardWorld.y = 0f;
+
+        if (exitForwardWorld.sqrMagnitude < 0.0001f || targetForwardWorld.sqrMagnitude < 0.0001f)
+        {
+            Vector3 targetPos = navigatorEntranceAnchor.position;
+            Vector3 currentPos = transform.TransformPoint(forcedExitDoorLocalPos);
+            Vector3 delta = targetPos - currentPos;
+            transform.position += delta + new Vector3(1f, 0.5f, 0.5f);
+            SpawnVictoryDoorLocal();
+            return;
+        }
+
+        exitForwardWorld.Normalize();
+        targetForwardWorld.Normalize();
+
+        Quaternion rotDelta = Quaternion.FromToRotation(exitForwardWorld, targetForwardWorld);
+
+        transform.RotateAround(doorWorldBefore, Vector3.up, rotDelta.eulerAngles.y);
+
+        Vector3 doorWorldAfter = transform.TransformPoint(forcedExitDoorLocalPos);
+        Vector3 targetWorld = navigatorEntranceAnchor.position;
+        Vector3 deltaPos = targetWorld - doorWorldAfter;
+
+        transform.position += deltaPos + new Vector3(1f, 0.5f, 0.5f);
+
+        SpawnVictoryDoorLocal();
+    }
+
+    private void SpawnVictoryDoorLocal()
+    {
+        if (winDoorPrefab == null) return;
+
+        if (spawnedWinDoor != null)
+        {
+            Destroy(spawnedWinDoor);
+            spawnedWinDoor = null;
+        }
+
+        Vector3 worldPos = transform.TransformPoint(forcedExitDoorLocalPos);
+        Quaternion worldRot = transform.rotation * forcedExitDoorRot;
+
+        GameObject door = Instantiate(winDoorPrefab, worldPos, worldRot);
+        door.name = "WinDoor";
+
+        var netObj = door.GetComponent<NetworkObject>();
+        if (netObj != null)
+            netObj.Spawn(true);
+
+        spawnedWinDoor = door;
+    }
+
+    // ================================================================
+    //   DOORS (selection logic moved to DoorPlacement)
+    // ================================================================
+    private List<GameObject> PlaceDoors()
+    {
+        Debug.Log(
+            $"[Doors] WANT normal={normalDoorsAmount}, puzzle={puzzleDoorsAmount} | " +
+            $"difficulty={difficulty} | seed={seed} | size={width}x{height}"
         );
 
-        for (int i = 0; i < puzzleDoorsAmount; i++)
+        // clear corridor direction for "don't place near traveller start"
+        Vector2Int forwardDir = GetStartCorridorDir();
+
+        // min dist relaxation in CELL units
+        float[] distSteps = { 4f, 3f, 2f, 1f, 0.5f, 0f };
+
+        var plan = DoorPlacement.PlanDoors(
+            grid: grid,
+            carvedWalls: carvedWalls,
+            width: width,
+            height: height,
+            startCell: StartCell,
+            forcedExitCell: forcedExitCell,
+            wantNormal: normalDoorsAmount,
+            wantPuzzle: puzzleDoorsAmount,
+            keepClearStepsForward: 3,
+            startForwardDir: forwardDir,
+            minDistStepsCells: distSteps,
+            nearPathManhattanRadius: 1
+        );
+
+        Debug.Log($"[Doors] PLAN placed normal={plan.PlacedNormal}/{plan.WantNormal}, puzzle={plan.PlacedPuzzle}/{plan.WantPuzzle}");
+
+        List<GameObject> puzzleDoorInstances = new();
+
+        // Spawn puzzle doors first
+        for (int i = 0; i < plan.Puzzle.Count; i++)
         {
-            var s = DoorPlacement.PickDeepSpot(spots, used, minDist);
-            if (s == null)
-                break;
-
-            GameObject pd = SpawnDoor(puzzleDoorPrefab, s);
-            if (pd != null)
-                puzzleDoorInstances.Add(pd);
-
-            used.Add(s);
+            var go = SpawnDoorWorld(puzzleDoorPrefab, plan.Puzzle[i]);
+            if (go != null) puzzleDoorInstances.Add(go);
         }
+
+        // Spawn normal doors
+        for (int i = 0; i < plan.Normal.Count; i++)
+        {
+            SpawnDoorWorld(normalDoorPrefab, plan.Normal[i]);
+        }
+
+        if (plan.PlacedPuzzle < plan.WantPuzzle)
+            Debug.LogWarning($"[Doors] Could only plan {plan.PlacedPuzzle}/{plan.WantPuzzle} puzzle doors (after relaxing).");
+
+        if (plan.PlacedNormal < plan.WantNormal)
+            Debug.LogWarning($"[Doors] Could only plan {plan.PlacedNormal}/{plan.WantNormal} normal doors (after relaxing).");
 
         return puzzleDoorInstances;
     }
 
-    GameObject SpawnDoor(GameObject prefab, DoorSpot spot)
+    private GameObject SpawnDoorWorld(GameObject prefab, DoorSpot spot)
     {
-        if (prefab == null)
+        if (prefab == null) return null;
+
+        var nm = NetworkManager.Singleton;
+        if (nm != null && !nm.IsServer)
             return null;
 
-        Vector3 pos = new Vector3(spot.cell.x * cellSize, 0, spot.cell.y * cellSize);
-        return Instantiate(prefab, pos, spot.rotation, doorsRoot);
+        Vector3 world = CellCenterWorld(spot.cell.x, spot.cell.y, 0f);
+
+        Quaternion rot =
+            transform.rotation *
+            spot.rotation *
+            Quaternion.Euler(0f, doorPrefabYawOffset, 0f);
+
+        var go = Instantiate(prefab, world, rot);
+
+        var netObj = go.GetComponent<NetworkObject>();
+        if (netObj == null)
+        {
+            Debug.LogError($"[Doors] Prefab '{prefab.name}' is missing NetworkObject.");
+            Destroy(go);
+            return null;
+        }
+
+        netObj.Spawn(true);
+        spawnedDoors.Add(go);
+        return go;
     }
 
     // ================================================================
-    //   RESOURCE PLACEMENT
+    //   RESOURCES
     // ================================================================
-    void PlaceResources()
+    private void PlaceResources()
     {
-        HashSet<Vector2Int> blocked = new HashSet<Vector2Int>();
+        HashSet<Vector2Int> blocked = new();
 
-        foreach (Transform child in doorsRoot)
+        if (spawnedWinDoor != null)
         {
-            Vector3 pos = child.position;
-            Vector2Int c = new Vector2Int(
-                Mathf.RoundToInt(pos.x / cellSize),
-                Mathf.RoundToInt(pos.z / cellSize)
-            );
-            blocked.Add(c);
+            Vector2Int c = WorldToCell(spawnedWinDoor.transform.position);
+            if (InBounds(c)) blocked.Add(c);
         }
 
-        ResourcePlacement.PlaceResources(
+        for (int i = 0; i < spawnedDoors.Count; i++)
+        {
+            var d = spawnedDoors[i];
+            if (d == null) continue;
+
+            Vector2Int c = WorldToCell(d.transform.position);
+            if (InBounds(c)) blocked.Add(c);
+        }
+
+        Vector2Int forwardDir = GetStartCorridorDir();
+
+        ResourcePlacement.PlaceAllResourcesEvenly(
             grid,
             pathCells,
             blocked,
             cellSize,
             resourcesRoot,
-            heartPrefab,
-            heartsAmount
-        );
-        ResourcePlacement.PlaceResources(
-            grid,
-            pathCells,
-            blocked,
-            cellSize,
-            resourcesRoot,
-            bombPrefab,
-            bombsAmount
-        );
-        ResourcePlacement.PlaceResources(
-            grid,
-            pathCells,
-            blocked,
-            cellSize,
-            resourcesRoot,
-            keyPrefab,
-            keysAmount
+            new ResourcePlacement.ResourceRequest[]
+            {
+                new ResourcePlacement.ResourceRequest(heartPrefab, heartsAmount),
+                new ResourcePlacement.ResourceRequest(bombPrefab, bombsAmount),
+                new ResourcePlacement.ResourceRequest(keyPrefab, keysAmount),
+            },
+            startCell: StartCell,
+            keepClearStepsForward: 3,
+            forwardDir: forwardDir,
+            yOffset: 0.58f,
+            minSeparationCells: 4,
+            maxNeighborWallsAllowed: 2,
+            wallsLayer: wallsLayer,
+            collisionRadiusMultiplier: 0.22f
         );
     }
 
-    void AssignPuzzlePrefabsToPuzzleDoors(List<GameObject> puzzleDoors)
+    private Vector2Int GetStartCorridorDir()
     {
-        if (puzzlePrefabs.Count != puzzleDoorsAmount)
+        Vector2Int s = StartCell;
+
+        Vector2Int[] dirs =
         {
-            Debug.LogError("Puzzle Prefabs list must match puzzleDoorsAmount.");
-            return;
+            new Vector2Int(1, 0),
+            new Vector2Int(-1, 0),
+            new Vector2Int(0, 1),
+            new Vector2Int(0, -1),
+        };
+
+        List<Vector2Int> openDirs = new();
+
+        foreach (var d in dirs)
+        {
+            Vector2Int n = s + d;
+            if (!InBounds(n)) continue;
+            if (grid[n.x, n.y] == false)
+                openDirs.Add(d);
         }
 
-        for (int i = 0; i < puzzleDoors.Count; i++)
+        if (openDirs.Count == 0)
+            return new Vector2Int(0, 1);
+
+        if (openDirs.Count == 1)
+            return openDirs[0];
+
+        // Prefer the direction that leads along the solution path
+        List<Vector2Int> solution = DoorPlacement.FindPathBFS(grid, width, height, StartCell, forcedExitCell);
+        if (solution.Count >= 2)
+        {
+            Vector2Int next = solution[1];
+            Vector2Int delta = next - StartCell;
+            foreach (var d in openDirs)
+                if (d == delta) return d;
+        }
+
+        return openDirs[0];
+    }
+
+    // ================================================================
+    //   PUZZLE ASSIGNMENT (NEW RULES)
+    // ================================================================
+    private void AssignPuzzlesToPuzzleDoors(List<GameObject> puzzleDoors)
+    {
+        if (puzzleDoors == null || puzzleDoors.Count == 0) return;
+
+        int desired = (difficulty == 2) ? 2 : 1;
+        int count = Mathf.Min(desired, puzzleDoors.Count);
+
+        for (int i = 0; i < count; i++)
         {
             var controller = puzzleDoors[i].GetComponent<DoorController>();
-            if (controller != null)
-                controller.puzzlePrefab = puzzlePrefabs[i];
+            if (controller == null) continue;
+
+            GameObject chosen = null;
+
+            if (difficulty == 0)
+                chosen = puzzleEasyPrefab;
+            else if (difficulty == 1)
+                chosen = puzzleMediumPrefab;
+            else
+                chosen = (i == 0) ? puzzleHardPrefab : (puzzleHardPrefab2 != null ? puzzleHardPrefab2 : puzzleHardPrefab);
+
+            if (chosen == null)
+            {
+                Debug.LogWarning($"[Doors] Puzzle prefab is NULL for difficulty={difficulty}, index={i}.");
+                continue;
+            }
+
+            controller.SetPuzzlePrefabServer(chosen);
         }
     }
+
+    // ================================================================
+    //   TRAVELLER SPAWN
+    // ================================================================
+    private void UpdateTravellerSpawn()
+    {
+        if (travellerSpawn == null) return;
+
+        Vector3 spawnPos = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
+        travellerSpawn.position = spawnPos;
+
+        Vector2Int dir = GetClosestOpenNeighborDir(StartCell);
+
+        Vector3 lookDirWorld;
+        if (dir == Vector2Int.zero)
+        {
+            lookDirWorld = transform.forward;
+        }
+        else
+        {
+            Vector3 from = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
+            Vector3 to = CellCenterWorld(StartCell.x + dir.x, StartCell.y + dir.y, 0.5f);
+            lookDirWorld = (to - from);
+        }
+
+        lookDirWorld.y = 0f;
+        if (lookDirWorld.sqrMagnitude > 0.0001f)
+            travellerSpawn.rotation = Quaternion.LookRotation(lookDirWorld.normalized, Vector3.up);
+    }
+
+    private Vector2Int GetClosestOpenNeighborDir(Vector2Int cell)
+    {
+        Vector2Int[] dirs =
+        {
+            new Vector2Int(1, 0),
+            new Vector2Int(-1, 0),
+            new Vector2Int(0, 1),
+            new Vector2Int(0, -1),
+        };
+
+        Vector3 center = CellCenterWorld(cell.x, cell.y, 0.5f);
+
+        float best = float.PositiveInfinity;
+        Vector2Int bestDir = Vector2Int.zero;
+
+        foreach (var d in dirs)
+        {
+            Vector2Int n = cell + d;
+            if (!InBounds(n)) continue;
+            if (grid[n.x, n.y]) continue;
+
+            Vector3 nCenter = CellCenterWorld(n.x, n.y, 0.5f);
+            float dist = (nCenter - center).sqrMagnitude;
+
+            if (dist < best)
+            {
+                best = dist;
+                bestDir = d;
+            }
+        }
+
+        return bestDir;
+    }
+
+    // ================================================================
+    //   Bounds helper
+    // ================================================================
+    private bool InBounds(Vector2Int c) => c.x >= 0 && c.y >= 0 && c.x < width && c.y < height;
 }

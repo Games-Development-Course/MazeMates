@@ -202,7 +202,7 @@ public class PuzzleDoor : IDoor
         tm?.NotifyPuzzleSolved();
 
         // פותחים את הדלת עצמה
-        controller.RequestOpenDoorRpc();
+        controller.RequestOpenDoorServerRpc();
     }
 
     // ---------------------------------------------------------

@@ -72,7 +72,7 @@ Transform:
   m_GameObject: {fileID: 776766641212511032}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.18, y: 0, z: 2.96}
+  m_LocalPosition: {x: 2.86, y: 0.5, z: 2.96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -112,6 +112,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bc5b980bf3b9c824e83bfc37b4fc60a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &2126591854839629435
 GameObject:
   m_ObjectHideFlags: 0
@@ -196,7 +197,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2610508818
+  GlobalObjectIdHash: 2181267922
   InScenePlacedSourceGlobalObjectIdHash: 3217684552
   DeferredDespawnTick: 0
   Ownership: 1
@@ -223,6 +224,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TutorialManager
   ShowTopMostFoldoutHeaderGroup: 1
   steps:
+  - {fileID: 11400000, guid: cec161149c60bcd4b9c48190f1df3d88, type: 2}
+  - {fileID: 11400000, guid: 7d7275038693e784eb959c3f3f67012d, type: 2}
+  - {fileID: 11400000, guid: d9faf7623b1a744c2bfcf88f72576eda, type: 2}
+  - {fileID: 11400000, guid: fd9dcc598a2404f46b128306ec88127d, type: 2}
+  - {fileID: 11400000, guid: cbb09311d812a4a5b81170a677d90d6e, type: 2}
+  - {fileID: 11400000, guid: 5b4a84d4e2234487b87839adebc9d4c8, type: 2}
+  - {fileID: 11400000, guid: 96e7197b0eec847f59bcdffe8c8cd937, type: 2}
+  - {fileID: 11400000, guid: 42992fb999a0e514b9618b87105c91ad, type: 2}
+  - {fileID: 11400000, guid: abb60e81c271f034d969264b682dc972, type: 2}
+  - {fileID: 11400000, guid: e2083ec7d67b741449d715a15c500e70, type: 2}
+  - {fileID: 11400000, guid: e655b4205e6bcd54f9f434d0ee22b892, type: 2}
+  - {fileID: 11400000, guid: 2fbcbd1b41f03e94199f310c9f8aafc4, type: 2}
+  - {fileID: 11400000, guid: 3fae1b06d090fab488a6ad7c1fe642fc, type: 2}
+  - {fileID: 11400000, guid: 340453bc841b0bc4caf52c9fdc889e01, type: 2}
+  - {fileID: 11400000, guid: 0b047e84f9c45bd41ac1b6537fdff6ff, type: 2}
   - {fileID: 11400000, guid: 3aed1c120f6766e4fa4b926f4befb08f, type: 2}
   - {fileID: 11400000, guid: 2cd45b91566e9c44382df6f9abd01422, type: 2}
   travellerHUD: {fileID: 7036673641748627674}
@@ -268,10 +284,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 3749769346081056622}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 873, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 436.7545, y: -303.5}
+  m_SizeDelta: {x: 873, y: 607}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5801304465041764510
 CanvasRenderer:
@@ -469,7 +485,7 @@ RectTransform:
   m_GameObject: {fileID: 3546807881144163774}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.1, y: 0.7, z: 0.9565218}
+  m_LocalScale: {x: 0.9800001, y: 0.9800001, z: 1.3391306}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 9017941860664397721}
@@ -478,7 +494,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -436, y: 84}
-  m_SizeDelta: {x: 873.509, y: 0}
+  m_SizeDelta: {x: 873.509, y: 607}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1285503145510003557
 CanvasRenderer:
@@ -769,7 +785,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -571.76, y: 238.45169}
-  m_SizeDelta: {x: 733, y: 0}
+  m_SizeDelta: {x: 733, y: 607}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3586388863111288729
 CanvasRenderer:
@@ -1067,10 +1083,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 330415824861972903}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 873.509, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 366.5, y: -303.5}
+  m_SizeDelta: {x: 873.509, y: 607}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7613810508986035602
 CanvasRenderer:
@@ -1197,7 +1213,7 @@ Transform:
   m_GameObject: {fileID: 8931167505575514165}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 3.01, y: 0, z: 4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

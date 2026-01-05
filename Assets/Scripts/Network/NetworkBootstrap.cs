@@ -1,10 +1,21 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class NetworkBootstrap : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start() { }
+    public static NetworkBootstrap Instance { get; private set; }
 
-    // Update is called once per frame
-    void Update() { }
+    private void Awake()
+    {
+        // אם כבר קיים Bootstrap, משמידים את הכפול כדי לא ליצור שני NetworkManager וכדומה
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+
+        // חשוב: חייב להיות Root GameObject (לא ילד של משהו אחר)
+        DontDestroyOnLoad(gameObject);
+    }
 }

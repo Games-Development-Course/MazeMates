@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
+using Unity.Netcode;
 
-public class BombStopZone : MonoBehaviour
+public class BombStopZone : NetworkBehaviour
 {
     private BombStepHelper helper;
     private TutorialManager tutorial;
@@ -13,21 +14,69 @@ public class BombStopZone : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        var gm = GameManager.Instance;
-        if (gm == null)
+        // אם TM נוצר דינמית, לפעמים Awake קדם לו
+        if (tutorial == null)
+            tutorial = FindAnyObjectByType<TutorialManager>();
+
+        Debug.Log($"[BombStopZone] ENTER by={other.name} root={other.transform.root.name} IsServer={NetworkManager.Singleton?.IsServer}");
+
+        // תמיד נרצה שהשרת יבצע את ההתקדמות
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
+        {
+            // הטריגר קרה על הלקוח -> מבקשים מהשרת להשלים
+            RequestCompleteServerRpc();
+            return;
+        }
+
+        CompleteOnServer(other);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestCompleteServerRpc(ServerRpcParams rpcParams = default)
+    {
+        // אנחנו בשרת עכשיו - אבל אין לנו Collider של הלקוח כאן,
+        // לכן פשוט נשלים "אם אפשר" לפי מצב השלב הנוכחי.
+        CompleteOnServer(null);
+    }
+
+    private void CompleteOnServer(Collider other)
+    {
+        // שרת בלבד
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
             return;
 
-        // לוודא שזה המטייל
-        if (other.gameObject != gm.traveller)
+        if (tutorial == null)
+        {
+            Debug.LogWarning("[BombStopZone] TutorialManager not found on server");
             return;
+        }
 
-        Debug.Log("[BombStopZone] Traveller reached bomb trigger");
+        // אם קיבלנו Collider (מקרה שרת נכנס לטריגר בעצמו), נוודא שזה באמת ה-Traveller
+        if (other != null)
+        {
+            var enteredNo = other.GetComponentInParent<NetworkObject>();
+            if (enteredNo == null)
+            {
+                Debug.LogWarning("[BombStopZone] entered object has no NetworkObject");
+                return;
+            }
 
-        // כבר לא צריך את הקוליידר של שלב 4-1
+            // Traveller = PlayerObject של השרת (Host)
+            ulong travellerClientId = NetworkManager.ServerClientId;
+
+            // הבדיקה הכי יציבה: זה PlayerObject והבעלים שלו הוא host
+            if (!enteredNo.IsPlayerObject || enteredNo.OwnerClientId != travellerClientId)
+            {
+                Debug.LogWarning($"[BombStopZone] Not traveller. enteredOwner={enteredNo.OwnerClientId} expected={travellerClientId} isPlayer={enteredNo.IsPlayerObject}");
+                return;
+            }
+        }
+
+        Debug.Log("[BombStopZone] OK -> completing step via CustomEvent");
+
         helper?.DisableTargetCollider();
 
-        // 🔑 זה מה שסוגר את Step 4-1
-        // אם conditionType של Step 4-1 = CustomEvent
-        tutorial?.NotifyCustomEvent();
+        tutorial.NotifyCustomEvent();
+        Debug.Log("[BombStopZone] NotifyCustomEvent() called (SERVER)");
     }
 }

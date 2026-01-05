@@ -33,7 +33,7 @@ Transform:
   m_GameObject: {fileID: 3345313976844692419}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0.94150645, z: 0, w: 0.336995}
-  m_LocalPosition: {x: 2.16, y: 1.24, z: 18.73}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.88, y: 0.88, z: 0.88}
   m_ConstrainProportionsScale: 1
   m_Children:
@@ -52,7 +52,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1039245995
+  GlobalObjectIdHash: 1032317809
   InScenePlacedSourceGlobalObjectIdHash: 1491307302
   DeferredDespawnTick: 0
   Ownership: 1
@@ -91,8 +91,59 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement1P
   ShowTopMostFoldoutHeaderGroup: 1
-  speed: 3
+  role: 1
+  speed: 6
+  turnSpeed: 180
   gravity: -9.81
+  moveAction:
+    m_Name: Move
+    m_Type: 0
+    m_ExpectedControlType: 
+    m_Id: 0e6e6f67-f21f-47ff-a984-8cd81423d6ef
+    m_Processors: 
+    m_Interactions: 
+    m_SingletonActionBindings:
+    - m_Name: 2DVector
+      m_Id: 4ba4c758-8fda-4d0f-bfdd-506e9801d8d5
+      m_Path: 2DVector
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 4
+    - m_Name: Up
+      m_Id: 08e7367b-56c5-4ca3-ad88-ceed1a48334f
+      m_Path: <Keyboard>/upArrow
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: Down
+      m_Id: 321a37b4-1658-4302-a05d-ef3de5bca93c
+      m_Path: <Keyboard>/downArrow
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: Left
+      m_Id: a756710e-454e-44be-af1c-3c30d0e19a02
+      m_Path: <Keyboard>/leftArrow
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: Right
+      m_Id: 282a7d0e-8cc6-403e-983c-1f05ab59158a
+      m_Path: <Keyboard>/rightArrow
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    m_Flags: 0
 --- !u!33 &7465662232557425526
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -199,7 +250,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.Multiplayer.Center.NetcodeForGameObjectsExample::Unity.Multiplayer.Center.NetcodeForGameObjectsExample.ClientNetworkTransform
   ShowTopMostFoldoutHeaderGroup: 1
-  NetworkTransformExpanded: 0
+  NetworkTransformExpanded: 1
   AutoOwnerAuthorityTickOffset: 1
   PositionInterpolationType: 0
   RotationInterpolationType: 0
@@ -210,7 +261,7 @@ MonoBehaviour:
   RotationMaxInterpolationTime: 0.1
   ScaleLerpSmoothing: 1
   ScaleMaxInterpolationTime: 0.1
-  AuthorityMode: 0
+  AuthorityMode: 1
   TickSyncChildren: 0
   UseUnreliableDeltas: 0
   SyncPositionX: 1
@@ -406,5 +457,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCamera1P
   ShowTopMostFoldoutHeaderGroup: 1
+  mouseLookEnabled: 0
+  lockCursor: 0
   mouseSensitivity: 180
   playerBody: {fileID: 7153479794821080668}

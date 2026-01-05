@@ -1,21 +1,31 @@
-﻿using Unity.Netcode;
+﻿// =======================================================
+// File: Assets/Scripts/Player/PlayerCamera1P.cs
+// Mouse-look disabled: camera stays fixed relative to player.
+// Player rotation comes from PlayerMovement1P turning.
+// =======================================================
+using Unity.Netcode;
 using UnityEngine;
 
 public class PlayerCamera1P : NetworkBehaviour
 {
-    public float mouseSensitivity = 200f;
+    [Header("Mouse Look (Disabled)")]
+    [SerializeField] private bool mouseLookEnabled = false;
+
+    [Header("Cursor")]
+    [SerializeField] private bool lockCursor = false;
+
+    public float mouseSensitivity = 200f; // kept for compatibility; unused when mouseLookEnabled=false
     public Transform playerBody;
 
-    float xRotation = 0f;
+    private float xRotation;
 
-    private bool cameraFrozen = false;
+    private bool cameraFrozen;
     private float autoUnlockIn = -1f;
 
     private TutorialManager tutorial;
     private bool isTraveller;
     private bool isNavigator;
 
-    // רכיבי מצלמה ושמע
     private Camera myCamera;
     private AudioListener myListener;
 
@@ -25,20 +35,15 @@ public class PlayerCamera1P : NetworkBehaviour
         myListener = GetComponentInChildren<AudioListener>(true);
 
         if (myCamera != null)
-        {
-            // לוודא שאין TargetTexture – רנדר ישירות למסך
             myCamera.targetTexture = null;
-        }
     }
 
-    // 🔹 זה האירוע החשוב ברשת – כאן נחליט מי רואה איזו מצלמה
     public override void OnNetworkSpawn()
     {
         ulong localId = NetworkManager.Singleton ? NetworkManager.Singleton.LocalClientId : 9999;
 
         Debug.Log(
-            $"[CAMERA][OnNetworkSpawn] '{gameObject.name}' "
-                + $"OwnerClientId={OwnerClientId} LocalClientId={localId} IsOwner={IsOwner}"
+            $"[CAMERA][OnNetworkSpawn] '{gameObject.name}' OwnerClientId={OwnerClientId} LocalClientId={localId} IsOwner={IsOwner}"
         );
 
         if (!IsOwner)
@@ -49,62 +54,49 @@ public class PlayerCamera1P : NetworkBehaviour
                 myCamera.enabled = false;
                 myCamera.gameObject.SetActive(false);
             }
+
             if (myListener != null)
                 myListener.enabled = false;
 
             Debug.Log($"[CAMERA] DISABLE non-owner camera '{gameObject.name}' on client {localId}");
-
             enabled = false;
             return;
         }
 
-        // === OWNER (השחקן המקומי) ===
         if (myCamera != null)
         {
             myCamera.gameObject.SetActive(true);
             myCamera.enabled = true;
             myCamera.targetTexture = null;
-            myCamera.targetDisplay = 0; // 👈 חשוב: תמיד מסך ראשי
-            Debug.Log(
-                $"[CAMERA] OWNER camera active '{myCamera.name}', targetDisplay={myCamera.targetDisplay}"
-            );
+            myCamera.targetDisplay = 0;
+            Debug.Log($"[CAMERA] OWNER camera active '{myCamera.name}', targetDisplay={myCamera.targetDisplay}");
         }
+
         if (myListener != null)
             myListener.enabled = true;
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-
+        ApplyCursorState();
         Debug.Log($"[CAMERA] ENABLE owner camera '{gameObject.name}' on client {localId}");
     }
 
     private void Start()
     {
-        // לא בעלים? לא עושים כלום (OnNetworkSpawn כבר דאג לכיבוי)
         if (!IsOwner)
             return;
 
         tutorial = Object.FindFirstObjectByType<TutorialManager>();
 
-        var rootMovement = GetComponentInParent<PlayerMovement1P>();
+        var rootMovement = GetComponentInParent<PlayerMovement>();
         if (rootMovement != null)
         {
             string rootName = rootMovement.gameObject.name;
             isTraveller = rootName.Contains("Trav");
             isNavigator = rootName.Contains("Nav");
-
-            Debug.Log(
-                $"[CAMERA] rootName='{rootName}'  isTraveller={isTraveller}  isNavigator={isNavigator}"
-            );
         }
         else
         {
             isTraveller = name.Contains("Trav");
             isNavigator = name.Contains("Nav");
-
-            Debug.Log(
-                $"[CAMERA] fallback name check '{name}'  isTraveller={isTraveller}  isNavigator={isNavigator}"
-            );
         }
     }
 
@@ -115,14 +107,10 @@ public class PlayerCamera1P : NetworkBehaviour
         if (GameManager.Instance == null)
             return;
         if (playerBody == null)
-        {
-            Debug.LogWarning($"[CAMERA] playerBody is NULL on '{gameObject.name}'");
             return;
-        }
         if (GameManager.Instance.inPuzzle)
             return;
 
-        // ====== FREEZE CAMERA ======
         if (cameraFrozen)
         {
             transform.localRotation = Quaternion.identity;
@@ -140,52 +128,23 @@ public class PlayerCamera1P : NetworkBehaviour
             return;
         }
 
-        // ====== RAW INPUT ======
-        float mouseX = Input.GetAxis("Mouse X");
-        float mouseY = Input.GetAxis("Mouse Y");
-
-        bool looked = Mathf.Abs(mouseX) > 0.01f || Mathf.Abs(mouseY) > 0.01f;
-
-        // ====== שליחת אירוע מבט לסרבר (טוטוריאל) ======
-        if (looked && tutorial != null && tutorial.TutorialActive.Value)
+        // Mouse look disabled: keep pitch fixed, body yaw comes from PlayerMovement1P
+        if (!mouseLookEnabled)
         {
-            if (isTraveller)
-            {
-                SendLookServerRpc(true);
-            }
-            else if (isNavigator)
-            {
-                SendLookServerRpc(false);
-            }
-            else { }
+            transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+            return;
         }
 
-        // ====== CAMERA MOVEMENT ======
-        mouseX *= mouseSensitivity * Time.deltaTime;
-        mouseY *= mouseSensitivity * Time.deltaTime;
-
-        xRotation -= mouseY;
-        xRotation = Mathf.Clamp(xRotation, -90f, 90f);
-
-        transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-        playerBody.Rotate(Vector3.up * mouseX);
+        // If you ever re-enable mouse look later, keep your old code here (optional).
     }
-
-    // ====== API ======
 
     public void SetCameraFrozen(bool freeze)
     {
         cameraFrozen = freeze;
         autoUnlockIn = -1f;
 
-        Debug.Log(
-            $"[CAMERA] SetCameraFrozen({freeze}) on '{gameObject.name}' "
-                + $"(client {NetworkManager.Singleton.LocalClientId})"
-        );
-
-        // גם בקפאה וגם בשחרור – שומרים על עכבר נעול
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        Debug.Log($"[CAMERA] SetCameraFrozen({freeze}) on '{gameObject.name}' (client {NetworkManager.Singleton.LocalClientId})");
+        ApplyCursorState();
     }
 
     public void LockCameraForSeconds(float sec)
@@ -193,33 +152,22 @@ public class PlayerCamera1P : NetworkBehaviour
         cameraFrozen = true;
         autoUnlockIn = sec;
 
-        Debug.Log(
-            $"[CAMERA] LockCameraForSeconds({sec}) on '{gameObject.name}' "
-                + $"(client {NetworkManager.Singleton.LocalClientId})"
-        );
+        Debug.Log($"[CAMERA] LockCameraForSeconds({sec}) on '{gameObject.name}' (client {NetworkManager.Singleton.LocalClientId})");
     }
 
     public bool IsFrozen => cameraFrozen;
 
-    // ====== SERVER RPC ======
-
-    [ServerRpc]
-    private void SendLookServerRpc(bool traveller)
+    private void ApplyCursorState()
     {
-        var tm = Object.FindFirstObjectByType<TutorialManager>();
-        if (tm == null)
+        if (lockCursor)
         {
-            Debug.LogWarning("[CAMERA][ServerRpc] TutorialManager NOT FOUND on server");
-            return;
-        }
-
-        if (traveller)
-        {
-            tm.NotifyTravellerLooked();
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
         }
         else
         {
-            tm.NotifyNavigatorLooked();
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
     }
 }

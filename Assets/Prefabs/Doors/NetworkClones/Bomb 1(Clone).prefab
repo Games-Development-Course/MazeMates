@@ -43,7 +43,6 @@ GameObject:
   - component: {fileID: 8077076451984034642}
   - component: {fileID: 1764163881944866459}
   - component: {fileID: 7561541954140462284}
-  - component: {fileID: 8571367216399291474}
   m_Layer: 0
   m_Name: FuseBase
   m_TagString: Untagged
@@ -122,29 +121,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &8571367216399291474
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 862283582798077646}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5000001
-  m_Height: 2
-  m_Direction: 1
-  m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
 --- !u!1 &2121836851525105266
 GameObject:
   m_ObjectHideFlags: 0
@@ -10006,7 +9982,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 511266342
+  GlobalObjectIdHash: 4207436274
   InScenePlacedSourceGlobalObjectIdHash: 766745082
   DeferredDespawnTick: 0
   Ownership: 1
@@ -10033,6 +10009,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PickupObject
   ShowTopMostFoldoutHeaderGroup: 1
   type: 2
+  tutorialSceneName: TutorialScene
+  tutorialTravellerRespawnPoint: {fileID: 0}
   customMessage: "\u05D9\u05E8\u05D3 \u05DC\u05DB\u05DD \u05D7\u05D9\u05D9\u05DD
     \u05D0\u05D7\u05D3! \u05D0\u05DC \u05D3\u05D0\u05D2\u05D4 \u05E0\u05E9\u05D0\u05E8
     \u05DC\u05DB\u05DD \u05E2\u05D5\u05D3 \u05D0\u05D7\u05D3. \u05D4\u05DE\u05E9\u05D9\u05DB\u05D5

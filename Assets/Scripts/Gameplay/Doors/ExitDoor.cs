@@ -20,6 +20,6 @@ public class ExitDoor : IDoor
 
         opened = true;
 
-        controller.RequestOpenDoorRpc();
+        controller.RequestOpenDoorServerRpc();
     }
 }

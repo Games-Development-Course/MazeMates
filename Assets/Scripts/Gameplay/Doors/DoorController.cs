@@ -1,7 +1,11 @@
-﻿using System.Collections;
+﻿// Assets/Scripts/Gameplay/Doors/DoorController.cs
+// FIX: removed [Server] attribute (not part of NGO). Use IsServer checks instead.
+
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
+using Unity.Collections;
 using UnityEngine;
 
 public class DoorController : NetworkBehaviour
@@ -10,6 +14,9 @@ public class DoorController : NetworkBehaviour
     public DoorType doorType;
     public float openAngle = 90f;
     public float openSpeed = 3f;
+
+    [Header("Pivot (Optional Override)")]
+    [SerializeField] private Transform pivotOverride;
 
     [Header("Puzzle Settings")]
     public GameObject puzzlePrefab;
@@ -24,8 +31,21 @@ public class DoorController : NetworkBehaviour
     public float tvZoom = 1f;
 
     [Tooltip("Tag של ה-Quad של הטלוויזיה בחדר הנווט (למשל NavigatorScreenTV)")]
-    [SerializeField]
-    private string navigatorScreenTag = "NavigatorScreenTV";
+    [SerializeField] private string navigatorScreenTag = "NavigatorScreenTV";
+
+    // ✅ IMPORTANT:
+    // WebGL clients don't get runtime-assigned "puzzlePrefab" from server automatically.
+    // We replicate a Resources path string, and each client loads the prefab locally.
+    // Put your puzzle prefabs under: Assets/Resources/Puzzles/<PrefabName>.prefab (default folder is "Puzzles")
+    [Header("Puzzle Prefab Replication (Resources)")]
+    [SerializeField] private string puzzleResourcesFolder = "Puzzles";
+
+    private readonly NetworkVariable<FixedString128Bytes> puzzlePrefabPath =
+        new NetworkVariable<FixedString128Bytes>(
+            default,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
 
     public List<GameObject> spawnedHints = new List<GameObject>();
 
@@ -33,12 +53,10 @@ public class DoorController : NetworkBehaviour
     private IDoor door;
     private PadTrigger pad;
 
-    // אינסטנס של המטריאל שניצור בזמן ריצה
     private Material navigatorScreenMaterialInstance;
 
     private void Awake()
     {
-        // אם לא שויך Quad ביד – ננסה למצוא אחד לפי Tag
         TryFindNavigatorScreenQuad();
     }
 
@@ -56,13 +74,138 @@ public class DoorController : NetworkBehaviour
         if (pivot == null)
             FindOrCreatePivot();
 
+        // ✅ subscribe before init (for late join too)
+        puzzlePrefabPath.OnValueChanged += OnPuzzlePrefabPathChanged;
+
+        // apply immediately for late joiners
+        if (!puzzlePrefabPath.Value.IsEmpty)
+            EnsurePuzzleLoadedFromNet();
+
         InitDoorLogic();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        puzzlePrefabPath.OnValueChanged -= OnPuzzlePrefabPathChanged;
+    }
+
+    private void OnPuzzlePrefabPathChanged(FixedString128Bytes _, FixedString128Bytes __)
+    {
+        EnsurePuzzleLoadedFromNet();
+
+        if (doorType == DoorType.Puzzle && navigatorPreview == null)
+            navigatorPreview = ExtractPreviewFromPrefab();
+    }
+
+    // ---------------------------
+    // Server API: set puzzle prefab + replicate
+    // ---------------------------
+    // FIX: no [Server] attribute in NGO – just guard with IsServer.
+    public void SetPuzzlePrefabServer(GameObject prefab)
+    {
+        if (!IsServer) return;
+        if (prefab == null) return;
+
+        puzzlePrefab = prefab;
+
+        string path = string.IsNullOrWhiteSpace(puzzleResourcesFolder)
+            ? prefab.name
+            : $"{puzzleResourcesFolder}/{prefab.name}";
+
+        puzzlePrefabPath.Value = path;
+
+        if (navigatorPreview == null)
+            navigatorPreview = ExtractPreviewFromPrefab();
+    }
+
+    private void EnsurePivot()
+    {
+        if (pivotOverride != null)
+        {
+            pivot = pivotOverride;
+            return;
+        }
+
+        if (pivot == null)
+            FindOrCreatePivot();
+    }
+
+    private void FindOrCreatePivot()
+    {
+        MeshFilter mf = GetComponentsInChildren<MeshFilter>(true)
+            .FirstOrDefault(m => m.CompareTag("Door"));
+
+        if (mf == null)
+        {
+            mf = GetComponentsInChildren<MeshFilter>(true)
+                .FirstOrDefault(m =>
+                {
+                    string n = m.name.ToLowerInvariant();
+                    return !n.Contains("trigger") && !n.Contains("pad");
+                });
+        }
+
+        if (mf == null)
+        {
+            Debug.LogError($"[DoorController] No suitable MeshFilter found for pivot on '{name}'. " +
+                           $"Either tag the moving mesh as 'Door' or assign Pivot Override.", this);
+            return;
+        }
+
+        Transform doorModel = mf.transform;
+        Bounds b = mf.sharedMesh.bounds;
+        float half = b.size.x * 0.5f;
+
+        Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
+        Vector3 pivotWorld = doorModel.TransformPoint(leftLocal);
+
+        GameObject pivotObj = new GameObject("Pivot");
+        pivotObj.transform.SetParent(transform, true);
+        pivotObj.transform.position = pivotWorld;
+        pivotObj.transform.rotation = doorModel.rotation;
+
+        foreach (Transform child in transform)
+        {
+            if (child == pivotObj.transform)
+                continue;
+
+            string cn = child.name.ToLowerInvariant();
+            if (cn.Contains("trigger") || cn.Contains("pad"))
+                continue;
+
+            child.SetParent(pivotObj.transform, true);
+        }
+
+        pivot = pivotObj.transform;
+    }
+
+    private IEnumerator OpenRoutine(float angle)
+    {
+        EnsurePivot();
+        if (pivot == null)
+        {
+            Debug.LogError($"[DoorController] OpenRoutine aborted: pivot is NULL on '{name}'.", this);
+            yield break;
+        }
+
+        Quaternion target = Quaternion.Euler(0, angle, 0);
+
+        while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
+        {
+            pivot.localRotation = Quaternion.Lerp(
+                pivot.localRotation,
+                target,
+                Time.deltaTime * openSpeed
+            );
+            yield return null;
+        }
+
+        pivot.localRotation = target;
     }
 
     // ============================================================
     // FIND NAVIGATOR SCREEN QUAD
     // ============================================================
-
     private void TryFindNavigatorScreenQuad()
     {
         if (navigatorScreenQuad != null)
@@ -72,19 +215,16 @@ public class DoorController : NetworkBehaviour
         {
             GameObject tvObj = GameObject.FindGameObjectWithTag(navigatorScreenTag);
             if (tvObj != null)
-            {
                 navigatorScreenQuad = tvObj.GetComponent<MeshRenderer>();
-            }
         }
 
         if (navigatorScreenQuad == null)
         {
             Debug.LogWarning(
                 $"[PUZZLE-TV] navigatorScreenQuad is NULL on {name} – "
-                    + "תוודא של-Quad של המסך יש Tag '"
-                    + navigatorScreenTag
-                    + "' "
-                    + "או שגררת אותו ידנית ל-Inspector.",
+                + "תוודא של-Quad של המסך יש Tag '"
+                + navigatorScreenTag
+                + "' או שגררת אותו ידנית ל-Inspector.",
                 this
             );
         }
@@ -93,21 +233,12 @@ public class DoorController : NetworkBehaviour
     // ============================================================
     // MATERIAL HANDLING
     // ============================================================
-
-    /// <summary>
-    /// מחליף את המטריאל של המסך ל-URP/Unlit ומכניס לתוכו את ה-Texture של הפאזל.
-    /// נקרא בצד הלקוח אחרי שהשרת החליט להציג את הפאזל.
-    /// </summary>
     private void ApplyUnlitMaterial(Texture tex)
     {
-        if (tex == null)
-            return;
+        if (tex == null) return;
 
         if (navigatorScreenQuad == null)
-        {
-            // נסיון נוסף למצוא את המסך בזמן ריצה
             TryFindNavigatorScreenQuad();
-        }
 
         if (navigatorScreenQuad == null)
         {
@@ -118,41 +249,41 @@ public class DoorController : NetworkBehaviour
             return;
         }
 
-        var mr = navigatorScreenQuad;
-
-        // יוצרים מטריאל חדש מבוסס URP/Unlit
         Shader unlitShader = Shader.Find("Universal Render Pipeline/Unlit");
         if (unlitShader == null)
         {
-            Debug.LogError("[PUZZLE-TV] לא נמצא Shader 'Universal Render Pipeline/Unlit'", mr);
+            Debug.LogError("[PUZZLE-TV] לא נמצא Shader 'Universal Render Pipeline/Unlit'", navigatorScreenQuad);
             return;
         }
 
         navigatorScreenMaterialInstance = new Material(unlitShader);
-        navigatorScreenMaterialInstance.SetTexture("_BaseMap", tex);
 
-        // אפשר פשוט להחליף את המטריאל (לא משנה לנו שאר הסלוטים במקרה הזה)
-        mr.material = navigatorScreenMaterialInstance;
+        navigatorScreenMaterialInstance.SetTexture("_BaseMap", tex);
+        navigatorScreenMaterialInstance.SetTexture("_MainTex", tex);
+
+        navigatorScreenQuad.material = navigatorScreenMaterialInstance;
 
         Debug.Log(
             "[PUZZLE-TV] Applied UNLIT material with puzzle texture on navigator screen ("
-                + mr.gameObject.name
-                + ")",
-            mr
+            + navigatorScreenQuad.gameObject.name
+            + ")",
+            navigatorScreenQuad
         );
     }
 
     // ============================================================
     // DOOR INITIALIZATION
     // ============================================================
-
     private void InitDoorLogic()
     {
         switch (doorType)
         {
             case DoorType.Puzzle:
+                EnsurePuzzleLoadedFromNet();
+
                 if (navigatorPreview == null)
                     navigatorPreview = ExtractPreviewFromPrefab();
+
                 door = new PuzzleDoor(this);
                 break;
 
@@ -169,22 +300,45 @@ public class DoorController : NetworkBehaviour
     // ============================================================
     // INTERACTION
     // ============================================================
-
     public void Interact()
     {
         if (doorType == DoorType.Puzzle)
             return;
-        RequestOpenDoorRpc();
+        RequestOpenDoorServerRpc();
     }
 
     public bool TravellerIsOnPad() => pad != null && pad.IsPlayerOnPad();
-
     public bool IsOpen() => door != null && door.IsOpen();
-
     public PuzzleDoor GetPuzzle() => door as PuzzleDoor;
+
+    // ============================================================
+    // PUZZLE PREFAB LOAD (CLIENT)
+    // ============================================================
+    private void EnsurePuzzleLoadedFromNet()
+    {
+        if (puzzlePrefab != null)
+            return;
+
+        if (puzzlePrefabPath.Value.IsEmpty)
+            return;
+
+        string path = puzzlePrefabPath.Value.ToString();
+        var loaded = Resources.Load<GameObject>(path);
+
+        if (loaded == null)
+        {
+            Debug.LogWarning($"[PUZZLE-TV] Resources.Load failed for path '{path}'. " +
+                             $"Put prefab under Assets/Resources/{path}.prefab", this);
+            return;
+        }
+
+        puzzlePrefab = loaded;
+    }
 
     private Sprite ExtractPreviewFromPrefab()
     {
+        EnsurePuzzleLoadedFromNet();
+
         if (puzzlePrefab == null)
             return null;
 
@@ -193,34 +347,14 @@ public class DoorController : NetworkBehaviour
             return null;
 
         var img = original.GetComponentInChildren<UnityEngine.UI.Image>();
-        if (img != null && img.sprite != null)
-        {
-            Debug.LogFormat(
-                LogType.Log,
-                LogOption.NoStacktrace,
-                null,
-                $"[DoorController] Extracted preview sprite '{img.sprite.name}' from puzzle '{puzzlePrefab.name}'"
-            );
-        }
-        else
-        {
-            Debug.LogFormat(
-                LogType.Warning,
-                LogOption.NoStacktrace,
-                null,
-                $"[DoorController] OriginalImage found but no sprite in '{puzzlePrefab.name}'"
-            );
-        }
-
-        return img != null ? img.sprite : null;
+        return (img != null) ? img.sprite : null;
     }
 
     // ============================================================
     // RPC — OPEN NORMAL/EXIT DOOR
     // ============================================================
-
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    public void RequestOpenDoorRpc()
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestOpenDoorServerRpc()
     {
         if (!IsServer)
             return;
@@ -245,70 +379,9 @@ public class DoorController : NetworkBehaviour
         StartCoroutine(OpenRoutine(openAngle));
     }
 
-    private IEnumerator OpenRoutine(float angle)
-    {
-        Quaternion target = Quaternion.Euler(0, angle, 0);
-
-        while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
-        {
-            pivot.localRotation = Quaternion.Lerp(
-                pivot.localRotation,
-                target,
-                Time.deltaTime * openSpeed
-            );
-
-            yield return null;
-        }
-
-        pivot.localRotation = target;
-    }
-
-    // ============================================================
-    // GENERATE DOOR PIVOT
-    // ============================================================
-
-    private void FindOrCreatePivot()
-    {
-        MeshFilter mf = GetComponentsInChildren<MeshFilter>(true)
-            .FirstOrDefault(m => m.CompareTag("Door"));
-
-        if (mf == null)
-        {
-            Debug.LogError("DoorController: No child with tag 'Door' found.");
-            return;
-        }
-
-        Transform doorModel = mf.transform;
-        Bounds b = mf.sharedMesh.bounds;
-        float half = b.size.x * 0.5f;
-
-        Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
-        Vector3 pivotWorld = doorModel.TransformPoint(leftLocal);
-
-        GameObject pivotObj = new GameObject("Pivot");
-        pivotObj.transform.SetParent(transform, true);
-        pivotObj.transform.position = pivotWorld;
-        pivotObj.transform.rotation = doorModel.rotation;
-
-        foreach (Transform child in transform)
-        {
-            if (child == pivotObj.transform)
-                continue;
-            if (child.name.ToLower().Contains("trigger"))
-                continue;
-            if (child.name.ToLower().Contains("pad"))
-                continue;
-
-            child.SetParent(pivotObj.transform, true);
-        }
-
-        pivot = pivotObj.transform;
-    }
-
     // ============================================================
     // STATIC DOOR LOOKUP HELPERS
     // ============================================================
-
     public static DoorController FindDoorPlayerIsOn()
     {
         foreach (var door in Object.FindObjectsByType<DoorController>(FindObjectsSortMode.None))
@@ -388,9 +461,8 @@ public class DoorController : NetworkBehaviour
     }
 
     // ============================================================
-    // PUBLIC API FOR PUZZLE
+    // PUBLIC API FOR PUZZLE-TV
     // ============================================================
-
     public void ShowNavigatorPreviewOnScreen(Sprite sprite)
     {
         navigatorPreview = sprite;
@@ -402,7 +474,7 @@ public class DoorController : NetworkBehaviour
             SetNavigatorScreenClientRpc(showPuzzle);
     }
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    [ServerRpc(RequireOwnership = false)]
     private void RequestSetNavigatorScreenServerRpc(bool showPuzzle)
     {
         SetNavigatorScreenClientRpc(showPuzzle);
@@ -412,10 +484,9 @@ public class DoorController : NetworkBehaviour
     private void SetNavigatorScreenClientRpc(bool showPuzzle)
     {
         if (!showPuzzle)
-        {
-            // פה בעתיד אפשר להחזיר Noise למסך
             return;
-        }
+
+        EnsurePuzzleLoadedFromNet();
 
         if (navigatorPreview == null || navigatorPreview.texture == null)
         {
@@ -448,9 +519,8 @@ public class DoorController : NetworkBehaviour
     // ============================================================
     // PUZZLE OPEN — RPC
     // ============================================================
-
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    public void RequestOpenPuzzleDoorRpc()
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestOpenPuzzleDoorServerRpc()
     {
         Debug.LogFormat(
             LogType.Log,
@@ -475,12 +545,7 @@ public class DoorController : NetworkBehaviour
             $"[PUZZLE-RPC] OpenPuzzleForTravellerClientRpc on {(IsServer ? "SERVER" : "CLIENT")} | doorId={doorId}"
         );
 
-        if (
-            !NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(
-                doorId,
-                out NetworkObject obj
-            )
-        )
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(doorId, out NetworkObject obj))
         {
             Debug.LogFormat(
                 LogType.Warning,
@@ -494,49 +559,31 @@ public class DoorController : NetworkBehaviour
         DoorController door = obj.GetComponent<DoorController>();
         if (door == null)
         {
-            Debug.LogFormat(
-                LogType.Warning,
-                LogOption.NoStacktrace,
-                null,
-                "[PUZZLE-RPC] NetworkObject has no DoorController"
-            );
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "[PUZZLE-RPC] NetworkObject has no DoorController");
             return;
         }
 
         var gm = GameManager.Instance;
         if (gm == null || gm.traveller == null)
         {
-            Debug.LogFormat(
-                LogType.Warning,
-                LogOption.NoStacktrace,
-                null,
-                "[PUZZLE-RPC] traveller uninitialized"
-            );
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "[PUZZLE-RPC] traveller uninitialized");
             return;
         }
 
         var travellerNet = gm.traveller.GetComponent<NetworkObject>();
         if (travellerNet == null)
         {
-            Debug.LogFormat(
-                LogType.Warning,
-                LogOption.NoStacktrace,
-                null,
-                "[PUZZLE-RPC] traveller has no NetworkObject"
-            );
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "[PUZZLE-RPC] traveller has no NetworkObject");
             return;
         }
 
-        // Puzzle can only open on the traveller's client
         if (travellerNet.IsOwner)
         {
-            Debug.LogFormat(
-                LogType.Log,
-                LogOption.NoStacktrace,
-                null,
-                "[PUZZLE-RPC] Traveller owns this client — opening puzzle"
-            );
+            door.EnsurePuzzleLoadedFromNet();
+
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[PUZZLE-RPC] Traveller owns this client — opening puzzle");
             door.GetPuzzle()?.TryOpen();
         }
     }
 }
+    
