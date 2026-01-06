@@ -48,6 +48,9 @@ public class DoorController : NetworkBehaviour
     private Transform pivot;
     private IDoor door;
     private PadTrigger pad;
+    private Transform _doorModelForSign;
+    private Vector3 _doorLeafFarPointLocal; // נקודה בקצה הרחוק של הכנף (בלוקאל של המודל)
+
 
     private Coroutine _tvApplyRoutine;
 
@@ -181,10 +184,17 @@ public class DoorController : NetworkBehaviour
     // ============================================================
     public void Interact()
     {
-        if (doorType == DoorType.Puzzle)
-            return;
-        RequestOpenDoorServerRpc();
+        if (doorType == DoorType.Puzzle) return;
+
+        Vector3 openerPos = transform.position;
+
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+            openerPos = gm.traveller.transform.position;
+
+        RequestOpenDoorServerRpc(openerPos);
     }
+
 
     public bool TravellerIsOnPad() => pad != null && pad.IsPlayerOnPad();
     public bool IsOpen() => door != null && door.IsOpen();
@@ -230,6 +240,9 @@ public class DoorController : NetworkBehaviour
         Transform doorModel = mf.transform;
         Bounds b = mf.sharedMesh.bounds;
         float half = b.size.x * 0.5f;
+        _doorModelForSign = doorModel;
+        _doorLeafFarPointLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
+
 
         Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
         Vector3 pivotWorld = doorModel.TransformPoint(leftLocal);
@@ -327,30 +340,22 @@ public class DoorController : NetworkBehaviour
     // RPC — OPEN NORMAL/EXIT DOOR
     // ============================================================
     [ServerRpc(RequireOwnership = false)]
-    public void RequestOpenDoorServerRpc()
+    public void RequestOpenDoorServerRpc(Vector3 openerWorldPos)
     {
-        if (!IsServer)
-            return;
+        if (!IsServer) return;
 
-        var tutorial = FindAnyObjectByType<TutorialManager>();
+        float chosen = ChooseOpenAngleSign(openerWorldPos);
 
-        if (tutorial != null && pad != null && pad.IsPlayerOnPad())
-        {
-            if (doorType == DoorType.Normal)
-                tutorial.NotifyNavigatorOpenedNormalDoor();
-            else if (doorType == DoorType.Exit)
-                tutorial.NotifyNavigatorOpenedExitDoor();
-        }
-
-        StartCoroutine(OpenRoutine(openAngle));
-        OpenDoorRpc();
+        StartCoroutine(OpenRoutine(chosen));
+        OpenDoorRpc(chosen);
     }
 
     [Rpc(SendTo.Everyone)]
-    private void OpenDoorRpc()
+    private void OpenDoorRpc(float chosenAngle)
     {
-        StartCoroutine(OpenRoutine(openAngle));
+        StartCoroutine(OpenRoutine(chosenAngle));
     }
+
 
     // ============================================================
     // PUBLIC API FOR PUZZLE-TV
@@ -433,6 +438,41 @@ public class DoorController : NetworkBehaviour
 
         _tvApplyRoutine = null;
     }
+
+    private float ChooseOpenAngleSign(Vector3 openerWorldPos)
+    {
+        EnsurePivot();
+        if (pivot == null) return openAngle;
+
+        if (_doorModelForSign == null)
+        {
+            // נסיון fallback: קח ילד ראשון של pivot
+            _doorModelForSign = (pivot.childCount > 0) ? pivot.GetChild(0) : pivot;
+            _doorLeafFarPointLocal = Vector3.zero; // fallback פחות מדויק
+        }
+
+        Quaternion orig = pivot.localRotation;
+
+        // פונקציה קטנה: מחשבת את מיקום "קצה הכנף" אחרי סימולציית סיבוב
+        Vector3 GetLeafPointAfter(float angle)
+        {
+            pivot.localRotation = orig * Quaternion.Euler(0f, angle, 0f);
+            return _doorModelForSign.TransformPoint(_doorLeafFarPointLocal);
+        }
+
+        Vector3 pPlus = GetLeafPointAfter(+openAngle);
+        float dPlus = (pPlus - openerWorldPos).sqrMagnitude;
+
+        Vector3 pMinus = GetLeafPointAfter(-openAngle);
+        float dMinus = (pMinus - openerWorldPos).sqrMagnitude;
+
+        // מחזירים מצב
+        pivot.localRotation = orig;
+
+        // בוחרים את הכיוון שבו הקצה הרחוק מתרחק יותר מהפותח
+        return (dPlus >= dMinus) ? +openAngle : -openAngle;
+    }
+
 
     // ============================================================
     // PUZZLE OPEN — RPC

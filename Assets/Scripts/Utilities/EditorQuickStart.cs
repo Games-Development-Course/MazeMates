@@ -52,7 +52,21 @@ public sealed class EditorQuickStart : MonoBehaviour
         if (cfg != null)
         {
             int seed = Random.Range(1, int.MaxValue);
-            cfg.SetConfigServerRpc(mazeW, mazeH, hearts, bombs, keys, normalDoors, puzzleDoors, difficulty, seed);
+            cfg.SetConfigServerRpc(
+                mazeW,
+                mazeH,
+                hearts,
+                bombs,
+                keys,
+                normalDoors,
+                puzzleDoors,
+                difficulty,
+                seed,
+
+                3,      // lives (ערך ברירת מחדל לעורך)
+                bombs,  // bombRemovals (קל: שווה לכמות הפצצות)
+                1       // hints (קל: 1)
+            );
         }
 
         // 3) Load GameScene (same as your menu flow)

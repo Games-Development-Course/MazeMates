@@ -16,8 +16,33 @@ public sealed class GameConfigNet : NetworkBehaviour
     public readonly NetworkVariable<int> NormalDoors = new(3);
     public readonly NetworkVariable<int> PuzzleDoors = new(2);
 
+    public NetworkVariable<int> Lives { get; } = new(
+        3,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    // hints == lifebuoys
+    public NetworkVariable<int> Hints { get; } = new(
+        1,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    public NetworkVariable<int> BombRemovals { get; } = new(
+        1,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
     public readonly NetworkVariable<int> Difficulty = new(0); // 0 easy, 1 medium, 2 hard
     public readonly NetworkVariable<int> Seed = new(0);
+
+    public NetworkVariable<int> KeysToCollect { get; } = new(
+        0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
 
     private void Awake()
     {
@@ -42,7 +67,10 @@ public sealed class GameConfigNet : NetworkBehaviour
         int normalDoors,
         int puzzleDoors,
         int difficulty,
-        int seed
+        int seed,
+        int lives,
+        int bombRemovals,
+        int hints
     )
     {
         MazeWidth.Value = Mathf.Max(7, mazeW);
@@ -51,18 +79,24 @@ public sealed class GameConfigNet : NetworkBehaviour
         Hearts.Value = Mathf.Max(0, hearts);
         Bombs.Value = Mathf.Max(0, bombs);
         Keys.Value = Mathf.Max(0, keys);
-        KeysToCollect.Value = keys;
+
+        KeysToCollect.Value = Mathf.Max(0, keys);
 
         NormalDoors.Value = Mathf.Max(0, normalDoors);
         PuzzleDoors.Value = Mathf.Max(0, puzzleDoors);
 
         Difficulty.Value = Mathf.Clamp(difficulty, 0, 2);
         Seed.Value = seed;
-    }
-    public NetworkVariable<int> KeysToCollect { get; } = new(
-        0,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
 
+        Lives.Value = Mathf.Max(0, lives);
+        BombRemovals.Value = Mathf.Max(0, bombRemovals);
+        Hints.Value = Mathf.Max(0, hints);
+    }
+
+    // NEW: runtime update (after maze generation) — no need for ownership
+    [ServerRpc(RequireOwnership = false)]
+    public void SetBombRemovalsRuntimeServerRpc(int bombRemovals)
+    {
+        BombRemovals.Value = Mathf.Max(0, bombRemovals);
+    }
 }

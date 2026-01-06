@@ -121,7 +121,7 @@ public class RelayManager : MonoBehaviour
         try
         {
             // Relay CreateAllocationAsync expects number of clients (excluding host).
-            int maxClients = Mathf.Max(0, maxConnections - 1);
+            int maxClients = Mathf.Max(1, maxConnections - 1);
 
             Allocation allocation = await RelayService.Instance.CreateAllocationAsync(maxClients);
             RelayServerData relayServerData = new RelayServerData(allocation, ConnectionType);

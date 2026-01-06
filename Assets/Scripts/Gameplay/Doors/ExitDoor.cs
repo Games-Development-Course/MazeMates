@@ -1,3 +1,6 @@
+using UnityEngine;
+
+
 public class ExitDoor : IDoor
 {
     private bool opened = false;
@@ -20,6 +23,11 @@ public class ExitDoor : IDoor
 
         opened = true;
 
-        controller.RequestOpenDoorServerRpc();
+        Vector3 openerPos = controller.transform.position;
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+            openerPos = gm.traveller.transform.position;
+
+        controller.RequestOpenDoorServerRpc(openerPos);
     }
 }

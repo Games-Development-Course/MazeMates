@@ -40,6 +40,16 @@ public sealed class HostStartGame : MonoBehaviour
     [SerializeField] private int hardNormalDoors = 5;
     [SerializeField] private int hardPuzzleDoors = 4;
 
+    // Lives אם אתה רוצה גם כאן—שאירתי כמו קודם (אפשר לשנות ב Inspector)
+    [SerializeField] private int easyLives = 3;
+    [SerializeField] private int medLives = 2;
+    [SerializeField] private int hardLives = 1;
+
+    // NEW: Hints fixed by difficulty (easy=1, med=2, hard=4)
+    private const int EASY_HINTS = 1;
+    private const int MED_HINTS = 2;
+    private const int HARD_HINTS = 4;
+
     private void Awake()
     {
         if (hostButtonsPanel != null)
@@ -114,15 +124,42 @@ public sealed class HostStartGame : MonoBehaviour
 
         if (diff == 0)
         {
-            cfg.SetConfigServerRpc(easyMazeW, easyMazeH, easyHearts, easyBombs, easyKeys, easyNormalDoors, easyPuzzleDoors, 0, seed);
+            // easy: BombRemovals == total bombs (known now)
+            cfg.SetConfigServerRpc(
+                easyMazeW, easyMazeH,
+                easyHearts, easyBombs, easyKeys,
+                easyNormalDoors, easyPuzzleDoors,
+                0, seed,
+                easyLives,
+                easyBombs,       // BombRemovals == bombs
+                EASY_HINTS       // hints
+            );
         }
         else if (diff == 1)
         {
-            cfg.SetConfigServerRpc(medMazeW, medMazeH, medHearts, medBombs, medKeys, medNormalDoors, medPuzzleDoors, 1, seed);
+            // medium BombRemovals depends on maze => set placeholder, compute in GameScene after generation
+            cfg.SetConfigServerRpc(
+                medMazeW, medMazeH,
+                medHearts, medBombs, medKeys,
+                medNormalDoors, medPuzzleDoors,
+                1, seed,
+                medLives,
+                0,              // placeholder, will be computed
+                MED_HINTS
+            );
         }
         else
         {
-            cfg.SetConfigServerRpc(hardMazeW, hardMazeH, hardHearts, hardBombs, hardKeys, hardNormalDoors, hardPuzzleDoors, 2, seed);
+            // hard BombRemovals depends on maze => set placeholder, compute in GameScene after generation
+            cfg.SetConfigServerRpc(
+                hardMazeW, hardMazeH,
+                hardHearts, hardBombs, hardKeys,
+                hardNormalDoors, hardPuzzleDoors,
+                2, seed,
+                hardLives,
+                0,              // placeholder, will be computed
+                HARD_HINTS
+            );
         }
 
         hostButtonsPanel?.SetActive(false);
