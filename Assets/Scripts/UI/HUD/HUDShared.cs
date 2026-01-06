@@ -15,7 +15,7 @@ public class HUDShared : MonoBehaviour
         if (livesText)
             livesText.text = "x " + gm.lives;
         if (keysText)
-            keysText.text = "x " + gm.keys;
+            keysText.text = $"{gm.keys}/{gm.totalKeysToCollect}";
         if (lifebuoysText)
             lifebuoysText.text = "x " + gm.lifebuoys;
         if (giftsText)

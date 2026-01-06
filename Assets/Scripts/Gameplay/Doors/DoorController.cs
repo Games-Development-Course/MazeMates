@@ -37,6 +37,8 @@ public class DoorController : NetworkBehaviour
     private Quaternion _closedPivotLocalRot;
 
     private PadTrigger pad;
+    private Transform _doorModelForSign;
+    private Vector3 _doorLeafFarPointLocal; // נקודה בקצה הרחוק של הכנף (בלוקאל של המודל)
 
     private Coroutine _tvApplyRoutine;
 
@@ -251,6 +253,9 @@ public class DoorController : NetworkBehaviour
 
         Bounds b = mf.sharedMesh.bounds;
         float half = b.size.x * 0.5f;
+        _doorModelForSign = doorModel;
+        _doorLeafFarPointLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
+
 
         // pivot is created at LEFT edge (as your original logic)
         Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
@@ -416,18 +421,9 @@ public class DoorController : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void RequestOpenDoorServerRpc(Vector3 openerWorldPos)
     {
-        if (!IsServer)
-            return;
+        if (!IsServer) return;
 
-        var tutorial = FindAnyObjectByType<TutorialManager>();
-
-        if (tutorial != null && pad != null && pad.IsPlayerOnPad())
-        {
-            if (doorType == DoorType.Normal)
-                tutorial.NotifyNavigatorOpenedNormalDoor();
-            else if (doorType == DoorType.Exit)
-                tutorial.NotifyNavigatorOpenedExitDoor();
-        }
+        float chosen = ChooseOpenAngleSign(openerWorldPos);
 
         float chosen = ChooseOpenAngleSign(openerWorldPos);
 
@@ -456,8 +452,7 @@ public class DoorController : NetworkBehaviour
             SetNavigatorScreenClientRpc(showPuzzle, puzzlePrefabPath.Value);
     }
 
-    [ServerRpc(RequireOwnership = false)]
-    private void RequestSetNavigatorScreenServerRpc(bool showPuzzle)
+    private float ChooseOpenAngleSign(Vector3 openerWorldPos)
     {
         SetNavigatorScreenClientRpc(showPuzzle, puzzlePrefabPath.Value);
     }
@@ -520,6 +515,7 @@ public class DoorController : NetworkBehaviour
 
         _tvApplyRoutine = null;
     }
+
 
     // ============================================================
     // PUZZLE OPEN — RPC

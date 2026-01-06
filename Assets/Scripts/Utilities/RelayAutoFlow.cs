@@ -263,6 +263,7 @@ public sealed class RelayAutoFlow : MonoBehaviour
         }
         return null;
     }
+#endif
 
     private static bool TryGetMpePlayerIndex(out int playerIndex)
     {
