@@ -11,15 +11,22 @@ public static class DoorPlacement
     //  2) There are OPEN cells on the two sides of the passage
     //  3) There are WALLS on the perpendicular sides (so it sits "between 2 walls")
     //
-    // Rotation:
-    // - If passage is Left<->Right => rotate 90 yaw
-    // - If passage is Down<->Up    => identity
+    // NEW (Pivot Side / Hinge Side legality):
+    // - Your DoorController creates a pivot on the model's LOCAL "left edge".
+    // - Therefore we MUST choose a yaw that makes that local-left edge sit against a WALL cell
+    //   (otherwise the hinge ends up in the corridor and opening 90/-90 will block the path).
+    //
+    // We do this by allowing TWO rotations for every spot:
+    //   rotA = baseRotation
+    //   rotB = baseRotation * 180 yaw flip
+    // Then we select the first rotation whose "hinge side" (rot * Vector3.left)
+    // points to a WALL cell (perpendicular wall side).
     // ----------------------------------------------------------
     public static List<DoorSpot> FromCarvedWalls(
-       bool[,] grid,
-       List<Vector2Int> carvedWalls,
-       int width,
-       int height)
+        bool[,] grid,
+        List<Vector2Int> carvedWalls,
+        int width,
+        int height)
     {
         List<DoorSpot> spots = new();
 
@@ -31,23 +38,28 @@ public static class DoorPlacement
             if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1)
                 continue;
 
+            // This cell must be OPEN to place a door "in the passage"
+            if (grid[x, y]) // true == wall
+                continue;
+
             bool leftOpen = !grid[x - 1, y];
             bool rightOpen = !grid[x + 1, y];
             bool downOpen = !grid[x, y - 1];
             bool upOpen = !grid[x, y + 1];
 
-            bool isHorizontal = leftOpen && rightOpen && !upOpen && !downOpen;
-            bool isVertical = upOpen && downOpen && !leftOpen && !rightOpen;
+            bool isHorizontal = leftOpen && rightOpen && !upOpen && !downOpen; // passage L<->R, walls U/D
+            bool isVertical = upOpen && downOpen && !leftOpen && !rightOpen;   // passage D<->U, walls L/R
 
             if (!isHorizontal && !isVertical)
                 continue;
 
-            Quaternion rot = isHorizontal
+            // base rotation that aligns the door plane with the corridor opening
+            Quaternion baseRot = isHorizontal
                 ? Quaternion.Euler(0f, 90f, 0f)
                 : Quaternion.Euler(0f, 0f, 0f);
 
+            // Determine the two OPEN cells on the passage sides
             Vector2Int aOpen, bOpen;
-
             if (isHorizontal)
             {
                 aOpen = new Vector2Int(x - 1, y);
@@ -59,10 +71,33 @@ public static class DoorPlacement
                 bOpen = new Vector2Int(x, y + 1);
             }
 
+            // Determine the two WALL cells on the perpendicular sides
+            // (these MUST be walls by isHorizontal/isVertical definition)
+            Vector2Int w1, w2;
+            if (isHorizontal)
+            {
+                w1 = new Vector2Int(x, y + 1); // up wall
+                w2 = new Vector2Int(x, y - 1); // down wall
+            }
+            else
+            {
+                w1 = new Vector2Int(x - 1, y); // left wall
+                w2 = new Vector2Int(x + 1, y); // right wall
+            }
+
+            // Two candidate rotations: base + flipped (swap hinge side)
+            Quaternion rotA = baseRot;
+            Quaternion rotB = baseRot * Quaternion.Euler(0f, 180f, 0f);
+
+            // Pick a rotation whose hinge (local-left) points into one of the perpendicular WALL cells.
+            // If neither does, this spot is NOT safe for your pivot logic -> skip.
+            if (!TryPickSafeRotation(grid, width, height, new Vector2Int(x, y), w1, w2, rotA, rotB, out Quaternion chosenRot))
+                continue;
+
             spots.Add(new DoorSpot
             {
                 cell = new Vector2Int(x, y),
-                rotation = rot,
+                rotation = chosenRot,
                 aOpen = aOpen,
                 bOpen = bOpen
             });
@@ -121,7 +156,7 @@ public static class DoorPlacement
         float[] minDistStepsCells,
         int nearPathManhattanRadius = 1)
     {
-        // candidates
+        // candidates (now hinge-safe)
         List<DoorSpot> spots = FromCarvedWalls(grid, carvedWalls, width, height);
 
         // Always block these:
@@ -225,6 +260,93 @@ public static class DoorPlacement
     }
 
     // ==========================================================
+    // Pivot/Hinge legality helpers (NEW)
+    // ==========================================================
+    private static bool TryPickSafeRotation(
+        bool[,] grid,
+        int width,
+        int height,
+        Vector2Int doorCell,
+        Vector2Int perpWall1,
+        Vector2Int perpWall2,
+        Quaternion rotA,
+        Quaternion rotB,
+        out Quaternion chosen)
+    {
+        chosen = default;
+
+        // Prefer rotA if safe, else rotB
+        if (IsRotationHingeOnPerpWall(grid, width, height, doorCell, perpWall1, perpWall2, rotA))
+        {
+            chosen = rotA;
+            return true;
+        }
+
+        if (IsRotationHingeOnPerpWall(grid, width, height, doorCell, perpWall1, perpWall2, rotB))
+        {
+            chosen = rotB;
+            return true;
+        }
+
+        return false;
+    }
+
+    // The hinge direction is where the prefab's LOCAL "left edge" points in world.
+    // We approximate it using the rotation only:
+    //   hingeWorldDir = rot * Vector3.left
+    // Then snap it to the nearest cardinal direction on the grid (x/z),
+    // and require that the adjacent cell in that direction is one of the perpendicular WALL cells.
+    private static bool IsRotationHingeOnPerpWall(
+        bool[,] grid,
+        int width,
+        int height,
+        Vector2Int doorCell,
+        Vector2Int perpWall1,
+        Vector2Int perpWall2,
+        Quaternion rot)
+    {
+        Vector3 hingeDirWorld = rot * Vector3.left; // local-left => hinge side in world
+        Vector2Int hingeDirCell = SnapWorldDirToCellDir(hingeDirWorld);
+
+        if (hingeDirCell == Vector2Int.zero)
+            return false;
+
+        Vector2Int hingeCell = doorCell + hingeDirCell;
+
+        // hinge must be adjacent and inside bounds
+        if (!InBounds(hingeCell, width, height))
+            return false;
+
+        // hinge must point to one of the perpendicular wall cells
+        // (and that cell must actually be a WALL in the grid)
+        bool matchesPerp =
+            (hingeCell == perpWall1) ||
+            (hingeCell == perpWall2);
+
+        if (!matchesPerp)
+            return false;
+
+        // Must be wall (true == wall)
+        if (!grid[hingeCell.x, hingeCell.y])
+            return false;
+
+        return true;
+    }
+
+    private static Vector2Int SnapWorldDirToCellDir(Vector3 dir)
+    {
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.000001f) return Vector2Int.zero;
+        dir.Normalize();
+
+        // Choose dominant axis between world X and world Z
+        if (Mathf.Abs(dir.x) >= Mathf.Abs(dir.z))
+            return (dir.x >= 0f) ? new Vector2Int(1, 0) : new Vector2Int(-1, 0);
+        else
+            return (dir.z >= 0f) ? new Vector2Int(0, 1) : new Vector2Int(0, -1);
+    }
+
+    // ==========================================================
     // Path filtering
     // ==========================================================
     public static List<DoorSpot> FilterOnPath(List<DoorSpot> spots, HashSet<Vector2Int> pathSet)
@@ -272,8 +394,7 @@ public static class DoorPlacement
 
     // ==========================================================
     // Uniform-ish placement helper (CELL space)
-    // Greedy Max-Min: pick the candidate that maximizes its
-    // minimum distance to all used spots, while respecting minDist.
+    // Greedy Max-Min
     // ==========================================================
     public static bool TrySelectSpotMaxMin(
         List<DoorSpot> candidates,
@@ -295,7 +416,6 @@ public static class DoorPlacement
             if (!IsValidSpot(s, used, minDist))
                 continue;
 
-            // score = distance to nearest used spot (maximize it)
             float nearest = float.PositiveInfinity;
 
             if (used != null && used.Count > 0)
@@ -360,7 +480,7 @@ public static class DoorPlacement
     }
 
     // ==========================================================
-    // Utility: filter out already-used cells (compat)
+    // Utility: filter out already-used cells
     // ==========================================================
     public static List<DoorSpot> FilterOutCells(
         List<DoorSpot> all,
@@ -460,8 +580,6 @@ public static class DoorPlacement
         if (steps <= 0) return;
         if (forwardDir == Vector2Int.zero) return;
 
-        // We add the NEXT N open cells along the forward direction.
-        // If a cell is out-of-bounds or a wall, we stop early.
         Vector2Int cur = start;
         for (int i = 1; i <= steps; i++)
         {
@@ -478,7 +596,7 @@ public static class DoorPlacement
         c.x >= 0 && c.y >= 0 && c.x < w && c.y < h;
 
     // ==========================================================
-    // BFS PATHFINDING (moved from MazeGenerator3D)
+    // BFS PATHFINDING
     // ==========================================================
     public static List<Vector2Int> FindPathBFS(bool[,] grid, int width, int height, Vector2Int start, Vector2Int goal)
     {

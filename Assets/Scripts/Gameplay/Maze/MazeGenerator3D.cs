@@ -121,12 +121,9 @@ public class MazeGenerator3D : MonoBehaviour
 
     private void Start()
     {
-        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
-            return;
-
+        // תמיד למשוך קונפיג (גם בקליינט)
         PullConfigIfExists();
 
-        // ✅ enforce puzzle-door counts by difficulty (as requested)
         puzzleDoorsAmount = (difficulty == 2) ? 2 : 1;
 
         Random.InitState(seed);
@@ -134,28 +131,32 @@ public class MazeGenerator3D : MonoBehaviour
         CreateHierarchyFolders();
         GenerateMaze();
 
-        // ✅ start is always open
         grid[StartCell.x, StartCell.y] = false;
         if (!pathCells.Contains(StartCell)) pathCells.Add(StartCell);
 
         ComputeForcedExitCells_FarthestBorderAdjacent();
         OpenForcedExit();
 
+        // ✅ לבנות קירות/קרקע גם בקליינט כדי שיהיה מה לראות + מינימאפ
         BuildMaze();
         CreateGround();
 
         AlignMazeToNavigatorEntrance();
-        UpdateTravellerSpawn();
 
-        // DOORS (logic moved to DoorPlacement)
-        List<GameObject> puzzleDoorInstances = PlaceDoors();
-        PlaceResources();
-        StartCoroutine(ComputeBombRemovalsAfterResources());
+        // ❗️דברים שצריכים להיות רק בשרת:
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        {
+            UpdateTravellerSpawn();
 
-        AssignPuzzlesToPuzzleDoors(puzzleDoorInstances);
+            List<GameObject> puzzleDoorInstances = PlaceDoors();
+            PlaceResources();
+            StartCoroutine(ComputeBombRemovalsAfterResources());
+            AssignPuzzlesToPuzzleDoors(puzzleDoorInstances);
+        }
 
         MarkReady();
     }
+
     private IEnumerator ComputeBombRemovalsAfterResources()
     {
         // מחכה פריים אחד כדי לוודא שכל המשאבים הונחו
