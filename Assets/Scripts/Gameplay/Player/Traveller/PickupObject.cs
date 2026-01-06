@@ -42,7 +42,9 @@ public class PickupObject : NetworkBehaviour
     public float bombFadeOut = 0.25f;
     public float bombFadeIn = 0.35f;
 
-    private bool consumedServer = false;
+    private bool triggerHandledLocal;   // prevents spamming ServerRpc from this client
+    private bool consumedServer;        // authoritative (use inside ServerRpc too)
+
 
     private void Awake()
     {
@@ -59,19 +61,33 @@ public class PickupObject : NetworkBehaviour
     {
         HandleTriggerEnter(other);
     }
-
-    internal void HandleTriggerEnter(Collider other)
+    public void HandleTriggerEnter(Collider other)
     {
-        if (NetworkObject == null || !NetworkObject.IsSpawned) return;
+        if (other == null) return;
+        if (!other.CompareTag("Player")) return;
 
-        var playerNo = GetPlayerNetworkObjectFromCollider(other);
+        // local spam guard (optional but recommended)
+        if (triggerHandledLocal) return;
+        triggerHandledLocal = true;
+
+        // send one request
+        var playerNo = other.GetComponentInParent<NetworkObject>();
         if (playerNo == null) return;
-
-        // Only local owner requests pickup (prevents duplicates)
-        if (!playerNo.IsOwner) return;
 
         RequestPickupServerRpc(NetworkObjectId, playerNo.NetworkObjectId);
     }
+    // internal void HandleTriggerEnter(Collider other)
+    // {
+    //     if (NetworkObject == null || !NetworkObject.IsSpawned) return;
+
+    //     var playerNo = GetPlayerNetworkObjectFromCollider(other);
+    //     if (playerNo == null) return;
+
+    //     // Only local owner requests pickup (prevents duplicates)
+    //     if (!playerNo.IsOwner) return;
+
+    //     RequestPickupServerRpc(NetworkObjectId, playerNo.NetworkObjectId);
+    // }
 
     private static NetworkObject GetPlayerNetworkObjectFromCollider(Collider other)
     {
@@ -204,6 +220,7 @@ public class PickupObject : NetworkBehaviour
 
                 break;
         }
+        // End switch type
 
         // Mirror to all clients (your GameManager isn’t networked)
         ApplyPickupClientRpc(
