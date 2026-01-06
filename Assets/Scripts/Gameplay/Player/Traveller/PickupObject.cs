@@ -193,6 +193,12 @@ public class PickupObject : NetworkBehaviour
                     else
                     {
                         gameOver = true;
+                         if (gameOver)
+                        {
+                            var ss = SessionStateNet.Instance;
+                            if (ss != null && ss.IsSpawned)
+                                ss.SetEndServerRpc(EndState.Lose);
+                        }
                     }
                 }
                 else
@@ -367,8 +373,7 @@ public class PickupObject : NetworkBehaviour
 
         hud.UpdateHUDs();
 
-        if (gameOver)
-            NetworkManager.Singleton.SceneManager.LoadScene("GameOver", LoadSceneMode.Single);
+       
     }
 
     // ============================================================
