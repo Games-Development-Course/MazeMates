@@ -66,28 +66,17 @@ public class PickupObject : NetworkBehaviour
         if (other == null) return;
         if (!other.CompareTag("Player")) return;
 
-        // local spam guard (optional but recommended)
+        var playerNo = other.GetComponentInParent<NetworkObject>();
+        if (playerNo == null) return; // don't lock out on invalid collider
+
         if (triggerHandledLocal) return;
         triggerHandledLocal = true;
 
-        // send one request
-        var playerNo = other.GetComponentInParent<NetworkObject>();
-        if (playerNo == null) return;
-
         RequestPickupServerRpc(NetworkObjectId, playerNo.NetworkObjectId);
     }
-    // internal void HandleTriggerEnter(Collider other)
-    // {
-    //     if (NetworkObject == null || !NetworkObject.IsSpawned) return;
 
-    //     var playerNo = GetPlayerNetworkObjectFromCollider(other);
-    //     if (playerNo == null) return;
 
-    //     // Only local owner requests pickup (prevents duplicates)
-    //     if (!playerNo.IsOwner) return;
 
-    //     RequestPickupServerRpc(NetworkObjectId, playerNo.NetworkObjectId);
-    // }
 
     private static NetworkObject GetPlayerNetworkObjectFromCollider(Collider other)
     {
@@ -133,6 +122,8 @@ public class PickupObject : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     private void RequestPickupServerRpc(ulong pickupNetId, ulong playerNetId, ServerRpcParams rpcParams = default)
     {
+        Debug.Log($"[Pickup][SERVER-RPC] type={type} pickupId={pickupNetId} playerId={playerNetId}");
+
         if (pickupNetId != NetworkObjectId) return;
         if (consumedServer) return;
 
@@ -140,14 +131,8 @@ public class PickupObject : NetworkBehaviour
             return;
 
         consumedServer = true;
-
-        // Detect who picked it (Traveller vs Navigator) in a way that doesn't depend on host.
         bool pickedByTraveller = IsTravellerPlayer(playerNo);
-
-        // ✅ IMPORTANT: tutorial notify is SERVER-side and happens BEFORE despawn
         NotifyTutorialServerSide(type, pickedByTraveller);
-
-        // Apply server state (authoritative)
         var gm = GameManager.Instance;
         var hud = HUDManager.Instance;
 
@@ -163,7 +148,10 @@ public class PickupObject : NetworkBehaviour
         switch (type)
         {
             case PickupType.Heart:
+                Debug.Log($"[Pickup][SERVER] HEART before={gm.lives}");
                 gm.lives++;
+                Debug.Log($"[Pickup][SERVER] HEART after={gm.lives}");
+
                 if (string.IsNullOrWhiteSpace(finalMessage))
                     finalMessage = "אספת לב! קיבלת חיים נוספים.";
                 break;
@@ -174,53 +162,42 @@ public class PickupObject : NetworkBehaviour
                     finalMessage = "אספת מפתח!";
                 break;
 
-            case PickupType.Lifebuoy:
-                gm.lifebuoys++;
-                if (string.IsNullOrWhiteSpace(finalMessage))
-                    finalMessage = "אספת מצוף הצלה!";
-                break;
 
             case PickupType.Bomb:
-                //gm.lives--;
-                if (string.IsNullOrWhiteSpace(finalMessage))
-                    finalMessage = "דרכת על פצצה! איבדת לב.";
-
-                // UI flash (clients will also flash in RPC, but keep this safe)
-                if (hud != null) hud.FlashTravellerLife();
-
-                bool inTutorial = IsInTutorialContextOnServer();
-
-                if (gm.lives <= 0)
                 {
-                    if (inTutorial)
-                    {
-                        // Tutorial rule: never game over, reset traveller (keep at least 1 life)
-                        gm.lives = 1;
+                    if (string.IsNullOrWhiteSpace(finalMessage))
+                        finalMessage = "דרכת על פצצה! איבדת לב.";
 
-                        if (pickedByTraveller)
+                    if (hud != null)
+                        hud.FlashTravellerLife();
+
+                    bool inTutorial = IsInTutorialContextOnServer();
+                    gm.lives--;
+                    bool shouldRespawn = pickedByTraveller;
+
+                    if (gm.lives <= 0)
+                    {
+                        if (inTutorial)
                         {
-                            Vector3 pos = GetTutorialRespawnPos();
-                            Quaternion rot = GetTutorialRespawnRot();
-                            TryBombResetTeleportTo(playerNo, pos, rot);
+                            gm.lives = 1;
+
+                            if (shouldRespawn && TryGetLevelTravellerStart(out var pos, out var rot))
+                                TryBombResetTeleportTo(playerNo, pos, rot);
+                        }
+                        else
+                        {
+                            gameOver = true;
                         }
                     }
                     else
                     {
-                        gameOver = true;
+                        if (shouldRespawn && TryGetLevelTravellerStart(out var pos, out var rot))
+                            TryBombResetTeleportTo(playerNo, pos, rot);
                     }
-                }
-                else
-                {
-                    gm.lives--;
-                    // Optional: if you want bomb to "shake/teleport" even when not dead, keep this.
-                    // If you DON'T want any teleport unless dead, delete this block.
-                    // if (pickedByTraveller)
-                    //     TryBombResetTeleportTo(playerNo, new Vector3(1f, 1f, 1f), Quaternion.identity);
-                }
 
-                break;
+                    break;
+                }
         }
-        // End switch type
 
         // Mirror to all clients (your GameManager isn’t networked)
         ApplyPickupClientRpc(
@@ -236,7 +213,6 @@ public class PickupObject : NetworkBehaviour
 
         DespawnNow();
     }
-
     private bool IsTravellerPlayer(NetworkObject playerNo)
     {
         var gm = GameManager.Instance;
@@ -404,4 +380,24 @@ public class PickupObject : NetworkBehaviour
                 owner.HandleTriggerEnter(other);
         }
     }
+    private bool TryGetLevelTravellerStart(out Vector3 pos, out Quaternion rot)
+    {
+        pos = default;
+        rot = default;
+
+        var points = Object.FindObjectsByType<PlayerStartPoint>(FindObjectsSortMode.None);
+        foreach (var p in points)
+        {
+            if (p != null && p.role == PlayerStartPoint.Role.Traveller)
+            {
+                pos = p.transform.position;
+                rot = p.transform.rotation;
+                return true;
+            }
+        }
+
+        Debug.LogWarning("[PickupObject] No PlayerStartPoint(Role.Traveller) found in this scene.");
+        return false;
+    }
+
 }
