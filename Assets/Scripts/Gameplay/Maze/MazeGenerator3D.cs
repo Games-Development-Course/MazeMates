@@ -1,7 +1,8 @@
 ﻿// Assets/Scripts/Maze/MazeGenerator3D.cs
+using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using Unity.Netcode;
+using UnityEngine;
 
 public class MazeGenerator3D : MonoBehaviour
 {
@@ -146,9 +147,21 @@ public class MazeGenerator3D : MonoBehaviour
         // DOORS (logic moved to DoorPlacement)
         List<GameObject> puzzleDoorInstances = PlaceDoors();
         PlaceResources();
+        StartCoroutine(ComputeBombRemovalsAfterResources());
+
         AssignPuzzlesToPuzzleDoors(puzzleDoorInstances);
 
         MarkReady();
+    }
+    private IEnumerator ComputeBombRemovalsAfterResources()
+    {
+        // מחכה פריים אחד כדי לוודא שכל המשאבים הונחו
+        yield return null;
+
+        // אם PlaceResources משתמש בעוד קורוטינות – בטוח יותר:
+        yield return new WaitForEndOfFrame();
+
+        ComputeAndApplyBombRemovalsRuntime();
     }
 
     private void PullConfigIfExists()
@@ -833,4 +846,232 @@ public class MazeGenerator3D : MonoBehaviour
     //   Bounds helper
     // ================================================================
     private bool InBounds(Vector2Int c) => c.x >= 0 && c.y >= 0 && c.x < width && c.y < height;
+
+    // ================================
+    //   BombRemovals by Difficulty
+    // ================================
+    private void ComputeAndApplyBombRemovalsRuntime()
+    {
+        // server only
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            return;
+
+        var cfg = GameConfigNet.Instance;
+        if (cfg == null) return;
+
+        // collect bomb/key cells from spawned scene objects under Resources folder
+        List<Vector2Int> bombCells = CollectResourceCellsOfType("Bomb");
+        List<Vector2Int> keyCells = CollectResourceCellsOfType("Key");
+        Debug.Log($"[Maze] bombs={bombCells.Count}, keys={keyCells.Count}, diff={cfg.Difficulty.Value}");
+
+        int totalBombs = bombCells.Count;
+
+        // EASY: removals == total bombs
+        int easy = totalBombs;
+
+        // HARD: bombs on shortest path Start->Exit + bombs on shortest path Start->NearestKey
+        int bombsToExit = CountBombsOnShortestPath(StartCell, forcedExitCell, bombCells);
+
+        int bombsToKey = 0;
+        if (keyCells.Count > 0)
+            bombsToKey = CountBombsOnShortestPathToNearestTarget(StartCell, keyCells, bombCells);
+
+        int hard = Mathf.Max(0, bombsToExit + bombsToKey);
+
+        // MEDIUM: midpoint between easy & hard
+        int medium = Mathf.RoundToInt((easy + hard) * 0.5f);
+
+        int diff = cfg.Difficulty.Value;
+        int result = (diff == 0) ? easy : (diff == 1 ? medium : hard);
+
+        // update networked config (you added this ServerRpc in GameConfigNet)
+        cfg.SetBombRemovalsRuntimeServerRpc(result);
+
+        Debug.Log($"[Maze] BombRemovals computed: easy={easy}, medium={medium}, hard={hard}, chosen={result} (diff={diff})");
+    }
+
+    // Collect cells by scanning objects spawned under resourcesRoot.
+    // Tries PickupObject.PickupType first; if missing, falls back to name contains.
+    // Collect cells by scanning ALL descendants under resourcesRoot (not only direct children).
+    // Prefers PickupObject.PickupType; falls back to name contains.
+    // MazeGenerator3D.cs
+    // Replace your existing CollectResourceCellsOfType(string typeName) with this version.
+    // Goal: do NOT depend on ResourcesRoot parenting (works even when NGO unparents NetworkObjects).
+
+    private List<Vector2Int> CollectResourceCellsOfType(string typeName)
+    {
+        var cells = new List<Vector2Int>();
+        string needle = typeName.ToLowerInvariant();
+
+        // 1) Scan the ENTIRE scene for PickupObject of the requested type
+        var pickups = FindObjectsByType<PickupObject>(FindObjectsSortMode.None);
+        if (pickups != null && pickups.Length > 0)
+        {
+            for (int i = 0; i < pickups.Length; i++)
+            {
+                var p = pickups[i];
+                if (p == null) continue;
+
+                // Prefer enum match (Bomb/Key/Heart)
+                if (!p.type.ToString().Equals(typeName, System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                Vector2Int c = WorldToCell(p.transform.position);
+                if (InBounds(c))
+                    cells.Add(c);
+            }
+
+            // If we found via PickupObject, that's the most reliable
+            if (cells.Count > 0)
+                return cells;
+        }
+
+        // 2) Backup: scan by Tag (Bomb / Key) across the scene
+        // (Only works if you actually set these tags on the prefabs)
+        try
+        {
+            var tagged = GameObject.FindGameObjectsWithTag(typeName);
+            if (tagged != null && tagged.Length > 0)
+            {
+                for (int i = 0; i < tagged.Length; i++)
+                {
+                    var go = tagged[i];
+                    if (go == null) continue;
+
+                    Vector2Int c = WorldToCell(go.transform.position);
+                    if (InBounds(c))
+                        cells.Add(c);
+                }
+
+                if (cells.Count > 0)
+                    return cells;
+            }
+        }
+        catch
+        {
+            // Tag may not exist; ignore safely
+        }
+
+        // 3) Last resort: scan all root objects by name contains (bomb/key)
+        // (This is only for safety; prefer PickupObject / Tag)
+        var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+        for (int r = 0; r < roots.Length; r++)
+        {
+            var root = roots[r];
+            if (root == null) continue;
+
+            var all = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                var t = all[i];
+                if (t == null) continue;
+
+                string n = t.name;
+                if (string.IsNullOrEmpty(n)) continue;
+                if (!n.ToLowerInvariant().Contains(needle)) continue;
+
+                Vector2Int c = WorldToCell(t.position);
+                if (InBounds(c))
+                    cells.Add(c);
+            }
+        }
+
+        return cells;
+    }
+
+    private int CountBombsOnShortestPath(Vector2Int start, Vector2Int goal, List<Vector2Int> bombCells)
+    {
+        var path = FindShortestPathCells(start, goal);
+        if (path == null || path.Count == 0) return 0;
+
+        var bombs = new HashSet<Vector2Int>(bombCells);
+        int count = 0;
+
+        // exclude start cell
+        for (int i = 1; i < path.Count; i++)
+            if (bombs.Contains(path[i])) count++;
+
+        return count;
+    }
+
+    private int CountBombsOnShortestPathToNearestTarget(Vector2Int start, List<Vector2Int> targets, List<Vector2Int> bombCells)
+    {
+        List<Vector2Int> bestPath = null;
+
+        for (int i = 0; i < targets.Count; i++)
+        {
+            var p = FindShortestPathCells(start, targets[i]);
+            if (p == null || p.Count == 0) continue;
+
+            if (bestPath == null || p.Count < bestPath.Count)
+                bestPath = p;
+        }
+
+        if (bestPath == null) return 0;
+
+        var bombs = new HashSet<Vector2Int>(bombCells);
+        int count = 0;
+
+        for (int i = 1; i < bestPath.Count; i++)
+            if (bombs.Contains(bestPath[i])) count++;
+
+        return count;
+    }
+
+    // BFS shortest path using your grid (grid[x,y] == true means WALL, false means OPEN)
+    private List<Vector2Int> FindShortestPathCells(Vector2Int start, Vector2Int goal)
+    {
+        if (!InBounds(start) || !InBounds(goal)) return null;
+        if (grid[start.x, start.y]) return null; // wall
+        if (grid[goal.x, goal.y]) return null;   // wall
+
+        var q = new Queue<Vector2Int>();
+        var prev = new Dictionary<Vector2Int, Vector2Int>();
+        var visited = new HashSet<Vector2Int>();
+
+        q.Enqueue(start);
+        visited.Add(start);
+
+        Vector2Int[] dirs =
+        {
+        new Vector2Int(1,0),
+        new Vector2Int(-1,0),
+        new Vector2Int(0,1),
+        new Vector2Int(0,-1),
+    };
+
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+            if (cur == goal) break;
+
+            for (int i = 0; i < dirs.Length; i++)
+            {
+                var nxt = cur + dirs[i];
+                if (!InBounds(nxt)) continue;
+                if (grid[nxt.x, nxt.y]) continue; // wall
+                if (visited.Contains(nxt)) continue;
+
+                visited.Add(nxt);
+                prev[nxt] = cur;
+                q.Enqueue(nxt);
+            }
+        }
+
+        if (!visited.Contains(goal)) return null;
+
+        var path = new List<Vector2Int>();
+        var p = goal;
+        path.Add(p);
+
+        while (p != start)
+        {
+            p = prev[p];
+            path.Add(p);
+        }
+
+        path.Reverse();
+        return path;
+    }
+
 }
