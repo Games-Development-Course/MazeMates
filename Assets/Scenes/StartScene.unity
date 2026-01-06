@@ -8386,8 +8386,8 @@ MonoBehaviour:
   pauseAfterAllPlayersConnected: 1
   hostSignalWaitSeconds: 120
   joinCodeMaxAgeSeconds: 600
-  clientJoinRetries: 3
-  joinRetryDelayMs: 400
+  clientJoinRetries: 10
+  joinRetryDelayMs: 1000
 --- !u!4 &1986290942
 Transform:
   m_ObjectHideFlags: 0

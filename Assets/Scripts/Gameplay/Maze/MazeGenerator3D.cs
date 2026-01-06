@@ -29,6 +29,9 @@ public class MazeGenerator3D : MonoBehaviour
 
     public bool IsReady { get; private set; }
     public event System.Action Ready;
+    public float MazeWorldWidth => width * cellSize;
+    public float MazeWorldHeight => height * cellSize;
+
 
     private void MarkReady()
     {
@@ -558,6 +561,7 @@ public class MazeGenerator3D : MonoBehaviour
         }
 
         Vector3 worldPos = transform.TransformPoint(forcedExitDoorLocalPos);
+        worldPos.y -= 0.5f;
         Quaternion worldRot = transform.rotation * forcedExitDoorRot;
 
         GameObject door = Instantiate(winDoorPrefab, worldPos, worldRot);

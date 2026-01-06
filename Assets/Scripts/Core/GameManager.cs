@@ -50,13 +50,10 @@ public class GameManager : MonoBehaviour
         var cfg = GameConfigNet.Instance;
         if (cfg == null) return;
 
-        // אם הוספת NetworkVariables (Lives/BombRemovals/Hints) – חבר גם אותם
-        cfg.BombRemovals.OnValueChanged += (_, __) => ApplyConfigFromNetwork();
-        cfg.Hints.OnValueChanged += (_, __) => ApplyConfigFromNetwork();
-        cfg.Lives.OnValueChanged += (_, __) => ApplyConfigFromNetwork();
-
-        // כבר יש לך KeysToCollect
-        cfg.KeysToCollect.OnValueChanged += (_, __) => ApplyConfigFromNetwork();
+        cfg.BombRemovals.OnValueChanged += OnConfigChanged;
+        cfg.Hints.OnValueChanged += OnConfigChanged;
+        cfg.Lives.OnValueChanged += OnConfigChanged;
+        cfg.KeysToCollect.OnValueChanged += OnConfigChanged;
 
         _cfgBound = true;
     }
@@ -64,16 +61,19 @@ public class GameManager : MonoBehaviour
     private void OnDestroy()
     {
         var cfg = GameConfigNet.Instance;
-        if (cfg != null)
-        {
-            cfg.BombRemovals.OnValueChanged -= (_, __) => ApplyConfigFromNetwork();
-            cfg.Hints.OnValueChanged -= (_, __) => ApplyConfigFromNetwork();
-            cfg.Lives.OnValueChanged -= (_, __) => ApplyConfigFromNetwork();
-            cfg.KeysToCollect.OnValueChanged -= (_, __) => ApplyConfigFromNetwork();
-        }
+        if (cfg == null) return;
+
+        cfg.BombRemovals.OnValueChanged -= OnConfigChanged;
+        cfg.Hints.OnValueChanged -= OnConfigChanged;
+        cfg.Lives.OnValueChanged -= OnConfigChanged;
+        cfg.KeysToCollect.OnValueChanged -= OnConfigChanged;
     }
 
-
+    private void OnConfigChanged(int _, int __)
+    {
+        ApplyConfigFromNetwork();
+    }
+    
 
 
     private void ApplyConfigFromNetwork()

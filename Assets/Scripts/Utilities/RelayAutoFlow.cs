@@ -1,10 +1,9 @@
 ﻿// Assets/Scripts/Utilities/RelayAutoFlow.cs
-// Deterministic MPE Host/Client selection (Editor hosts, Player2 joins) + hard gating:
-// - Prefer MPE Tags: HOST / CLIENT
-// - Else prefer CurrentPlayer.IsMainEditor
-// - Else prefer cmdline -name Player1/Player2...
-// - Else fallback to UnityEditor.MPE playerIndex (0 host)
-// Client does NOTHING (even no Unity Services sign-in) until Host published join code.
+// Stable AutoFlow (restored):
+// - Waits for MPE readiness before deciding role
+// - Client waits & retries for join code (~1000ms cadence), no fast-fail
+// - Prefer MPE Tags HOST/CLIENT
+// - Cmdline is fallback only and normalized ("Player 1" -> "Player1")
 
 using System;
 using System.Collections.Generic;
@@ -41,9 +40,9 @@ public sealed class RelayAutoFlow : MonoBehaviour
     [SerializeField] private float hostSignalWaitSeconds = 120f;
     [SerializeField] private float joinCodeMaxAgeSeconds = 600f; // 10 min
 
-    [Header("Client retry")]
-    [SerializeField] private int clientJoinRetries = 6;
-    [SerializeField] private int joinRetryDelayMs = 500;
+    [Header("Client retry (stable)")]
+    [SerializeField] private int clientJoinRetries = 60;     // ~60 seconds
+    [SerializeField] private int joinRetryDelayMs = 1000;    // ~1000ms cadence
 
     // Shared Join Code file (works across MPE virtual player processes)
     // Format: "<unixSeconds>|<joinCode>"
@@ -62,13 +61,15 @@ public sealed class RelayAutoFlow : MonoBehaviour
 
     private async void Start()
     {
-        // Wait until NetworkManager exists (fixes early OnEnable order issues in some scenes)
         await WaitForNetworkManagerReady();
 
-        Role role = DecideRoleDeterministic(out string reason);
-        Debug.Log($"[RelayAutoFlow] role={role} ({reason}) | platform={Application.platform} | buildTargetWebGL={(IsBuildTargetWebGL() ? "YES" : "NO")}");
+        // 🔒 Restore stability: wait for MPE to be ready before deciding role
+        await WaitForMpeReady();
 
-        // ✅ CLIENT does NOTHING before host published join code
+        Role role = DecideRoleDeterministic(out string reason);
+        Debug.Log($"[RelayAutoFlow] role={role} ({reason}) | platform={Application.platform}");
+
+        // Client does NOTHING before host published join code
         if (role == Role.Client)
         {
             bool ok = await WaitForHostJoinCodeSignal(hostSignalWaitSeconds);
@@ -85,6 +86,10 @@ public sealed class RelayAutoFlow : MonoBehaviour
         else await StartClient();
     }
 
+    // ---------------------------
+    // Readiness gates
+    // ---------------------------
+
     private async Task WaitForNetworkManagerReady()
     {
         float t = 0f;
@@ -94,26 +99,38 @@ public sealed class RelayAutoFlow : MonoBehaviour
             t += 0.05f;
             if (t > 10f)
             {
-                Debug.LogWarning("[RelayAutoFlow] Still waiting for NetworkManager.Singleton...");
+                Debug.LogWarning("[RelayAutoFlow] Waiting for NetworkManager.Singleton...");
                 t = 0f;
             }
         }
-
-        // wait one frame so components settle
         await Task.Yield();
+    }
 
-        if (NetworkManager.Singleton.GetComponent<UnityTransport>() == null)
-            Debug.LogWarning("[RelayAutoFlow] UnityTransport missing on NetworkManager.");
+    private async Task WaitForMpeReady()
+    {
+#if UNITY_EDITOR
+        // ~1–2 seconds patience prevents falling to cmdline too early
+        for (int i = 0; i < 120; i++)
+        {
+            if (TryGetMpeCurrentPlayerTags(out var tags) && tags != null && tags.Count > 0)
+                return;
+
+            if (TryGetMpeIsMainEditor(out _))
+                return;
+
+            await Task.Delay(20);
+        }
+#endif
     }
 
     // ---------------------------
-    // Role decision (deterministic)
+    // Role decision (stable order)
     // ---------------------------
 
     private Role DecideRoleDeterministic(out string reason)
     {
 #if UNITY_EDITOR
-        // 1) Prefer Tags: HOST/CLIENT
+        // 1) Prefer MPE Tags
         if (TryGetMpeCurrentPlayerTags(out var tags))
         {
             if (tags.Contains("HOST"))
@@ -128,42 +145,38 @@ public sealed class RelayAutoFlow : MonoBehaviour
             }
         }
 
-        // 2) Prefer IsMainEditor (most stable when available)
-        if (TryGetMpeIsMainEditor(out bool isMain) && isMain)
+        // 2) Prefer IsMainEditor
+        if (TryGetMpeIsMainEditor(out bool isMain))
         {
-            reason = "IsMainEditor=true";
-            return Role.Host;
-        }
-        if (TryGetMpeIsMainEditor(out isMain) && !isMain)
-        {
-            reason = "IsMainEditor=false";
-            return Role.Client;
+            reason = $"IsMainEditor={isMain}";
+            return isMain ? Role.Host : Role.Client;
         }
 
-        // 3) Prefer command line -name Player1/Player2...
+        // 3) Fallback: cmdline -name Player1/Player 1...
         if (TryGetCmdlinePlayerName(out string pname))
         {
-            if (string.Equals(pname, "Player1", StringComparison.OrdinalIgnoreCase))
+            string norm = new string(pname.Where(char.IsLetterOrDigit).ToArray()); // Player 1 -> Player1
+            if (string.Equals(norm, "Player1", StringComparison.OrdinalIgnoreCase))
             {
-                reason = "-name Player1";
+                reason = $"-name {pname}";
                 return Role.Host;
             }
-            if (pname.StartsWith("Player", StringComparison.OrdinalIgnoreCase))
+            if (norm.StartsWith("Player", StringComparison.OrdinalIgnoreCase))
             {
                 reason = $"-name {pname}";
                 return Role.Client;
             }
         }
 
-        // 4) Fallback: UnityEditor.MPE player index
+        // 4) Fallback: player index
         if (TryGetMpePlayerIndex(out int idx))
         {
             reason = $"playerIndex={idx}";
-            return (idx == 0) ? Role.Host : Role.Client;
+            return idx == 0 ? Role.Host : Role.Client;
         }
 
-        // 5) Not MPE (regular editor play)
-        reason = "regular editor play";
+        // 5) Regular editor play
+        reason = "regular editor";
         return Role.Host;
 #else
         reason = "build";
@@ -196,7 +209,6 @@ public sealed class RelayAutoFlow : MonoBehaviour
         isMainEditor = false;
         try
         {
-            // Unity.Multiplayer.PlayMode.CurrentPlayer.IsMainEditor (package dependent)
             var t = FindTypeInLoadedAssemblies("Unity.Multiplayer.PlayMode.CurrentPlayer");
             if (t == null) return false;
 
@@ -270,22 +282,9 @@ public sealed class RelayAutoFlow : MonoBehaviour
             playerIndex = (int)getIndex.Invoke(null, null);
             return true;
         }
-        catch
-        {
-            return false;
-        }
-    }
-#endif
-
-    private bool IsBuildTargetWebGL()
-    {
-#if UNITY_EDITOR
-        try { return EditorUserBuildSettings.activeBuildTarget == BuildTarget.WebGL; }
         catch { return false; }
-#else
-        return false;
-#endif
     }
+#endif
 
     // ---------------------------
     // Host / Client
@@ -297,7 +296,6 @@ public sealed class RelayAutoFlow : MonoBehaviour
         while (elapsed < timeoutSeconds)
         {
 #if UNITY_EDITOR
-            // optional convenience
             if (!string.IsNullOrEmpty(s_editorJoinCode))
             {
                 _prefetchedJoinCode = s_editorJoinCode;
@@ -310,10 +308,9 @@ public sealed class RelayAutoFlow : MonoBehaviour
                 return true;
             }
 
-            await Task.Delay(100);
-            elapsed += 0.1f;
+            await Task.Delay(250);
+            elapsed += 0.25f;
         }
-
         return false;
     }
 
@@ -338,9 +335,7 @@ public sealed class RelayAutoFlow : MonoBehaviour
 
             Debug.Log($"[RelayAutoFlow] HOST join code: {joinCode}");
 
-            bool started = NetworkManager.Singleton.StartHost();
-            Debug.Log($"[RelayAutoFlow] StartHost={started}");
-
+            NetworkManager.Singleton.StartHost();
             NetworkManager.Singleton.OnClientConnectedCallback += _ => OnAnyClientConnectedOnHost();
         }
         catch (Exception e)
@@ -367,8 +362,9 @@ public sealed class RelayAutoFlow : MonoBehaviour
 
             if (string.IsNullOrEmpty(code))
             {
-                Debug.LogError("[RelayAutoFlow] No join code available for client.");
-                return;
+                Debug.Log($"[RelayAutoFlow] Client waiting for join code... ({attempt}/{retries})");
+                await Task.Delay(joinRetryDelayMs);
+                continue;
             }
 
             try
@@ -380,35 +376,22 @@ public sealed class RelayAutoFlow : MonoBehaviour
                 utp.UseWebSockets = true;
 
                 Debug.Log($"[RelayAutoFlow] CLIENT joining with code: {code}");
-
-                bool started = NetworkManager.Singleton.StartClient();
-                Debug.Log($"[RelayAutoFlow] StartClient={started}");
+                NetworkManager.Singleton.StartClient();
                 return;
-            }
-            catch (RelayServiceException e) when (IsJoinCodeNotFound(e))
-            {
-                int backoff = Mathf.Clamp(joinRetryDelayMs * attempt, 300, 5000);
-                Debug.LogWarning($"[RelayAutoFlow] Join code not found/expired. Retrying {attempt}/{retries} after {backoff}ms...");
-
-                _prefetchedJoinCode = null;
-#if UNITY_EDITOR
-                s_editorJoinCode = null;
-#endif
-                await Task.Delay(backoff);
             }
             catch (Exception e)
             {
-                Debug.LogError($"[RelayAutoFlow] Client failed: {e}");
-                return;
+                Debug.LogWarning($"[RelayAutoFlow] Client join failed (attempt {attempt}): {e}");
+                await Task.Delay(joinRetryDelayMs);
             }
         }
 
-        Debug.LogError("[RelayAutoFlow] Failed to join after retries.");
+        Debug.LogError("[RelayAutoFlow] Client failed to join after retries.");
     }
 
     private void OnAnyClientConnectedOnHost()
     {
-        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
+        if (!NetworkManager.Singleton || !NetworkManager.Singleton.IsServer) return;
 
         int total = NetworkManager.Singleton.ConnectedClientsList.Count; // includes host
         Debug.Log($"[RelayAutoFlow] Connected clients: {total}/{expectedPlayers}");
@@ -428,8 +411,9 @@ public sealed class RelayAutoFlow : MonoBehaviour
 
             if (autoLoadGameScene && NetworkManager.Singleton.SceneManager != null)
             {
-                Debug.Log($"[RelayAutoFlow] Host loading {gameSceneName}");
-                NetworkManager.Singleton.SceneManager.LoadScene(gameSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+                NetworkManager.Singleton.SceneManager.LoadScene(
+                    gameSceneName,
+                    UnityEngine.SceneManagement.LoadSceneMode.Single);
             }
         }
     }
@@ -463,49 +447,23 @@ public sealed class RelayAutoFlow : MonoBehaviour
     private bool TryReadJoinCodeFromFile(out string code)
     {
         code = null;
-
         try
         {
-            if (!File.Exists(JoinCodeFile))
-                return false;
+            if (!File.Exists(JoinCodeFile)) return false;
 
             string text = File.ReadAllText(JoinCodeFile);
-            if (string.IsNullOrWhiteSpace(text))
-                return false;
+            if (string.IsNullOrWhiteSpace(text)) return false;
 
             int sep = text.IndexOf('|');
-            if (sep <= 0 || sep >= text.Length - 1)
-                return false;
+            if (sep <= 0 || sep >= text.Length - 1) return false;
 
-            string tsStr = text.Substring(0, sep).Trim();
-            string joinCode = text.Substring(sep + 1).Trim();
+            if (!long.TryParse(text.Substring(0, sep), out long unix)) return false;
+            if ((DateTimeOffset.UtcNow.ToUnixTimeSeconds() - unix) > joinCodeMaxAgeSeconds) return false;
 
-            if (string.IsNullOrEmpty(joinCode))
-                return false;
-
-            if (!long.TryParse(tsStr, out long unix))
-                return false;
-
-            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            long age = now - unix;
-            if (age < 0) age = 0;
-
-            if (age > (long)joinCodeMaxAgeSeconds)
-                return false;
-
-            code = joinCode;
-            return true;
+            code = text.Substring(sep + 1).Trim();
+            return !string.IsNullOrEmpty(code);
         }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool IsJoinCodeNotFound(Exception e)
-    {
-        string t = e.ToString();
-        return t.Contains("404") || t.Contains("Not Found") || t.Contains("join code not found");
+        catch { return false; }
     }
 
     // ---------------------------
@@ -514,9 +472,7 @@ public sealed class RelayAutoFlow : MonoBehaviour
 
     private static async Task EnsureUnityServicesSignedIn_WithRetries()
     {
-        const int maxAttempts = 3;
-
-        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        for (int attempt = 1; attempt <= 3; attempt++)
         {
             try
             {
@@ -533,11 +489,5 @@ public sealed class RelayAutoFlow : MonoBehaviour
                 await Task.Delay(400 * attempt);
             }
         }
-
-        if (UnityServices.State != ServicesInitializationState.Initialized)
-            await UnityServices.InitializeAsync();
-
-        if (!AuthenticationService.Instance.IsSignedIn)
-            await AuthenticationService.Instance.SignInAnonymouslyAsync();
     }
 }

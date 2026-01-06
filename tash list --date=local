@@ -1,0 +1,133 @@
+[33maee9afb[m[33m ([m[1;36mHEAD[m[33m, [m[1;32mfeature/AvivsTasks[m[33m)[m Merge branch 'feature/pickupobjects' of https://github.com/Games-Development-Course/MazeMates into feature/AvivsTasks
+[33m743251a[m init to brnch
+[33mb8b119a[m[33m ([m[1;31morigin/feature/AvivsTasks[m[33m)[m control rooom
+[33mf93f09b[m control room juuuzzzed up
+[33m04cdf93[m Feature/avivs tasks (#15)
+[33m57b75d3[m Merge branch 'main' into feature/AvivsTasks
+[33mb03638f[m  fixed door rotation
+[33m9c89898[m  added guest button
+[33mdecaddc[m Feature/levels management (#14)
+[33mef1b601[m[33m ([m[1;31morigin/feature/levels_management[m[33m, [m[1;32mfeature/levels_management[m[33m)[m Resolve merge conflicts
+[33m211fd5b[m a
+[33m8910b2b[m User Login Done
+[33ma5c8ada[m Feature/levels management (#12)
+[33m401c95c[m Resource placement fixed
+[33mb4b93fc[m Door placement, auto start and Open/Remove buttons fixed
+[33m4ff0e4a[m Fix .gitattributes (remove accidental commands, keep TMP quoted rules)
+[33m820cd08[m Fix TMP rules (remove broken lines, add quoted -merge rules)
+[33mfeb0393[m Fix .gitattributes – disable merge for TMP assets
+[33m8a8c927[m Avoid TMP font asset merge conflicts (prefer theirs)
+[33m60c188b[m Avoid TMP font asset merge conflicts (prefer theirs)
+[33m11206fa[m one life and bomb doesnt kill the player
+[33mfe4d93d[m movement fix and chill rotation
+[33mc4eaf3c[m doors are opening
+[33mb81f7f4[m try1 to fix keys
+[33mad08c85[m doors looks ok again
+[33md79d3a4[m prototype 3d view and model traveller
+[33m8a00a68[m tutorial finally fixed
+[33m78e1336[m tutorial small fixes needed
+[33m2481d0b[m tutorial fixed
+[33m9170c93[m  fixed spawn and movement
+[33m437fbed[m backup before merge
+[33m502b9dd[m natural movement
+[33m00b5980[m a
+[33mc5dd2a4[m fixed code not showing, maze now generates per diff level
+[33me8bb8fa[m nav spawned as expected
+[33mf498c5c[m tutorial working as expected
+[33m41ef209[m fixed wiring, tutorial spawns dynamically now, still working on enabling flow
+[33m2cf0c43[m fixed wiring, tutorial spawns dynamically now, still working on enabling flow
+[33mf5f9b84[m tutorial env ok, need to wake up the manager when loading
+[33md49106f[m trav scene spawned partially
+[33m2211a78[m player spawn manager might be the problem
+[33mca8f739[m scene arent fully loaded
+[33m9cdbbca[m code doesnt shown on host's screen
+[33mae47ca0[m split logic in relayUITest
+[33m2991f67[m hide connection code after join
+[33m711b3f2[m hide connecton panel after join
+[33me3bc205[m need some work
+[33m3250508[m Modifing MazeGenerator3D script
+[33m7beccb1[m Add files via upload
+[33m0c372a7[m Update itch.io link in README (#9)
+[33m6672670[m Feature/spawn fix (#11)
+[33mecaa517[m Feature/spawn fix (#10)
+[33mab823ac[m added UnitTests for tutorial (#8)
+[33mb2de679[m fixed playerspawnmanager
+[33mf128f8a[m[33m ([m[1;32mhotfix/restore-gamescene-from-stash[m[33m)[m Feature/relayfixtry (#7)
+[33m4901d52[m Feature/nav room ux (#6)
+[33m9900c38[m[33m ([m[1;31morigin/feature/Multiplayer[m[33m, [m[1;32mfeature/Multiplayer[m[33m)[m merge dealt with
+[33m120e414[m Stop tracking UserSettings folder and ignore it (#4)
+[33mfa82710[m Multiplayer running
+[33m4a23388[m Multiplayer running
+[33m38a5636[m Multiplayer running
+[33m28bc2bd[m Move work to feature/Multiplayer: multiplayer setup and fixes
+[33m64330b4[m finished meeting (#3)
+[33m665a7a5[m added ignore userSettings and vs code cache (#1)
+[33m21a2427[m save work before fixing merge
+[33mf896e89[m small adjustment
+[33md0c6128[m Add CODEOWNERS file with initial owner
+[33mde46682[m Update README.md
+[33mb362520[m Update README.md
+[33maefbc66[m resolve conflicts
+[33mfee8f8b[m save work before fixing merge
+[33md9fceb9[m working tutorial level example (MazeForShow)
+[33me984063[m Add ITCH.IO link to README
+[33m4392b73[m Revise README with new content and layout
+[33m9173b8c[m linted
+[33m47ef170[m repo merge complete
+[33m9c665e9[m repo merge complete
+[33m01988a9[m repo merge complete
+[33m009865e[m Add 'Draft/' from commit 'e372a8dee3d9c1a9f7a9ab06c9357a2eb1276380'
+[33m6c337c6[m drama
+[33me372a8d[m[33m ([m[1;31mdraft/main[m[33m, [m[1;31mdraft/HEAD[m[33m)[m a
+[33m810235c[m linted
+[33m05f3d04[m more modular
+[33md61f846[m merged
+[33m4dea248[m merged
+[33m4ce2b63[m merged
+[33m9da9bf4[m a2
+[33m4ae0016[m Add README for MazeMates game
+[33m567b2b4[m clean leftover .vs entries
+[33mdb4f4e7[m a
+[33mda46c70[m v3
+[33m819078a[m v2
+[33md79943f[m Initial Unity project commit
+[33m89a1c85[m Update Level_Design.md
+[33mb1e6e2b[m Update README.md
+[33me570ba3[m Update formal-elements.MD
+[33m67b8392[m Update game style and interface details in README
+[33mccaee2a[m Update formal-elements.MD
+[33m37b34f6[m Update README.md
+[33m05c4f14[m Update Level_Design.md
+[33m5a4d7db[m Enhance level design documentation for MazeMates
+[33m0a78175[m Update Level_Design.md
+[33m36c0cb6[m Update formal-elements.MD
+[33m152de24[m Update Level_Design.md
+[33m15ff81d[m Revise Level Design for MazeMates
+[33me22caa9[m Rename 17x17 screen sample.png to 17x17_screen_sample.png
+[33m3b8d9b9[m Update Level_Design.md
+[33m15b899c[m Add files via upload
+[33mb457f1a[m Revise Level Design for MazeMates
+[33ma4c86dc[m Update Level_Design.md
+[33md93d54d[m Update print statement to say 'Goodbye World'
+[33m87f4e49[m Update formal-elements.MD
+[33m00d0019[m Update Level_Design.md
+[33mc5a58c0[m Update README.md
+[33m407b009[m Update Level_Design.md 2 players
+[33m3feae95[m Update README.md 2 players
+[33m52c91f5[m Updating level 1
+[33mafb48d1[m Adding Level_Design.md
+[33m523170b[m Renaming
+[33mcd9fd00[m Create Market_Research.md
+[33m294fb0f[m Update names in README for accuracy
+[33m8dcfe6e[m Update formal elements.MD
+[33m15e6c52[m Update README.md
+[33m58f586c[m new logo
+[33m103afa0[m Rename project from RunTogether to MazeMates
+[33md996ccc[m finalized formal elements and readme md files
+[33mf8ed86f[m Create README.md for RunTogether game
+[33m9561726[m Update game description and player roles
+[33m654151f[m Update formal elements.MD
+[33m5946353[m Fix formatting in game description
+[33mb61e819[m Fix formatting in formal elements.MD
+[33mc6836ac[m Revise game concept and details for 'RunTogether'
+[33m9e5ceb9[m Create formal elements document for game design

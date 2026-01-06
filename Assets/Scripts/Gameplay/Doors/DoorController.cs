@@ -1,14 +1,4 @@
 ﻿// File: Assets/Scripts/Gameplay/Doors/DoorController.cs
-//
-// FIX (per your last request):
-// - DoorController NO LONGER touches Televisor/Quad MeshRenderer directly (no tags, no navigatorScreenQuad fields).
-// - TV is handled ONLY via NavigatorTVScreen component that lives on the scene's Televisor_00/Quad.
-// - This prevents doors (runtime-instantiated) from accidentally changing Televisor parent materials.
-//
-// Note: Make sure you have NavigatorTVScreen.cs on Televisor_00/Quad in the scene.
-//
-// Source base: your current DoorController.cs pasted file. :contentReference[oaicite:0]{index=0}
-
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,9 +20,6 @@ public class DoorController : NetworkBehaviour
     public GameObject puzzlePrefab;
     public Sprite navigatorPreview; // auto-filled from OriginalImage if null
 
-    // NOTE: Removed all "Navigator TV Screen" serialized fields (navigatorScreenQuad / tag / material index),
-    // because doors are instantiated at runtime and must not own/modify scene TV renderers.
-
     [Header("Puzzle Prefab Replication (Resources)")]
     [SerializeField] private string puzzleResourcesFolder = "Puzzles";
 
@@ -47,10 +34,9 @@ public class DoorController : NetworkBehaviour
 
     private Transform pivot;
     private IDoor door;
-    private PadTrigger pad;
-    private Transform _doorModelForSign;
-    private Vector3 _doorLeafFarPointLocal; // נקודה בקצה הרחוק של הכנף (בלוקאל של המודל)
+    private Quaternion _closedPivotLocalRot;
 
+    private PadTrigger pad;
 
     private Coroutine _tvApplyRoutine;
 
@@ -58,10 +44,17 @@ public class DoorController : NetworkBehaviour
     [SerializeField] private int tvApplyRetries = 90;               // ~1.5s @ 60fps
     [SerializeField] private float tvApplyRetryDelaySeconds = 0f;   // 0 = next frame
 
+    // ============================================================
+    // OPEN DIRECTION (ROBUST)
+    // We keep the pivot EXACTLY as-is. Only choose +angle or -angle
+    // so the door opens outward from the opener.
+    // This version DOES NOT assume the door leaf is along local X.
+    // ============================================================
+    private Transform _doorModelForSign;
+
     private void Awake()
     {
-        // Intentionally empty:
-        // TV is handled by NavigatorTVScreen (scene object), not by doors.
+        // Intentionally empty (TV handled elsewhere)
     }
 
     public override void OnNetworkSpawn()
@@ -77,6 +70,9 @@ public class DoorController : NetworkBehaviour
 
         if (pivot == null)
             FindOrCreatePivot();
+
+        if (pivot != null)
+            _closedPivotLocalRot = pivot.localRotation;
 
         puzzlePrefabPath.OnValueChanged += OnPuzzlePrefabPathChanged;
 
@@ -124,8 +120,6 @@ public class DoorController : NetworkBehaviour
     // ============================================================
     private NavigatorTVScreen GetLocalTV()
     {
-        // Important: no static/singleton usage.
-        // In Multiplayer Play Mode, each "world" should find its own scene TV object.
         var tv = Object.FindFirstObjectByType<NavigatorTVScreen>(FindObjectsInactive.Include);
 
         if (tv == null)
@@ -182,19 +176,32 @@ public class DoorController : NetworkBehaviour
     // ============================================================
     // INTERACTION
     // ============================================================
+
+    // ✅ Preferred: call this from the opener (Navigator/Traveller) and pass THEIR position.
+    public void Interact(Vector3 openerWorldPos)
+    {
+        if (doorType == DoorType.Puzzle)
+            return;
+
+        RequestOpenDoorServerRpc(openerWorldPos);
+    }
+
+    // Fallback only (kept for compatibility): tries navigator first, then traveller.
     public void Interact()
     {
-        if (doorType == DoorType.Puzzle) return;
+        if (doorType == DoorType.Puzzle)
+            return;
 
         Vector3 openerPos = transform.position;
-
         var gm = GameManager.Instance;
-        if (gm != null && gm.traveller != null)
+
+        if (gm != null && gm.navigator != null)
+            openerPos = gm.navigator.transform.position;
+        else if (gm != null && gm.traveller != null)
             openerPos = gm.traveller.transform.position;
 
         RequestOpenDoorServerRpc(openerPos);
     }
-
 
     public bool TravellerIsOnPad() => pad != null && pad.IsPlayerOnPad();
     public bool IsOpen() => door != null && door.IsOpen();
@@ -238,12 +245,14 @@ public class DoorController : NetworkBehaviour
         }
 
         Transform doorModel = mf.transform;
+
+        // Cache model for choosing sign
+        _doorModelForSign = doorModel;
+
         Bounds b = mf.sharedMesh.bounds;
         float half = b.size.x * 0.5f;
-        _doorModelForSign = doorModel;
-        _doorLeafFarPointLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
 
-
+        // pivot is created at LEFT edge (as your original logic)
         Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
         Vector3 pivotWorld = doorModel.TransformPoint(leftLocal);
 
@@ -276,7 +285,7 @@ public class DoorController : NetworkBehaviour
             yield break;
         }
 
-        Quaternion target = Quaternion.Euler(0, angle, 0);
+        Quaternion target = _closedPivotLocalRot * Quaternion.Euler(0f, angle, 0f);
 
         while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
         {
@@ -289,6 +298,71 @@ public class DoorController : NetworkBehaviour
         }
 
         pivot.localRotation = target;
+    }
+
+    // ============================================================
+    // Choose +openAngle / -openAngle so the DOOR LEAF opens AWAY
+    // from the opener position. Pivot does not change.
+    //
+    // Robust method:
+    // - Samples the 8 corners of the DOOR MODEL mesh bounds in local space
+    // - Scores opening by average distance from opener (bigger => opens away)
+    // - Does NOT assume hinge axis orientation in mesh local space
+    // ============================================================
+    private float ChooseOpenAngleSign(Vector3 openerWorldPos)
+    {
+        EnsurePivot();
+        if (pivot == null) return openAngle;
+
+        // Pick a stable model transform for bounds sampling
+        if (_doorModelForSign == null)
+            _doorModelForSign = (pivot.childCount > 0) ? pivot.GetChild(0) : pivot;
+
+        // Find a MeshFilter under the door model for bounds
+        var mf = _doorModelForSign.GetComponentInChildren<MeshFilter>(true);
+        if (mf == null || mf.sharedMesh == null)
+            return openAngle;
+
+        Bounds b = mf.sharedMesh.bounds;
+        Vector3 c = b.center;
+        Vector3 e = b.extents;
+
+        // 8 corners in mesh local
+        Vector3[] corners =
+        {
+            c + new Vector3(+e.x, +e.y, +e.z),
+            c + new Vector3(+e.x, +e.y, -e.z),
+            c + new Vector3(+e.x, -e.y, +e.z),
+            c + new Vector3(+e.x, -e.y, -e.z),
+            c + new Vector3(-e.x, +e.y, +e.z),
+            c + new Vector3(-e.x, +e.y, -e.z),
+            c + new Vector3(-e.x, -e.y, +e.z),
+            c + new Vector3(-e.x, -e.y, -e.z),
+        };
+
+        Quaternion saved = pivot.localRotation;
+        Quaternion baseRot = _closedPivotLocalRot;
+
+        float Score(float angle)
+        {
+            pivot.localRotation = baseRot * Quaternion.Euler(0f, angle, 0f);
+
+            float sum = 0f;
+            for (int i = 0; i < corners.Length; i++)
+            {
+                // Important: use the MeshFilter's transform (since bounds are in mf's local space)
+                Vector3 wp = mf.transform.TransformPoint(corners[i]);
+                sum += (wp - openerWorldPos).sqrMagnitude;
+            }
+            return sum / corners.Length;
+        }
+
+        float sPlus = Score(+openAngle);
+        float sMinus = Score(-openAngle);
+
+        pivot.localRotation = saved;
+
+        return (sPlus >= sMinus) ? +openAngle : -openAngle;
     }
 
     // ============================================================
@@ -342,7 +416,18 @@ public class DoorController : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void RequestOpenDoorServerRpc(Vector3 openerWorldPos)
     {
-        if (!IsServer) return;
+        if (!IsServer)
+            return;
+
+        var tutorial = FindAnyObjectByType<TutorialManager>();
+
+        if (tutorial != null && pad != null && pad.IsPlayerOnPad())
+        {
+            if (doorType == DoorType.Normal)
+                tutorial.NotifyNavigatorOpenedNormalDoor();
+            else if (doorType == DoorType.Exit)
+                tutorial.NotifyNavigatorOpenedExitDoor();
+        }
 
         float chosen = ChooseOpenAngleSign(openerWorldPos);
 
@@ -355,7 +440,6 @@ public class DoorController : NetworkBehaviour
     {
         StartCoroutine(OpenRoutine(chosenAngle));
     }
-
 
     // ============================================================
     // PUBLIC API FOR PUZZLE-TV
@@ -395,8 +479,6 @@ public class DoorController : NetworkBehaviour
 
     private IEnumerator ApplyPuzzleToTVRoutine(FixedString128Bytes prefabPath)
     {
-        // NOTE: Removed TryFindNavigatorScreenQuad(); doors never touch Televisor renderers.
-
         for (int i = 0; i < tvApplyRetries; i++)
         {
             EnsurePuzzleLoadedFromNet(prefabPath);
@@ -438,41 +520,6 @@ public class DoorController : NetworkBehaviour
 
         _tvApplyRoutine = null;
     }
-
-    private float ChooseOpenAngleSign(Vector3 openerWorldPos)
-    {
-        EnsurePivot();
-        if (pivot == null) return openAngle;
-
-        if (_doorModelForSign == null)
-        {
-            // נסיון fallback: קח ילד ראשון של pivot
-            _doorModelForSign = (pivot.childCount > 0) ? pivot.GetChild(0) : pivot;
-            _doorLeafFarPointLocal = Vector3.zero; // fallback פחות מדויק
-        }
-
-        Quaternion orig = pivot.localRotation;
-
-        // פונקציה קטנה: מחשבת את מיקום "קצה הכנף" אחרי סימולציית סיבוב
-        Vector3 GetLeafPointAfter(float angle)
-        {
-            pivot.localRotation = orig * Quaternion.Euler(0f, angle, 0f);
-            return _doorModelForSign.TransformPoint(_doorLeafFarPointLocal);
-        }
-
-        Vector3 pPlus = GetLeafPointAfter(+openAngle);
-        float dPlus = (pPlus - openerWorldPos).sqrMagnitude;
-
-        Vector3 pMinus = GetLeafPointAfter(-openAngle);
-        float dMinus = (pMinus - openerWorldPos).sqrMagnitude;
-
-        // מחזירים מצב
-        pivot.localRotation = orig;
-
-        // בוחרים את הכיוון שבו הקצה הרחוק מתרחק יותר מהפותח
-        return (dPlus >= dMinus) ? +openAngle : -openAngle;
-    }
-
 
     // ============================================================
     // PUZZLE OPEN — RPC
