@@ -221,7 +221,12 @@ public class PuzzleDoor : IDoor
         tm?.NotifyPuzzleSolved();
 
         // פותחים את הדלת עצמה
-        controller.RequestOpenDoorServerRpc();
+        Vector3 openerPos = controller.transform.position;
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+            openerPos = gm.traveller.transform.position;
+
+        controller.RequestOpenDoorServerRpc(openerPos);
     }
 
     // ---------------------------------------------------------

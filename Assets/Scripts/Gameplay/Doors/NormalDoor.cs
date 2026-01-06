@@ -1,4 +1,7 @@
-﻿public class NormalDoor : IDoor
+﻿using UnityEngine;
+
+
+public class NormalDoor : IDoor
 {
     private bool opened = false;
     private DoorController controller;
@@ -17,6 +20,11 @@
 
         opened = true;
 
-        controller.RequestOpenDoorServerRpc(); // ← גרסה מתוקנת ל־RPC
+        Vector3 openerPos = controller.transform.position;
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+            openerPos = gm.traveller.transform.position;
+
+        controller.RequestOpenDoorServerRpc(openerPos);
     }
 }
