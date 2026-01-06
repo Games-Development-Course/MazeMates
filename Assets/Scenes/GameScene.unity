@@ -3754,7 +3754,7 @@ MonoBehaviour:
   puzzleDoorPrefab: {fileID: 8556355650215004237, guid: 7101dfa8e7731f348a167eda78123bcd, type: 3}
   winDoorPrefab: {fileID: 8559443613435696601, guid: 477c67c4f76f2504aa6ed6570e6eb3ff, type: 3}
   doorYawOffset: 0
-  puzzleEasyPrefab: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
+  puzzleEasyPrefab: {fileID: 4576351031722354152, guid: 955fcc5090e7c9f45bd39009d0287d5e, type: 3}
   puzzleMediumPrefab: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
   puzzleHardPrefab: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
   puzzleHardPrefab2: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
