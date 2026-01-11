@@ -17,7 +17,8 @@ public class MazeGenerator3D : MonoBehaviour
     [SerializeField] private float doorPrefabYawOffset = 0f; // use ONLY if prefab faces wrong direction
 
     [Header("Layers")]
-    [SerializeField] private int wallsLayer = 0; // 0 = Default
+    [SerializeField] private int wallsLayer = 12; 
+    [SerializeField] private int doorsLayer = 14; 
 
     [Header("Traveller Spawn")]
     [SerializeField] private Transform travellerSpawn;
@@ -566,7 +567,9 @@ public class MazeGenerator3D : MonoBehaviour
         Quaternion worldRot = transform.rotation * forcedExitDoorRot;
 
         GameObject door = Instantiate(winDoorPrefab, worldPos, worldRot);
+
         door.name = "WinDoor";
+        SetLayerRecursive(door, doorsLayer);
 
         var netObj = door.GetComponent<NetworkObject>();
         if (netObj != null)
@@ -648,6 +651,8 @@ public class MazeGenerator3D : MonoBehaviour
             Quaternion.Euler(0f, doorPrefabYawOffset, 0f);
 
         var go = Instantiate(prefab, world, rot);
+        SetLayerRecursive(go, doorsLayer);
+
 
         var netObj = go.GetComponent<NetworkObject>();
         if (netObj == null)
@@ -789,14 +794,18 @@ public class MazeGenerator3D : MonoBehaviour
     // ================================================================
     private void UpdateTravellerSpawn()
     {
-        if (travellerSpawn == null) return;
+        if (travellerSpawn == null)
+            return;
 
         Vector3 spawnPos = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
+        spawnPos += transform.right * 0.5f;
+
         travellerSpawn.position = spawnPos;
 
         Vector2Int dir = GetClosestOpenNeighborDir(StartCell);
 
         Vector3 lookDirWorld;
+
         if (dir == Vector2Int.zero)
         {
             lookDirWorld = transform.forward;
@@ -804,14 +813,22 @@ public class MazeGenerator3D : MonoBehaviour
         else
         {
             Vector3 from = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
-            Vector3 to = CellCenterWorld(StartCell.x + dir.x, StartCell.y + dir.y, 0.5f);
+            Vector3 to = CellCenterWorld(
+                StartCell.x + dir.x,
+                StartCell.y + dir.y,
+                0.5f
+            );
+
             lookDirWorld = (to - from);
         }
 
         lookDirWorld.y = 0f;
+
         if (lookDirWorld.sqrMagnitude > 0.0001f)
-            travellerSpawn.rotation = Quaternion.LookRotation(lookDirWorld.normalized, Vector3.up);
+            travellerSpawn.rotation =
+                Quaternion.LookRotation(lookDirWorld.normalized, Vector3.up);
     }
+
 
     private Vector2Int GetClosestOpenNeighborDir(Vector2Int cell)
     {
