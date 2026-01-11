@@ -663,6 +663,64 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1177134345915482682, guid: 17818a864a562496bb75dfae3203529e, type: 3}
   m_PrefabInstance: {fileID: 61781350}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &63976775
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 63976776}
+  - component: {fileID: 63976777}
+  m_Layer: 0
+  m_Name: HUDVisualFX
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &63976776
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 63976775}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 633039121}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &63976777
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 63976775}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 493d3a2effdcf41539ee68f931e39a3f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HUDVisualFX
+  canvas: {fileID: 784902581}
+  flyLayer: {fileID: 288062123}
+  worldCamera: {fileID: 1600929580}
+  defaultIconSize: {x: 28, y: 28}
+  defaultDuration: 0.45
+  arcHeightPercent: 0.16
+  startScale: 1
+  endScale: 0.55
+  fadeOutTailPercent: 0.15
+  useUnscaledTime: 1
+  punchTargetOnArrival: 1
+  punchScale: 1.15
+  punchTime: 0.1
+  prewarm: 8
 --- !u!1001 &74721901
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1511,6 +1569,41 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1177134345915482682, guid: 17818a864a562496bb75dfae3203529e, type: 3}
   m_PrefabInstance: {fileID: 1860309263}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &288062122
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 288062123}
+  m_Layer: 0
+  m_Name: FlyLayer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &288062123
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 288062122}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 633039121}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1001 &305874978
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2657,6 +2750,8 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 288062123}
+  - {fileID: 63976776}
   - {fileID: 784902577}
   - {fileID: 1555926126}
   m_Father: {fileID: 0}
@@ -3712,7 +3807,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 888e77b987df96046b07fc7d118f6605, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 40600e549e72d496b9e464553ac0a171, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -9042,7 +9137,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 888e77b987df96046b07fc7d118f6605, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 40600e549e72d496b9e464553ac0a171, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -9145,7 +9240,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 888e77b987df96046b07fc7d118f6605, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 40600e549e72d496b9e464553ac0a171, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -9465,7 +9560,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 888e77b987df96046b07fc7d118f6605, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 40600e549e72d496b9e464553ac0a171, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

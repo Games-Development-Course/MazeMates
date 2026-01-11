@@ -472,7 +472,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 888e77b987df96046b07fc7d118f6605, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 40600e549e72d496b9e464553ac0a171, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -1034,7 +1034,7 @@ Transform:
   - {fileID: 8535584750594376860}
   - {fileID: 3445794249938893587}
   - {fileID: 2139509068405037906}
-  - {fileID: 1828884765578877980}
+  - {fileID: 3901576797710407693}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4714092044344500386
@@ -2024,6 +2024,14 @@ PrefabInstance:
       propertyPath: m_VersionIndex
       value: 291
       objectReference: {fileID: 0}
+    - target: {fileID: 1415733888243318313, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 297
+      objectReference: {fileID: 0}
+    - target: {fileID: 1419333426855443828, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 297
+      objectReference: {fileID: 0}
     - target: {fileID: 1697494229128434144, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: m_Layer
       value: 0
@@ -2048,6 +2056,10 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2197829604728251786, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 297
+      objectReference: {fileID: 0}
     - target: {fileID: 2288944204415931250, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 2012520302
@@ -2067,6 +2079,10 @@ PrefabInstance:
     - target: {fileID: 2620755611976777269, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: m_VersionIndex
       value: 286
+      objectReference: {fileID: 0}
+    - target: {fileID: 3172069006665881379, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 292
       objectReference: {fileID: 0}
     - target: {fileID: 3249721040684410022, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: m_VersionIndex
@@ -2096,13 +2112,33 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4678874354841814958, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 292
+      objectReference: {fileID: 0}
     - target: {fileID: 5026179136818788100, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: m_VersionIndex
       value: 291
       objectReference: {fileID: 0}
+    - target: {fileID: 5387161941795885023, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 297
+      objectReference: {fileID: 0}
     - target: {fileID: 5396187641362084797, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: m_Layer
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5965672897758096462, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 2245158757
+      objectReference: {fileID: 0}
+    - target: {fileID: 6159003767529133723, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 297
+      objectReference: {fileID: 0}
+    - target: {fileID: 6320591378248687935, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 297
       objectReference: {fileID: 0}
     - target: {fileID: 6577594603696046776, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2168,6 +2204,10 @@ PrefabInstance:
       propertyPath: m_VersionIndex
       value: 291
       objectReference: {fileID: 0}
+    - target: {fileID: 8335601457252597059, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 297
+      objectReference: {fileID: 0}
     - target: {fileID: 8405765472484334855, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: m_Name
       value: VictoryButton
@@ -2175,6 +2215,10 @@ PrefabInstance:
     - target: {fileID: 8405765472484334855, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: m_Layer
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8677552191837441307, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+      propertyPath: m_VersionIndex
+      value: 292
       objectReference: {fileID: 0}
     - target: {fileID: 8819118331556966763, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
       propertyPath: m_Layer
@@ -2195,53 +2239,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 8405765472484334855, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 279733375201450521}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
---- !u!4 &1828884765578877980 stripped
+--- !u!4 &3901576797710407693 stripped
 Transform:
-  m_CorrespondingSourceObject: {fileID: 6577594603696046776, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
+  m_CorrespondingSourceObject: {fileID: 8362306124766561961, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
   m_PrefabInstance: {fileID: 4767568662702300836}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &3931230541059949475 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 8405765472484334855, guid: f1fe74ffadc62464bb67994c8d91cc16, type: 3}
-  m_PrefabInstance: {fileID: 4767568662702300836}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &279733375201450521
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3931230541059949475}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 28d04ae201dcd461da83c4f163e51e9f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FloorPressurePlateGlow
-  pressDepth: 0.15
-  pressSpeed: 8
-  idleColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  pressedColor: {r: 1, g: 1, b: 1, a: 1}
-  idleEmissionColor: {r: 0, g: 0, b: 0, a: 1}
-  pressedEmissionColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  emissionIntensity: 2
-  onPressed:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 4944749287479707086, guid: bc1b2a2e1b5de8b4d9cd0bf55de60d4a, type: 3}
-        m_TargetAssemblyTypeName: NavigatorActions, Assembly-CSharp
-        m_MethodName: UI_OpenDoor
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  playerTag: Player
