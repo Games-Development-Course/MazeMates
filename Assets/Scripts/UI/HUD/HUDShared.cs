@@ -1,3 +1,4 @@
+// /Assets/Scripts/HUD/HUDShared.cs
 using TMPro;
 using UnityEngine;
 
@@ -9,6 +10,13 @@ public class HUDShared : MonoBehaviour
     public TMP_Text lifebuoysText;
     public TMP_Text giftsText;
     public TMP_Text bombRemovalText;
+
+    [Header("Icon Targets (for fly-to HUD effects)")]
+    public RectTransform livesIconTarget;
+    public RectTransform keysIconTarget;
+    public RectTransform lifebuoysIconTarget;
+    public RectTransform giftsIconTarget;
+    public RectTransform bombRemovalIconTarget;
 
     public void UpdateValues(GameManager gm)
     {

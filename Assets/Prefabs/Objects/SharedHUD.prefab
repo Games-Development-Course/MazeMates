@@ -63,6 +63,11 @@ MonoBehaviour:
   lifebuoysText: {fileID: 5663510314848166697}
   giftsText: {fileID: 1181379233616999350}
   bombRemovalText: {fileID: 5802189830467006065}
+  livesIconTarget: {fileID: 2069699917386843387}
+  keysIconTarget: {fileID: 1376116330444252269}
+  lifebuoysIconTarget: {fileID: 1864918201330181110}
+  giftsIconTarget: {fileID: 0}
+  bombRemovalIconTarget: {fileID: 4845743613480587254}
 --- !u!1 &525235467582357497
 GameObject:
   m_ObjectHideFlags: 0

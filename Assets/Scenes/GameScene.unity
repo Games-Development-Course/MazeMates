@@ -673,7 +673,7 @@ GameObject:
   m_Component:
   - component: {fileID: 63976776}
   - component: {fileID: 63976777}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: HUDVisualFX
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -709,7 +709,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HUDVisualFX
   canvas: {fileID: 784902581}
   flyLayer: {fileID: 288062123}
-  worldCamera: {fileID: 1600929580}
+  worldCamera: {fileID: 1342613942}
   defaultIconSize: {x: 28, y: 28}
   defaultDuration: 0.45
   arcHeightPercent: 0.16
@@ -8533,11 +8533,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4a28937c445dd34cb0f712dfbc3d5cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HUDShared
-  livesText: {fileID: 3464122590153990849}
-  keysText: {fileID: 7192539095470079080}
-  lifebuoysText: {fileID: 1955356022728283568}
+  livesText: {fileID: 7325399785003947096, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  keysText: {fileID: 3921242596607822577, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  lifebuoysText: {fileID: 5663510314848166697, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
   giftsText: {fileID: 0}
-  bombRemovalText: {fileID: 378163308365371624}
+  bombRemovalText: {fileID: 5802189830467006065, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  livesIconTarget: {fileID: 2069699917386843387, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  keysIconTarget: {fileID: 1376116330444252269, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  lifebuoysIconTarget: {fileID: 1864918201330181110, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  giftsIconTarget: {fileID: 0}
+  bombRemovalIconTarget: {fileID: 4845743613480587254, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
 --- !u!4 &2347194440010505473
 Transform:
   m_ObjectHideFlags: 0
@@ -8671,11 +8676,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4a28937c445dd34cb0f712dfbc3d5cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HUDShared
-  livesText: {fileID: 4179038036339649044}
-  keysText: {fileID: 7655255032761971901}
-  lifebuoysText: {fileID: 1355359354407476581}
+  livesText: {fileID: 7325399785003947096, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  keysText: {fileID: 3921242596607822577, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  lifebuoysText: {fileID: 5663510314848166697, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
   giftsText: {fileID: 0}
-  bombRemovalText: {fileID: 923911176786694205}
+  bombRemovalText: {fileID: 5802189830467006065, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  livesIconTarget: {fileID: 2069699917386843387, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  keysIconTarget: {fileID: 1376116330444252269, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  lifebuoysIconTarget: {fileID: 1864918201330181110, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
+  giftsIconTarget: {fileID: 0}
+  bombRemovalIconTarget: {fileID: 4845743613480587254, guid: 07e29b164a2b8064693aca487a4e9330, type: 3}
 --- !u!23 &3078395123993872618
 MeshRenderer:
   m_ObjectHideFlags: 0
