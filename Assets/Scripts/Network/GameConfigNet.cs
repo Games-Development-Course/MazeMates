@@ -15,6 +15,8 @@ public sealed class GameConfigNet : NetworkBehaviour
 
     public readonly NetworkVariable<int> NormalDoors = new(3);
     public readonly NetworkVariable<int> PuzzleDoors = new(2);
+    public NetworkVariable<bool> ShowHints = new NetworkVariable<bool>(true);
+
 
     public NetworkVariable<int> Lives { get; } = new(
         3,
@@ -56,6 +58,12 @@ public sealed class GameConfigNet : NetworkBehaviour
         if (Instance == this) Instance = null;
         base.OnDestroy();
     }
+    [ServerRpc(RequireOwnership = false)]
+    public void SetShowHintsServerRpc(bool value)
+    {
+        ShowHints.Value = value;
+    }
+
 
     [ServerRpc(RequireOwnership = false)]
     public void SetConfigServerRpc(
