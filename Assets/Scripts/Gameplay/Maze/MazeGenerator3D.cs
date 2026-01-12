@@ -563,7 +563,7 @@ public class MazeGenerator3D : MonoBehaviour
         }
 
         Vector3 worldPos = transform.TransformPoint(forcedExitDoorLocalPos);
-        worldPos.y -= 0.5f;
+        
         Quaternion worldRot = transform.rotation * forcedExitDoorRot;
 
         GameObject door = Instantiate(winDoorPrefab, worldPos, worldRot);
@@ -706,7 +706,7 @@ public class MazeGenerator3D : MonoBehaviour
             startCell: StartCell,
             keepClearStepsForward: 3,
             forwardDir: forwardDir,
-            yOffset: 0.58f,
+            yOffset: 1f,
             minSeparationCells: 4,
             maxNeighborWallsAllowed: 2,
             wallsLayer: wallsLayer,

@@ -26,8 +26,8 @@ Transform:
   m_GameObject: {fileID: 2061183454532298047}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -0.59999996}
-  m_LocalScale: {x: 0.1, y: 0.05, z: 0.6666666}
+  m_LocalPosition: {x: 0, y: -0.1, z: -0.5999999}
+  m_LocalScale: {x: 0.112, y: 0.040000003, z: 0.6666666}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7188836753704383539}
@@ -186,8 +186,8 @@ Transform:
   m_GameObject: {fileID: 6154145809417291412}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: 0}
-  m_LocalScale: {x: 1.12, y: 2, z: 0.15}
+  m_LocalPosition: {x: 0, y: 1.25, z: 0}
+  m_LocalScale: {x: 1, y: 2.5, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8213216545360170572}
@@ -362,8 +362,7 @@ MonoBehaviour:
   pivotOverride: {fileID: 0}
   puzzlePrefab: {fileID: 0}
   navigatorPreview: {fileID: 0}
-  navigatorScreenQuad: {fileID: 0}
-  navigatorScreenMaterialIndex: 0
-  tvZoom: 1
-  navigatorScreenTag: NavigatorScreenTV
+  puzzleResourcesFolder: Puzzles
   spawnedHints: []
+  tvApplyRetries: 90
+  tvApplyRetryDelaySeconds: 0
