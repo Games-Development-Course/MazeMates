@@ -170,4 +170,16 @@ public class RelayManager : MonoBehaviour
             return false;
         }
     }
+    public async void JoinWithCode(string joinCode)
+    {
+        if (string.IsNullOrWhiteSpace(joinCode))
+        {
+            Debug.LogWarning("[Relay] JoinWithCode called with empty joinCode.");
+            return;
+        }
+
+        bool ok = await StartClientWithRelayAsync(joinCode);
+        Debug.Log($"[Relay] Auto-join with code {joinCode} -> {ok}");
+    }
+
 }
