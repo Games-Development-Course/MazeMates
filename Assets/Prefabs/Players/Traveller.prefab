@@ -283,11 +283,16 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   role: 0
   maxSpeed: 5
-  accelTime: 0.12
+  acceleration: 30
+  deceleration: 40
+  sideAccelerationMultiplier: 0.4
+  turnSpeed: 120
   rotateSpeed: 3
-  faceMoveDirection: 1
-  moveRelativeToCamera: 1
-  cameraTransform: {fileID: 0}
+  idleTurnMoveSpeed: 2
+  mainCam: {fileID: 0}
+  headPoint: {fileID: 0}
+  minCamHeadDistance: 0.7
+  bufferSoftRange: 0.25
   gravity: -9.81
   groundedStick: -2
   moveAction:

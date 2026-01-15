@@ -212,11 +212,11 @@ public class HUDManager : MonoBehaviour
 
     public void NavNoLifebuoys()
     {
-        ShowMessageForNavigator("לא נותרו מצופי הצלה");
+        ShowMessageForNavigator("לא נותרו רמזים");
     }
 
     public void NavLifebuoyOnlyInPuzzle()
     {
-        ShowMessageForNavigator("ניתן להשתמש במצוף רק כשהחידה פתוחה");
+        ShowMessageForNavigator("ניתן להשתמש ברמז רק כשהחידה פתוחה");
     }
 }
