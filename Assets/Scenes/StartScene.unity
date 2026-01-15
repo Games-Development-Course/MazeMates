@@ -6881,7 +6881,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3540b304b292941ea871772662d7056f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PopupClose
-  popupRoot: {fileID: 0}
+  popupRoot: {fileID: 1295118516}
 --- !u!114 &1295118519
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9550,20 +9550,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2115274411}
-        m_TargetAssemblyTypeName: OpenSecondWindowButton, Assembly-CSharp
-        m_MethodName: OnClickOpenSecondWindow
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 2115274414}
-        m_TargetAssemblyTypeName: StartupPanelsFlow, Assembly-CSharp
+      - m_Target: {fileID: 2115274415}
+        m_TargetAssemblyTypeName: TwoWindowPrompt, Assembly-CSharp
         m_MethodName: OnYesClicked
         m_Mode: 1
         m_Arguments:
@@ -10636,7 +10624,7 @@ GameObject:
   - component: {fileID: 2115274413}
   - component: {fileID: 2115274412}
   - component: {fileID: 2115274411}
-  - component: {fileID: 2115274414}
+  - component: {fileID: 2115274415}
   m_Layer: 5
   m_Name: OpenSecondTabPanel
   m_TagString: Untagged
@@ -10717,7 +10705,7 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2115274409}
   m_CullTransparentMesh: 1
---- !u!114 &2115274414
+--- !u!114 &2115274415
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -10726,11 +10714,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 2115274409}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0915bf25edc824894a6ab7f003d9695e, type: 3}
+  m_Script: {fileID: 11500000, guid: 8ad2711af70574201b8a7fcc4986bfab, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::StartupPanelsFlow
-  secondWindowPanel: {fileID: 2115274409}
+  m_EditorClassIdentifier: Assembly-CSharp::TwoWindowPrompt
+  thisPanel: {fileID: 2115274409}
   instructionsPanel: {fileID: 1295118516}
+  relayUi: {fileID: 538141373}
 --- !u!1 &2138228062
 GameObject:
   m_ObjectHideFlags: 0
@@ -10814,8 +10803,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2115274414}
-        m_TargetAssemblyTypeName: StartupPanelsFlow, Assembly-CSharp
+      - m_Target: {fileID: 2115274415}
+        m_TargetAssemblyTypeName: TwoWindowPrompt, Assembly-CSharp
         m_MethodName: OnNoClicked
         m_Mode: 1
         m_Arguments:

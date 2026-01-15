@@ -30,6 +30,8 @@ public sealed class RelayUIController : MonoBehaviour
 
     // כדי שלא נכבה תפריט אחרי שפתחנו
     private bool difficultyMenuOpened;
+    public System.Action<string> OnJoinCodeReady;
+
 
     private void OnEnable()
     {
@@ -202,7 +204,10 @@ public sealed class RelayUIController : MonoBehaviour
 
         if (!string.IsNullOrEmpty(joinCode))
         {
-            if (codeLabel != null) codeLabel.text = joinCode;
+            if (codeLabel != null) {
+                codeLabel.text = joinCode;
+                OnJoinCodeReady?.Invoke(joinCode);
+            }
 
             // אופציונלי: לשים את הקוד גם בשדה כדי שיהיה קל להעתיק
             if (codeInput != null)
