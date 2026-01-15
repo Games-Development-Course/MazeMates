@@ -174,28 +174,27 @@ public class PickupObject : NetworkBehaviour
 
                 bool inTutorial = IsInTutorialContextOnServer();
 
-                if (gm.lives <= 0)
+                if (inTutorial && pickedByTraveller)
                 {
-                    if (inTutorial)
-                    {
-                        // Tutorial rule: never game over, reset traveller (keep at least 1 life)
-                        gm.lives = 1;
+                    Vector3 pos = GetTutorialRespawnPos();
+                    Quaternion rot = GetTutorialRespawnRot();
+                    TryBombResetTeleportTo(playerNo, pos, rot);
 
-                        if (pickedByTraveller)
-                        {
-                            Vector3 pos = GetTutorialRespawnPos();
-                            Quaternion rot = GetTutorialRespawnRot();
-                            TryBombResetTeleportTo(playerNo, pos, rot);
-                        }
-                    }
-                    else
+                    if(gm.lives <= 0) 
                     {
-                        gameOver = true;
+                        gm.lives = 1; // prevent death in tutorial
                     }
                 }
                 else
                 {
-                    gm.lives--;
+                    if(gm.lives <= 1)
+                    {
+                        gameOver = true;
+                    }
+                    else
+                    {
+                        gm.lives--;
+                    }
                     // Optional: if you want bomb to "shake/teleport" even when not dead, keep this.
                     // If you DON'T want any teleport unless dead, delete this block.
                     // if (pickedByTraveller)

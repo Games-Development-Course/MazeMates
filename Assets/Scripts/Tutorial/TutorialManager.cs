@@ -16,6 +16,10 @@ using UnityEngine.SceneManagement;
 
 public class TutorialManager : NetworkBehaviour
 {
+    private Vector3 travellerStartPos;
+    private Quaternion travellerStartRot;
+    private bool travellerStartCaptured;
+
     [Header("Config")]
     public TutorialStep[] steps;
 
@@ -686,7 +690,26 @@ public class TutorialManager : NetworkBehaviour
     public void NotifyPuzzleSolved() => NotifyCondition(TutorialConditionType.PuzzleSolved);
     public void NotifyBothReachedExit() => NotifyCondition(TutorialConditionType.BothReachedExit);
     public void NotifyCustomEvent() => NotifyCondition(TutorialConditionType.CustomEvent);
-    public void NotifyTravellerSteppedBomb() => NotifyCondition(TutorialConditionType.TravellerSteppedBomb);
+    public void NotifyTravellerSteppedBomb()
+    {
+        if (IsServer) HandleTravellerSteppedBomb_Server();
+        else TravellerSteppedBombServerRpc();
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void TravellerSteppedBombServerRpc()
+    {
+        HandleTravellerSteppedBomb_Server();
+    }
+
+    private void HandleTravellerSteppedBomb_Server()
+    {
+        ResetTravellerToStart_Server();
+
+        // עדיין נותנים לטוטוריאל לעבוד רגיל (יסומן רק אם זה ה-step הנוכחי)
+        Check(TutorialConditionType.TravellerSteppedBomb);
+    }
+
 
     // ============================================================
     // TRAVELLER ROTATION / LOOK
@@ -761,6 +784,51 @@ public class TutorialManager : NetworkBehaviour
     // REGISTER TRAVELLER
     // ============================================================
 
-    public void RegisterTraveller(Transform root) => travellerRoot = root;
+    public void RegisterTraveller(Transform root)
+    {
+        travellerRoot = root;
+
+        if (!travellerStartCaptured && travellerRoot != null)
+        {
+            travellerStartCaptured = true;
+            travellerStartPos = travellerRoot.position;
+            travellerStartRot = travellerRoot.rotation;
+            Debug.Log($"[TM] Captured traveller start at {travellerStartPos}");
+        }
+    }
+
     public void RegisterTravellerCamera(Camera cam) => travellerCamera = cam;
+
+    private void ResetTravellerToStart_Server()
+{
+    if (!IsServer) return;
+
+    var gm = GameManager.Instance;
+    if (gm == null || gm.traveller == null) return;
+
+    var travellerNo = gm.traveller.GetComponent<Unity.Netcode.NetworkObject>();
+    if (travellerNo == null || !travellerNo.IsSpawned) return;
+
+    var move = gm.traveller.GetComponentInChildren<PlayerMovement>(true);
+    if (move == null) return;
+
+    var p = new Unity.Netcode.ClientRpcParams
+    {
+        Send = new Unity.Netcode.ClientRpcSendParams
+        {
+            TargetClientIds = new[] { travellerNo.OwnerClientId }
+        }
+    };
+
+    move.BombResetAndTeleportClientRpc(
+        travellerStartPos,
+        travellerStartRot,
+        0.0f,   // delay
+        0.0f,   // red
+        0.0f,   // fadeOut
+        0.0f,   // fadeIn
+        p
+    );
+}
+
 }
