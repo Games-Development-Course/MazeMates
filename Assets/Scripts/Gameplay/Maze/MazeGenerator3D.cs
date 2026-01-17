@@ -432,7 +432,7 @@
                     if (x == forcedExitWallCell.x && y == forcedExitWallCell.y)
                         continue;
 
-                    Vector3 worldPos = CellCenterWorld(x, y, 1f);
+                    Vector3 worldPos = CellCenterWorld(x, y, 1.5f);
                     GameObject wall = Instantiate(wallPrefab, worldPos, Quaternion.identity, wallsRoot);
 
                     SetLayerRecursive(wall, wallsLayer);
@@ -451,52 +451,67 @@
                 SetLayerRecursive(child.gameObject, layer);
         }
 
-        // ================================================================
-        //   ALIGNMENT TO NAVIGATOR ENTRANCE + WIN DOOR
-        // ================================================================
-        private void AlignMazeToNavigatorEntrance()
+    // ================================================================
+    //   ALIGNMENT TO NAVIGATOR ENTRANCE + WIN DOOR
+    // ================================================================
+    private void AlignMazeToNavigatorEntrance()
+    {
+        if (navigatorEntranceAnchor == null)
         {
-            if (navigatorEntranceAnchor == null)
-            {
-                SpawnVictoryDoorLocal();
-                return;
-            }
-
-            Vector3 doorWorldBefore = transform.TransformPoint(forcedExitDoorLocalPos);
-
-            Vector3 exitForwardWorld = transform.TransformDirection(forcedExitDoorRot * Vector3.forward);
-            Vector3 targetForwardWorld = navigatorEntranceAnchor.forward;
-
-            exitForwardWorld.y = 0f;
-            targetForwardWorld.y = 0f;
-
-            if (exitForwardWorld.sqrMagnitude < 0.0001f || targetForwardWorld.sqrMagnitude < 0.0001f)
-            {
-                Vector3 targetPos = navigatorEntranceAnchor.position;
-                Vector3 currentPos = transform.TransformPoint(forcedExitDoorLocalPos);
-                Vector3 delta = targetPos - currentPos;
-                transform.position += delta + new Vector3(1f, 0.5f, 0.5f);
-                SpawnVictoryDoorLocal();
-                return;
-            }
-
-            exitForwardWorld.Normalize();
-            targetForwardWorld.Normalize();
-
-            Quaternion rotDelta = Quaternion.FromToRotation(exitForwardWorld, targetForwardWorld);
-
-            transform.RotateAround(doorWorldBefore, Vector3.up, rotDelta.eulerAngles.y);
-
-            Vector3 doorWorldAfter = transform.TransformPoint(forcedExitDoorLocalPos);
-            Vector3 targetWorld = navigatorEntranceAnchor.position;
-            Vector3 deltaPos = targetWorld - doorWorldAfter;
-
-            transform.position += deltaPos + new Vector3(1f, 0.5f, 0.5f);
-
             SpawnVictoryDoorLocal();
+            return;
         }
 
-        private void SpawnVictoryDoorLocal()
+        Vector3 doorWorldBefore = transform.TransformPoint(forcedExitDoorLocalPos);
+
+        Vector3 exitForwardWorld = transform.TransformDirection(forcedExitDoorRot * Vector3.forward);
+        Vector3 targetForwardWorld = navigatorEntranceAnchor.forward;
+
+        exitForwardWorld.y = 0f;
+        targetForwardWorld.y = 0f;
+
+        // ✅ same "transpose" idea as before, but scaled by cellSize for X/Z
+        // old: (1f, 0.5f, 0.5f) when cellSize=2
+        Vector3 transpose = new Vector3(
+        cellSize * 0.25f, // ✅ חצי פחות ב-X
+        0.5f,             // גובה נשאר בדיוק אותו דבר
+        cellSize * 0.25f
+    );
+
+
+        if (exitForwardWorld.sqrMagnitude < 0.0001f || targetForwardWorld.sqrMagnitude < 0.0001f)
+        {
+            Vector3 targetPos = navigatorEntranceAnchor.position;
+            Vector3 currentPos = transform.TransformPoint(forcedExitDoorLocalPos);
+            Vector3 delta = targetPos - currentPos;   // ✅ keep Y (height) like before
+
+            transform.position += delta + transpose;
+            SpawnVictoryDoorLocal();
+            return;
+        }
+
+        exitForwardWorld.Normalize();
+        targetForwardWorld.Normalize();
+
+        Quaternion rotDelta = Quaternion.FromToRotation(exitForwardWorld, targetForwardWorld);
+        transform.RotateAround(doorWorldBefore, Vector3.up, rotDelta.eulerAngles.y);
+
+        Vector3 doorWorldAfter = transform.TransformPoint(forcedExitDoorLocalPos);
+        Vector3 targetWorld = navigatorEntranceAnchor.position;
+        Vector3 deltaPos = targetWorld - doorWorldAfter; // ✅ keep Y (height) like before
+
+        transform.position += deltaPos + transpose;
+        transform.position += Vector3.down * 0.5f;
+
+
+        Debug.Log($"[Maze] Align done. Maze pos={transform.position} rotY={transform.eulerAngles.y}");
+        Debug.Log($"[Maze] StartCell world={CellCenterWorld(StartCell.x, StartCell.y, 0.5f)}");
+
+        SpawnVictoryDoorLocal();
+    }
+
+
+    private void SpawnVictoryDoorLocal()
         {
             if (winDoorPrefab == null) return;
 
@@ -740,11 +755,17 @@
         {
             if (travellerSpawn == null)
                 return;
+        if (grid[StartCell.x, StartCell.y])
+        {
+            Debug.LogError("[Spawn] StartCell is blocked (WALL)! Forcing it open.");
+            grid[StartCell.x, StartCell.y] = false;
+        }
 
-            Vector3 spawnPos = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
-            spawnPos += transform.right * 0.5f;
 
-            travellerSpawn.position = spawnPos;
+        Vector3 spawnPos = CellCenterWorld(StartCell.x, StartCell.y, 0.5f);
+        Debug.Log($"[Spawn] Traveller spawn world={spawnPos} (cellSize={cellSize})");
+
+        travellerSpawn.position = spawnPos;
 
             Vector2Int dir = GetClosestOpenNeighborDir(StartCell);
 

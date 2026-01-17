@@ -4070,7 +4070,7 @@ PrefabInstance:
       objectReference: {fileID: 545262792}
     - target: {fileID: 1197753984736687682, guid: 189c7dfb961eecd449120c1312142502, type: 3}
       propertyPath: m_Radius
-      value: 0.41
+      value: 0.9
       objectReference: {fileID: 0}
     - target: {fileID: 2864662255250911286, guid: 189c7dfb961eecd449120c1312142502, type: 3}
       propertyPath: m_Name
@@ -4604,20 +4604,20 @@ MonoBehaviour:
   TransparentLayers:
     serializedVersion: 2
     m_Bits: 0
-  MinimumDistanceFromTarget: 1.28
+  MinimumDistanceFromTarget: 0.53
   AvoidObstacles:
     Enabled: 1
     DistanceLimit: 0
     MinimumOcclusionTime: 0
-    CameraRadius: 0.08
+    CameraRadius: 0.2
     UseFollowTarget:
       Enabled: 1
-      YOffset: 0.2
+      YOffset: 3.12
     Strategy: 0
-    MaximumEffort: 1
-    SmoothingTime: 0.2
-    Damping: 0.8
-    DampingWhenOccluded: 0.8
+    MaximumEffort: 3
+    SmoothingTime: 0.05
+    Damping: 0.2
+    DampingWhenOccluded: 0.2
   ShotQualityEvaluation:
     Enabled: 0
     OptimalDistance: 10
@@ -4698,8 +4698,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineThirdPersonFollow
   Damping: {x: 0.2, y: 0.4, z: 0.3}
-  ShoulderOffset: {x: 0, y: 0.8, z: -0.8}
-  VerticalArmLength: 0.83
+  ShoulderOffset: {x: 0, y: 0.8, z: -1.36}
+  VerticalArmLength: 2.52
   CameraSide: 1
   CameraDistance: 1.54
   AvoidObstacles:
@@ -4763,7 +4763,7 @@ Transform:
   m_GameObject: {fileID: 545262786}
   serializedVersion: 2
   m_LocalRotation: {x: 0.20082144, y: 0.00000006921524, z: -0.000000014188965, w: 0.9796279}
-  m_LocalPosition: {x: -3.32, y: -2.1637177, z: -27.389214}
+  m_LocalPosition: {x: -3.32, y: -0.6100304, z: -27.284267}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -7583,8 +7583,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 834290713}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.20082144, y: 0.00000006921524, z: -0.000000014188965, w: 0.9796279}
-  m_LocalPosition: {x: -3.32, y: -2.2839718, z: -27.269003}
+  m_LocalRotation: {x: 0.20082133, y: 0.000000023833492, z: -0.0000000048858078, w: 0.9796279}
+  m_LocalPosition: {x: -3.32, y: -0.6100304, z: -27.284267}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
