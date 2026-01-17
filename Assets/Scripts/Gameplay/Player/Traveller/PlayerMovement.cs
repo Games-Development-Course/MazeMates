@@ -1,6 +1,7 @@
 ﻿// Assets/Scripts/Player/PlayerMovement.cs
 // Networked version that behaves like Sandbox PlayerMoveLocal (arrows-only: forward/back + turn),
 // while KEEPING your existing dependencies (TutorialManager notify RPCs, bomb reset, HUD, teleport confirm).
+
 using System.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -40,10 +41,13 @@ public class PlayerMovement : NetworkBehaviour
     // =========================
     [Header("Camera buffer (Solution 1)")]
     [SerializeField] private Camera mainCam;
+
     [Tooltip("Point on/near the head. If empty, we try to use head bone, else fallback to this transform.")]
     [SerializeField] private Transform headPoint;
+
     [Tooltip("Minimum distance allowed between camera and headPoint. If closer, backward input is blocked.")]
     [SerializeField] private float minCamHeadDistance = 0.7f;
+
     [Tooltip("Extra slack before fully blocking (smooths the stop).")]
     [SerializeField] private float bufferSoftRange = 0.25f;
 
@@ -69,8 +73,8 @@ public class PlayerMovement : NetworkBehaviour
     private CharacterController cc;
 
     // Sandbox state
-    private float speed;           // signed forward/back speed
-    private Vector3 moveDir;       // current planar movement direction
+    private float speed;            // signed forward/back speed
+    private Vector3 moveDir;        // current planar movement direction
     private float verticalVel;
 
     // Freeze / readiness
@@ -82,7 +86,7 @@ public class PlayerMovement : NetworkBehaviour
     private float lastMoveNotifyTime = -999f;
     private float lastTutorialResolveTime = -999f;
 
-    // Animator params (match your existing controller if using these names)
+    // Animator params
     private static readonly int SpeedParam = Animator.StringToHash("Speed");
     private static readonly int IsMovingParam = Animator.StringToHash("IsMoving");
 
@@ -229,7 +233,6 @@ public class PlayerMovement : NetworkBehaviour
 
         if (!ready)
         {
-            // safety if something spawned weirdly
             ready = true;
             moveAction?.Enable();
             speed = 0f;
@@ -254,8 +257,6 @@ public class PlayerMovement : NetworkBehaviour
 
         // =========================
         // INPUT (ARROWS ONLY)
-        // InputAction gives us a 2DVector:
-        //   x = Left/Right (TURN), y = Up/Down (FORWARD)
         // =========================
         Vector2 input = moveAction.ReadValue<Vector2>();
         float turnInput = Mathf.Clamp(input.x, -1f, 1f);
@@ -266,7 +267,8 @@ public class PlayerMovement : NetworkBehaviour
         // =========================
         if (forwardInput < -0.01f)
         {
-            if (mainCam == null) mainCam = Camera.main;
+            if (mainCam == null)
+                mainCam = Camera.main;
 
             if (mainCam != null && headPoint != null)
             {
@@ -278,7 +280,11 @@ public class PlayerMovement : NetworkBehaviour
                 }
                 else if (bufferSoftRange > 0.001f)
                 {
-                    float scale = Mathf.InverseLerp(minCamHeadDistance, minCamHeadDistance + bufferSoftRange, d);
+                    float scale = Mathf.InverseLerp(
+                        minCamHeadDistance,
+                        minCamHeadDistance + bufferSoftRange,
+                        d
+                    );
                     forwardInput *= Mathf.Clamp01(scale);
                 }
             }
@@ -287,35 +293,36 @@ public class PlayerMovement : NetworkBehaviour
         bool hasForwardInput = Mathf.Abs(forwardInput) > 0.01f;
         bool hasTurnInput = Mathf.Abs(turnInput) > 0.01f;
 
-        // Tutorial notify (unchanged behavior)
-        if ((hasForwardInput || hasTurnInput) && Time.time - lastMoveNotifyTime > 0.25f)
+        // Tutorial notify
+        if ((hasForwardInput || hasTurnInput) &&
+            Time.time - lastMoveNotifyTime > 0.25f)
         {
             lastMoveNotifyTime = Time.time;
             NotifyMovementServerRpc();
         }
 
         // =========================
-        // SPEED (ACCEL / DECEL)
-        // (No "step forward" when only turning)
+        // SPEED
         // =========================
         float targetSpeed = forwardInput * maxSpeed;
-
         float rate = hasForwardInput ? acceleration : deceleration;
         speed = Mathf.MoveTowards(speed, targetSpeed, rate * Time.deltaTime);
 
-        if (!hasForwardInput && !hasTurnInput && Mathf.Abs(speed) < 0.05f && Mathf.Abs(targetSpeed) < 0.01f)
+        if (!hasForwardInput && !hasTurnInput &&
+            Mathf.Abs(speed) < 0.05f &&
+            Mathf.Abs(targetSpeed) < 0.01f)
+        {
             speed = 0f;
+        }
 
         // =========================
         // TURNING
-        // - If only turning (no forward/back): rotate in place (no movement)
-        // - If moving: steer moveDir like before
         // =========================
         if (!hasForwardInput && hasTurnInput)
         {
             float yaw = turnInput * turnSpeed * Time.deltaTime;
             transform.Rotate(0f, yaw, 0f);
-            moveDir = transform.forward; // keep synced
+            moveDir = transform.forward;
         }
         else if (hasTurnInput && Mathf.Abs(speed) > 0.01f)
         {
@@ -324,12 +331,11 @@ public class PlayerMovement : NetworkBehaviour
             moveDir.Normalize();
         }
 
-        // If not moving -> keep moveDir synced with facing
         if (Mathf.Abs(speed) <= 0.01f)
             moveDir = transform.forward;
 
         // =========================
-        // FACE MOVE DIRECTION (Yaw) - only while moving
+        // FACE MOVE DIRECTION
         // =========================
         if (moveDir.sqrMagnitude > 0.001f && Mathf.Abs(speed) > 0.01f)
         {
@@ -356,11 +362,14 @@ public class PlayerMovement : NetworkBehaviour
         cc.Move(move);
 
         // =========================
-        // ANIMATION UPDATE (safe)
+        // ANIMATION UPDATE
         // =========================
         if (animator != null)
         {
-            float planarSpeed01 = Mathf.Clamp01(new Vector2(cc.velocity.x, cc.velocity.z).magnitude / Mathf.Max(0.001f, maxSpeed));
+            float planarSpeed01 = Mathf.Clamp01(
+                new Vector2(cc.velocity.x, cc.velocity.z).magnitude /
+                Mathf.Max(0.001f, maxSpeed)
+            );
 
             if (HasAnimParam(animator, AnimatorControllerParameterType.Float, "Speed"))
                 animator.SetFloat("Speed", planarSpeed01);
@@ -369,7 +378,6 @@ public class PlayerMovement : NetworkBehaviour
                 animator.SetBool("IsMoving", planarSpeed01 > 0.05f);
         }
     }
-
 
     // =======================
     // Tutorial RPC (kept)
@@ -380,7 +388,9 @@ public class PlayerMovement : NetworkBehaviour
         var tm = Object.FindFirstObjectByType<TutorialManager>();
         if (tm == null) return;
 
-        bool senderIsTraveller = rpcParams.Receive.SenderClientId == NetworkManager.ServerClientId;
+        bool senderIsTraveller =
+            rpcParams.Receive.SenderClientId == NetworkManager.ServerClientId;
+
         if (senderIsTraveller) tm.NotifyTravellerMoved();
         else tm.NotifyNavigatorMoved();
     }
@@ -404,7 +414,9 @@ public class PlayerMovement : NetworkBehaviour
         {
             var hud = HUDManager.Instance;
             if (hud != null && hud.TravellerHUD != null)
-                hud.TravellerHUD.PlayBombResetEffect(redSeconds, fadeOut, fadeIn);
+                hud.TravellerHUD.PlayBombResetEffect(
+                    redSeconds, fadeOut, fadeIn
+                );
         }
 
         SetFrozen(true);
@@ -412,7 +424,10 @@ public class PlayerMovement : NetworkBehaviour
         StartCoroutine(BombResetRoutine(worldPos, worldRot, preDelay));
     }
 
-    private IEnumerator BombResetRoutine(Vector3 pos, Quaternion rot, float delay)
+    private IEnumerator BombResetRoutine(
+        Vector3 pos,
+        Quaternion rot,
+        float delay)
     {
         yield return new WaitForSeconds(delay);
 
@@ -437,16 +452,20 @@ public class PlayerMovement : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     private void ConfirmTeleportServerRpc(Vector3 pos, Quaternion rot)
     {
-        // If you use NetworkTransform/ClientNetworkTransform, Teleport helps snap remote interpolation cleanly
         var nt = GetComponent<NetworkTransform>();
         if (nt != null)
             nt.Teleport(pos, rot, transform.localScale);
         else
             transform.SetPositionAndRotation(pos, rot);
     }
-    private static bool HasAnimParam(Animator a, AnimatorControllerParameterType type, string name)
+
+    private static bool HasAnimParam(
+        Animator a,
+        AnimatorControllerParameterType type,
+        string name)
     {
-        if (a == null || a.runtimeAnimatorController == null) return false;
+        if (a == null || a.runtimeAnimatorController == null)
+            return false;
 
         foreach (var p in a.parameters)
             if (p.type == type && p.name == name)
@@ -454,6 +473,4 @@ public class PlayerMovement : NetworkBehaviour
 
         return false;
     }
-
 }
-
