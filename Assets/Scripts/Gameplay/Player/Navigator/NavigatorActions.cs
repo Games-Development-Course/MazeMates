@@ -137,11 +137,11 @@ public class NavigatorActions : NetworkBehaviour
 
         Debug.Log($"[NAV-ACT][ServerRpc] FindDoorTravellerIsStandingOnServer -> {(door == null ? "NULL" : door.name)}");
 
-        if (door == null)
-        {
-            SendNavigatorMessageTargetClientRpc("אין דלת כאן", MakeTargetParams(sender));
-            return;
-        }
+        //if (door == null)
+        //{
+        //    SendNavigatorMessageTargetClientRpc("אין דלת כאן", MakeTargetParams(sender));
+        //    return;
+        //}
 
         Debug.Log($"[NAV-ACT][ServerRpc] Door type={door.doorType} open={door.IsOpen()} name={door.name}");
 

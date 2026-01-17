@@ -97,11 +97,11 @@ public class PadTrigger : NetworkBehaviour
         switch (controller.doorType)
         {
             case DoorType.Normal:
-                msg = "לחץ רווח לפתוח את הדלת";
+                msg = "בקש מחברך ללחוץ על 'פתח דלת'";
                 break;
 
             case DoorType.Puzzle:
-                msg = "לחץ רווח להתחיל את החידה";
+                msg = $"בקש מחברך ללחוץ על 'פתח דלת' \nכדי להתחיל את החידה";
                 break;
 
             case DoorType.Exit:
