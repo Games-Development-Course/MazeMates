@@ -3800,6 +3800,8 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1177134345915482682, guid: 17818a864a562496bb75dfae3203529e, type: 3}
   m_PrefabInstance: {fileID: 1035261322}
   m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1021889385}
+  m_CullTransparentMesh: 1
 --- !u!1 &1062134339
 GameObject:
   m_ObjectHideFlags: 0
