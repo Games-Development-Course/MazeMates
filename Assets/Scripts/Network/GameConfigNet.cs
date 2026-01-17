@@ -15,7 +15,14 @@ public sealed class GameConfigNet : NetworkBehaviour
 
     public readonly NetworkVariable<int> NormalDoors = new(3);
     public readonly NetworkVariable<int> PuzzleDoors = new(2);
+
     public NetworkVariable<bool> ShowHints = new NetworkVariable<bool>(true);
+
+    public NetworkVariable<int> HostSkin { get; } = new(
+    0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    public NetworkVariable<int> ClientSkin { get; } = new(
+        0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
 
     public NetworkVariable<int> Lives { get; } = new(
@@ -24,7 +31,6 @@ public sealed class GameConfigNet : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-    // hints == lifebuoys
     public NetworkVariable<int> Hints { get; } = new(
         1,
         NetworkVariableReadPermission.Everyone,
@@ -37,11 +43,18 @@ public sealed class GameConfigNet : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-    public readonly NetworkVariable<int> Difficulty = new(0); // 0 easy, 1 medium, 2 hard
+    public readonly NetworkVariable<int> Difficulty = new(0);
     public readonly NetworkVariable<int> Seed = new(0);
 
     public NetworkVariable<int> KeysToCollect { get; } = new(
         0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    // NEW: פותח/סוגר תפריט סקינים במסך הפתיחה לכולם
+    public NetworkVariable<bool> SkinSelectOpen { get; } = new(
+        false,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
@@ -58,12 +71,18 @@ public sealed class GameConfigNet : NetworkBehaviour
         if (Instance == this) Instance = null;
         base.OnDestroy();
     }
+
     [ServerRpc(RequireOwnership = false)]
     public void SetShowHintsServerRpc(bool value)
     {
         ShowHints.Value = value;
     }
 
+    [ServerRpc(RequireOwnership = false)]
+    public void SetSkinSelectOpenServerRpc(bool open)
+    {
+        SkinSelectOpen.Value = open;
+    }
 
     [ServerRpc(RequireOwnership = false)]
     public void SetConfigServerRpc(
@@ -101,7 +120,6 @@ public sealed class GameConfigNet : NetworkBehaviour
         Hints.Value = Mathf.Max(0, hints);
     }
 
-    // NEW: runtime update (after maze generation) — no need for ownership
     [ServerRpc(RequireOwnership = false)]
     public void SetBombRemovalsRuntimeServerRpc(int bombRemovals)
     {
