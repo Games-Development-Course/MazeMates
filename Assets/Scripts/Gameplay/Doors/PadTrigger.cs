@@ -97,16 +97,24 @@ public class PadTrigger : NetworkBehaviour
         switch (controller.doorType)
         {
             case DoorType.Normal:
+                if (!controller.IsOpen())
+                {
                 msg = "בקש מחברך ללחוץ על 'פתח דלת'";
+                    break;
+                }
                 break;
 
             case DoorType.Puzzle:
+                if (!controller.IsOpen())
+                {
                 msg = $"בקש מחברך ללחוץ על 'פתח דלת' \nכדי להתחיל את החידה";
+                    break;
+                }
                 break;
 
             case DoorType.Exit:
                 if (gm != null && gm.AllKeysCollected())
-                    msg = "יש לך את כל המפתחות! הקש רווח לניצחון!";
+                    msg = "יש לך את כל המפתחות!";
                 else
                     msg = "עליך לאסוף את כל המפתחות";
                 break;

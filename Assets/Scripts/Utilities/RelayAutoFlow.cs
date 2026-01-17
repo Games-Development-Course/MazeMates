@@ -409,12 +409,7 @@ public sealed class RelayAutoFlow : MonoBehaviour
                 return;
             }
 
-            if (autoLoadGameScene && NetworkManager.Singleton.SceneManager != null)
-            {
-                NetworkManager.Singleton.SceneManager.LoadScene(
-                    gameSceneName,
-                    UnityEngine.SceneManagement.LoadSceneMode.Single);
-            }
+          
         }
     }
 

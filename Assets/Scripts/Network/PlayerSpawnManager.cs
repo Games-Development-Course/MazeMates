@@ -142,6 +142,7 @@ public sealed class PlayerSpawnManager : MonoBehaviour
 
         sceneSpawnsReady = false;
 
+        // ✅ IMPORTANT: do nothing in non-gameplay scenes (e.g., StartScene)
         if (!IsGameplayScene(sceneName))
             return;
 
@@ -306,7 +307,7 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         {
             if (isTraveller)
             {
-                spawn = null; // Traveller allowed to fallback later
+                spawn = null; // Traveller allowed to fallback
             }
             else
             {
@@ -336,7 +337,7 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             return;
         }
 
-        // ✅ Option A: same prefab for both roles — set role BEFORE SpawnAsPlayerObject
+        // ✅ Option A: set role BEFORE SpawnAsPlayerObject
         ApplyRoleIfPresent(netObj, isTraveller);
 
         netObj.SpawnAsPlayerObject(clientId, destroyWithScene);
