@@ -3937,7 +3937,7 @@ MonoBehaviour:
   puzzleMediumPrefab: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
   puzzleHardPrefab: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
   puzzleHardPrefab2: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
-  heartPrefab: {fileID: 5054068004228068802, guid: d2c3ccd321bc31249a43b7de5c30391f, type: 3}
+  heartPrefab: {fileID: 8215813411732749290, guid: e7fb81e82f61efe4bb309a587c88abb8, type: 3}
   bombPrefab: {fileID: 7454851548193310993, guid: 32d89168a3f06594e8798f23895ee145, type: 3}
   keyPrefab: {fileID: 4654885429082179475, guid: 4efafe24cea6ddb45bb7641632e01a87, type: 3}
 --- !u!1001 &1079709665
