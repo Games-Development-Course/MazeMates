@@ -13,6 +13,9 @@ public sealed class HostStartGame : MonoBehaviour
     [SerializeField] private GameObject hostButtonsPanel;
     [SerializeField] private LobbyState lobbyState;
 
+    [Header("Skin Select UI")]
+    [SerializeField] private LobbySkinUI lobbySkinUI;
+
     [Header("Easy Config")]
     [SerializeField] private int easyMazeW = 13;
     [SerializeField] private int easyMazeH = 13;
@@ -40,12 +43,10 @@ public sealed class HostStartGame : MonoBehaviour
     [SerializeField] private int hardNormalDoors = 5;
     [SerializeField] private int hardPuzzleDoors = 4;
 
-    // Lives אם אתה רוצה גם כאן—שאירתי כמו קודם (אפשר לשנות ב Inspector)
     [SerializeField] private int easyLives = 3;
     [SerializeField] private int medLives = 2;
     [SerializeField] private int hardLives = 1;
 
-    // NEW: Hints fixed by difficulty (easy=1, med=2, hard=4)
     private const int EASY_HINTS = 1;
     private const int MED_HINTS = 2;
     private const int HARD_HINTS = 4;
@@ -72,6 +73,9 @@ public sealed class HostStartGame : MonoBehaviour
     {
         if (lobbyState == null)
             lobbyState = FindFirstObjectByType<LobbyState>();
+
+        if (lobbySkinUI == null)
+            lobbySkinUI = FindFirstObjectByType<LobbySkinUI>();
 
         if (lobbyState != null)
             lobbyState.SessionFull.OnValueChanged += OnSessionFullChanged;
@@ -107,7 +111,7 @@ public sealed class HostStartGame : MonoBehaviour
         var nm = NetworkManager.Singleton;
         if (nm == null || !nm.IsServer) return;
 
-        if (nm.ConnectedClientsIds.Count < 2)
+        if (nm.ConnectedClientsList.Count < 2)
         {
             Debug.LogWarning("No clients connected yet!");
             return;
@@ -124,45 +128,49 @@ public sealed class HostStartGame : MonoBehaviour
 
         if (diff == 0)
         {
-            // easy: BombRemovals == total bombs (known now)
             cfg.SetConfigServerRpc(
                 easyMazeW, easyMazeH,
                 easyHearts, easyBombs, easyKeys,
                 easyNormalDoors, easyPuzzleDoors,
                 0, seed,
                 easyLives,
-                easyBombs,       // BombRemovals == bombs
-                EASY_HINTS       // hints
+                easyBombs,
+                EASY_HINTS
             );
         }
         else if (diff == 1)
         {
-            // medium BombRemovals depends on maze => set placeholder, compute in GameScene after generation
             cfg.SetConfigServerRpc(
                 medMazeW, medMazeH,
                 medHearts, medBombs, medKeys,
                 medNormalDoors, medPuzzleDoors,
                 1, seed,
                 medLives,
-                0,              // placeholder, will be computed
+                0,
                 MED_HINTS
             );
         }
         else
         {
-            // hard BombRemovals depends on maze => set placeholder, compute in GameScene after generation
             cfg.SetConfigServerRpc(
                 hardMazeW, hardMazeH,
                 hardHearts, hardBombs, hardKeys,
                 hardNormalDoors, hardPuzzleDoors,
                 2, seed,
                 hardLives,
-                0,              // placeholder, will be computed
+                0,
                 HARD_HINTS
             );
         }
 
+        // במקום להתחיל משחק כאן:
         hostButtonsPanel?.SetActive(false);
-        nm.SceneManager.LoadScene(gameSceneName, LoadSceneMode.Single);
+
+        // לפתוח תפריט סקינים לכולם (דרך NetVar)
+        cfg.SetSkinSelectOpenServerRpc(true);
+
+        // וגם לוקלית להוסט (בדרך כלל ייפתח דרך ה-NetVar אבל זה מיידי ונחמד)
+        if (lobbySkinUI != null)
+            lobbySkinUI.OpenSkinMenu();
     }
 }

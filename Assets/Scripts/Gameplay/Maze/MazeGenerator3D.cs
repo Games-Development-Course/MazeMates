@@ -513,7 +513,9 @@
 
     private void SpawnVictoryDoorLocal()
         {
-            if (winDoorPrefab == null) return;
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            return;
+        if (winDoorPrefab == null) return;
 
             if (spawnedWinDoor != null)
             {
