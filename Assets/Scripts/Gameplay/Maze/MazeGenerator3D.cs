@@ -436,8 +436,10 @@
                     GameObject wall = Instantiate(wallPrefab, worldPos, Quaternion.identity, wallsRoot);
 
                     SetLayerRecursive(wall, wallsLayer);
+                    var s = wall.transform.localScale;
+                    wall.transform.localScale = new Vector3(cellSize, s.y, cellSize);
 
-                }
+            }
         }
 
      
