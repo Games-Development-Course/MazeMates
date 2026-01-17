@@ -14,7 +14,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2039886997941390558, guid: b8d87722d20ce8b438750a47eb394a16, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 554271231
+      value: 4183826034
       objectReference: {fileID: 0}
     - target: {fileID: 2039886997941390558, guid: b8d87722d20ce8b438750a47eb394a16, type: 3}
       propertyPath: InScenePlacedSourceGlobalObjectIdHash
@@ -59,6 +59,10 @@ PrefabInstance:
     - target: {fileID: 4821842918176072125, guid: b8d87722d20ce8b438750a47eb394a16, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8405958157798242460, guid: b8d87722d20ce8b438750a47eb394a16, type: 3}
+      propertyPath: customMessage
+      value: 
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
