@@ -2667,6 +2667,81 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 17818a864a562496bb75dfae3203529e, type: 3}
+--- !u!1 &574155481
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 574155482}
+  - component: {fileID: 574155484}
+  - component: {fileID: 574155483}
+  m_Layer: 0
+  m_Name: Puzzle_Screen_1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &574155482
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 574155481}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -0}
+  m_LocalScale: {x: 14.6, y: 14.6, z: 14.6}
+  m_ConstrainProportionsScale: 1
+  m_Children: []
+  m_Father: {fileID: 1797155491}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: -39.75737, y: 0}
+  m_SizeDelta: {x: 146.4, y: 105.1}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &574155483
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 574155481}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 21300000, guid: 561dc0be3e84c32439d77001c5eb2d1b, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &574155484
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 574155481}
+  m_CullTransparentMesh: 1
 --- !u!1 &581995588
 GameObject:
   m_ObjectHideFlags: 0
@@ -3933,11 +4008,11 @@ MonoBehaviour:
   puzzleDoorPrefab: {fileID: 8556355650215004237, guid: 7101dfa8e7731f348a167eda78123bcd, type: 3}
   winDoorPrefab: {fileID: 8559443613435696601, guid: 477c67c4f76f2504aa6ed6570e6eb3ff, type: 3}
   doorYawOffset: 0
-  puzzleEasyPrefab: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
+  puzzleEasyPrefab: {fileID: 4576351031722354152, guid: 7a487db78680c3945878e70f1777d293, type: 3}
   puzzleMediumPrefab: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
   puzzleHardPrefab: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
   puzzleHardPrefab2: {fileID: 4576351031722354152, guid: fb4d542eeeeebac4995153b18d38524b, type: 3}
-  heartPrefab: {fileID: 5054068004228068802, guid: d2c3ccd321bc31249a43b7de5c30391f, type: 3}
+  heartPrefab: {fileID: 8215813411732749290, guid: e7fb81e82f61efe4bb309a587c88abb8, type: 3}
   bombPrefab: {fileID: 7454851548193310993, guid: 32d89168a3f06594e8798f23895ee145, type: 3}
   keyPrefab: {fileID: 4654885429082179475, guid: 4efafe24cea6ddb45bb7641632e01a87, type: 3}
 --- !u!1001 &1079709665
@@ -7014,13 +7089,14 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1797155491}
+  - component: {fileID: 1797155493}
   m_Layer: 9
   m_Name: PuzzleSlot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1797155491
 RectTransform:
   m_ObjectHideFlags: 0
@@ -7032,7 +7108,8 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 574155482}
   m_Father: {fileID: 784902577}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -7040,6 +7117,14 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &1797155493
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1797155490}
+  m_CullTransparentMesh: 1
 --- !u!1 &1797710544
 GameObject:
   m_ObjectHideFlags: 0
