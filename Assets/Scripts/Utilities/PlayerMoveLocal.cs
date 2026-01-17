@@ -18,15 +18,6 @@ public class PlayerMoveLocal : MonoBehaviour
     [Tooltip("When pressing Left/Right with no forward/back input, this is the speed used to 'step' + turn.")]
     [SerializeField] private float idleTurnMoveSpeed = 2.0f;
 
-    [Header("Camera buffer (Solution 1)")]
-    [SerializeField] private Camera mainCam;
-    [Tooltip("Point on/near the head. If empty, leave null and we'll try to find it or fallback to this transform.")]
-    [SerializeField] private Transform headPoint;
-    [Tooltip("Minimum distance allowed between camera and headPoint. If closer, backward input is blocked.")]
-    [SerializeField] private float minCamHeadDistance = 0.7f;
-    [Tooltip("Extra slack before fully blocking (smooths the stop).")]
-    [SerializeField] private float bufferSoftRange = 0.25f;
-
     [Header("Gravity")]
     [SerializeField] private float gravity = -20f;
     [SerializeField] private float groundedStick = -2f;
@@ -50,16 +41,6 @@ public class PlayerMoveLocal : MonoBehaviour
 
         if (animator == null)
             animator = GetComponentInChildren<Animator>();
-
-        if (mainCam == null)
-            mainCam = Camera.main;
-
-        // fallback: try to find a head bone if you didn't assign headPoint
-        if (headPoint == null && animator != null && animator.isHuman)
-            headPoint = animator.GetBoneTransform(HumanBodyBones.Head);
-
-        if (headPoint == null)
-            headPoint = transform; // fallback (still works, just less "head-accurate")
     }
 
     private void Update()
@@ -76,29 +57,6 @@ public class PlayerMoveLocal : MonoBehaviour
         if (Input.GetKey(KeyCode.LeftArrow)) turnInput -= 1f;
         if (Input.GetKey(KeyCode.RightArrow)) turnInput += 1f;
 
-        // =========================
-        // Solution 1: Block backward if camera too close
-        // =========================
-        if (forwardInput < -0.01f && mainCam != null && headPoint != null)
-        {
-            float d = Vector3.Distance(mainCam.transform.position, headPoint.position);
-
-            // If already inside the hard minimum -> fully block backward
-            if (d <= minCamHeadDistance)
-            {
-                forwardInput = 0f;
-            }
-            else if (bufferSoftRange > 0.001f)
-            {
-                // Soft block as you approach the minimum (prevents "snap stop")
-                // When d == min -> scale 0, when d == min+soft -> scale 1
-                float scale = Mathf.InverseLerp(minCamHeadDistance, minCamHeadDistance + bufferSoftRange, d);
-
-                // Only scale backward (negative) input
-                forwardInput *= Mathf.Clamp01(scale);
-            }
-        }
-
         bool hasForwardInput = Mathf.Abs(forwardInput) > 0.01f;
         bool hasTurnInput = Mathf.Abs(turnInput) > 0.01f;
 
@@ -107,8 +65,7 @@ public class PlayerMoveLocal : MonoBehaviour
         // =========================
         float targetSpeed = forwardInput * maxSpeed;
 
-        // אם אין קדימה/אחורה אבל כן לוחצים שמאלה/ימינה -> "צעד" + סיבוב
-        // נבחר כיוון חיובי תמיד (קדימה), כדי להרגיש טבעי
+        // if no forward/back but yes left/right -> "step" + turn (always forward)
         if (!hasForwardInput && hasTurnInput)
             targetSpeed = idleTurnMoveSpeed;
 
@@ -121,7 +78,6 @@ public class PlayerMoveLocal : MonoBehaviour
         // =========================
         // STEERING (TURN)
         // =========================
-        // נרצה שהכיוון (moveDir) יסתובב גם כשעומדים ומסובבים
         if (hasTurnInput && Mathf.Abs(speed) > 0.01f)
         {
             float turn = turnInput * turnSpeed * Time.deltaTime;
@@ -129,7 +85,6 @@ public class PlayerMoveLocal : MonoBehaviour
             moveDir.Normalize();
         }
 
-        // אם אין תנועה בכלל, שמור moveDir מסונכרן לכיוון השחקן
         if (Mathf.Abs(speed) <= 0.01f)
             moveDir = transform.forward;
 

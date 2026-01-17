@@ -288,7 +288,6 @@ public class PlayerMovement : NetworkBehaviour
         bool hasTurnInput = Mathf.Abs(turnInput) > 0.01f;
 
         // Tutorial notify (unchanged behavior)
-        // Notify when there is meaningful motion intent (forward or turning step)
         if ((hasForwardInput || hasTurnInput) && Time.time - lastMoveNotifyTime > 0.25f)
         {
             lastMoveNotifyTime = Time.time;
@@ -296,29 +295,29 @@ public class PlayerMovement : NetworkBehaviour
         }
 
         // =========================
-        // SPEED (ACCEL / DECEL) - sandbox logic
+        // SPEED (ACCEL / DECEL)
+        // (No "step forward" when only turning)
         // =========================
         float targetSpeed = forwardInput * maxSpeed;
 
-        // If no forward/back but turning -> small forward step + turn
-        bool idleTurnStep = !hasForwardInput && hasTurnInput;
-        if (idleTurnStep)
-            targetSpeed = idleTurnMoveSpeed;
-
-        // ✅ Accel slower when ONLY Left/Right is pressed (idle turn step)
-        float accelRate = idleTurnStep ? (acceleration * sideAccelerationMultiplier) : acceleration;
-
-        float rate = (hasForwardInput || idleTurnStep) ? accelRate : deceleration;
+        float rate = hasForwardInput ? acceleration : deceleration;
         speed = Mathf.MoveTowards(speed, targetSpeed, rate * Time.deltaTime);
 
         if (!hasForwardInput && !hasTurnInput && Mathf.Abs(speed) < 0.05f && Mathf.Abs(targetSpeed) < 0.01f)
             speed = 0f;
 
         // =========================
-        // STEERING (TURN) - sandbox logic
-        // rotate moveDir while moving
+        // TURNING
+        // - If only turning (no forward/back): rotate in place (no movement)
+        // - If moving: steer moveDir like before
         // =========================
-        if (hasTurnInput && Mathf.Abs(speed) > 0.01f)
+        if (!hasForwardInput && hasTurnInput)
+        {
+            float yaw = turnInput * turnSpeed * Time.deltaTime;
+            transform.Rotate(0f, yaw, 0f);
+            moveDir = transform.forward; // keep synced
+        }
+        else if (hasTurnInput && Mathf.Abs(speed) > 0.01f)
         {
             float turn = turnInput * turnSpeed * Time.deltaTime;
             moveDir = Quaternion.Euler(0f, turn, 0f) * moveDir;
@@ -330,7 +329,7 @@ public class PlayerMovement : NetworkBehaviour
             moveDir = transform.forward;
 
         // =========================
-        // FACE MOVE DIRECTION (Yaw) - sandbox logic
+        // FACE MOVE DIRECTION (Yaw) - only while moving
         // =========================
         if (moveDir.sqrMagnitude > 0.001f && Mathf.Abs(speed) > 0.01f)
         {
@@ -363,15 +362,14 @@ public class PlayerMovement : NetworkBehaviour
         {
             float planarSpeed01 = Mathf.Clamp01(new Vector2(cc.velocity.x, cc.velocity.z).magnitude / Mathf.Max(0.001f, maxSpeed));
 
-            // Only set if parameters exist in the controller (prevents "Hash ... does not exist")
             if (HasAnimParam(animator, AnimatorControllerParameterType.Float, "Speed"))
                 animator.SetFloat("Speed", planarSpeed01);
 
             if (HasAnimParam(animator, AnimatorControllerParameterType.Bool, "IsMoving"))
                 animator.SetBool("IsMoving", planarSpeed01 > 0.05f);
         }
-
     }
+
 
     // =======================
     // Tutorial RPC (kept)
