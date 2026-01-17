@@ -99,7 +99,7 @@ public class PadTrigger : NetworkBehaviour
             case DoorType.Normal:
                 if (!controller.IsOpen())
                 {
-                    msg = "בקש מהנווט לפתוח את הדלת";
+                msg = "בקש מחברך ללחוץ על 'פתח דלת'";
                     break;
                 }
                 break;
@@ -107,7 +107,7 @@ public class PadTrigger : NetworkBehaviour
             case DoorType.Puzzle:
                 if (!controller.IsOpen())
                 {
-                    msg = "בקש מהנווט להתחיל את החידה";
+                msg = $"בקש מחברך ללחוץ על 'פתח דלת' \nכדי להתחיל את החידה";
                     break;
                 }
                 break;
