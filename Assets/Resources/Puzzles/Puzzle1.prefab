@@ -248,7 +248,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 0724cfa6935e9b44a89d374dc5028b77, type: 3}
+  m_Sprite: {fileID: 21300000, guid: f1790f5468d4d44f1ad8308a6c2954ad, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -398,8 +398,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 887c7d6055fba7f479013c20d2650401, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DraggablePiece
+  rectTransform: {fileID: 0}
+  canvasGroup: {fileID: 0}
   target: {fileID: 8120721950107034752}
-  puzzle: {fileID: 0}
+  snapDistance: 50
 --- !u!222 &308386419204399276
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -688,8 +690,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 887c7d6055fba7f479013c20d2650401, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DraggablePiece
+  rectTransform: {fileID: 0}
+  canvasGroup: {fileID: 0}
   target: {fileID: 9074153144128489964}
-  puzzle: {fileID: 0}
+  snapDistance: 50
 --- !u!1 &6295859396320139940
 GameObject:
   m_ObjectHideFlags: 0

@@ -9,11 +9,55 @@ public class NavigatorHUD : MonoBehaviour
     public HUDShared sharedBar;
     public RectTransform barParent;
 
-    [Header("Navigator UI")]
-    public TMP_Text messageText;
-
     [Header("Buttons to Lock Before Ready")]
     public Button[] actionButtons;
+
+    [Header("Navigator UI")]
+    [SerializeField] public TMP_Text messageText;
+    [SerializeField] private GameObject messageRoot;
+    [SerializeField] private Image bubbleImage;  
+    [SerializeField] private bool hideOnStartButKeepActive = true;
+
+
+    private Color defaultColor;
+
+    private void Awake()
+    {
+        WireIfNeeded();
+        if (messageText != null) defaultColor = messageText.color;
+        if (hideOnStartButKeepActive) SetVisible(false);
+    }
+
+    private void WireIfNeeded()
+    {
+        if (messageText == null)
+            messageText = GetComponentInChildren<TMP_Text>(true);
+
+        if (messageRoot == null && messageText != null)
+        {
+            var img = messageText.GetComponentInParent<Image>(true);
+            messageRoot = (img != null) ? img.gameObject : messageText.gameObject;
+        }
+
+        if (bubbleImage == null && messageRoot != null)
+            bubbleImage = messageRoot.GetComponent<Image>();
+    }
+
+    private void SetVisible(bool visible)
+    {
+        WireIfNeeded();
+        if (messageRoot == null) return;
+
+        var cg = messageRoot.GetComponent<CanvasGroup>();
+        if (cg == null) cg = messageRoot.AddComponent<CanvasGroup>();
+
+        cg.alpha = visible ? 1f : 0f;
+        cg.interactable = visible;
+        cg.blocksRaycasts = visible;
+
+        if (bubbleImage != null) bubbleImage.enabled = true;
+        if (messageText != null) messageText.enabled = true;
+    }
 
     private IEnumerator Start()
     {
@@ -54,27 +98,31 @@ public class NavigatorHUD : MonoBehaviour
         sharedBar?.UpdateValues(gm);
     }
 
-    public void ShowMessage(string msg)
-    {
-        if (messageText == null)
-            return;
-
-        messageText.gameObject.SetActive(true);
-        messageText.text = msg;
-    }
-
     public void SetMessageColor(Color c)
     {
         if (messageText)
             messageText.color = c;
     }
+    public void ShowMessage(string msg)
+    {
+        WireIfNeeded();
+        if (messageText == null || messageRoot == null) return;
+
+        messageText.text = msg ?? "";
+        messageRoot.SetActive(true);
+        SetVisible(true);
+    }
 
     public void Clear()
     {
-        if (messageText == null)
-            return;
+        if (messageText == null) return;
 
         messageText.text = string.Empty;
-        // לא מכבים את האובייקט
+        messageText.color = defaultColor;
+
+        if (hideOnStartButKeepActive) SetVisible(false);
+        else if (messageRoot != null) messageRoot.SetActive(false);
     }
+
+
 }
