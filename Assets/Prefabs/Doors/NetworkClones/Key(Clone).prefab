@@ -9,10 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1177290799165076143}
-<<<<<<< HEAD
   - component: {fileID: 4435687393445019657}
-=======
->>>>>>> 01c25b74a31efab5b9704f2ffb84cd3d0f269e11
   m_Layer: 11
   m_Name: Minimap
   m_TagString: Untagged
@@ -28,18 +25,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2265217528798002398}
   serializedVersion: 2
-<<<<<<< HEAD
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 1.84, z: 0}
-=======
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
->>>>>>> 01c25b74a31efab5b9704f2ffb84cd3d0f269e11
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4848508174762012099}
-<<<<<<< HEAD
   m_Father: {fileID: 156878444229215077}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4435687393445019657
@@ -55,10 +46,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HeartSpin
   rotationSpeed: 90
-=======
-  m_Father: {fileID: 3310102439027926026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
->>>>>>> 01c25b74a31efab5b9704f2ffb84cd3d0f269e11
 --- !u!1 &2285977455963752932
 GameObject:
   m_ObjectHideFlags: 0
@@ -86,11 +73,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0.64167285, y: -0.297079, z: 0.297079, w: 0.64167285}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-<<<<<<< HEAD
   m_LocalScale: {x: 0.62, y: 0.62, z: 0.62}
-=======
-  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
->>>>>>> 01c25b74a31efab5b9704f2ffb84cd3d0f269e11
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 1177290799165076143}
@@ -292,8 +275,7 @@ Transform:
   m_LocalPosition: {x: -0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1177290799165076143}
+  m_Children: []
   m_Father: {fileID: 156878444229215077}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &7595956536167496403
