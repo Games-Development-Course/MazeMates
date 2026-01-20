@@ -90,7 +90,7 @@
 ## ITCH.IO
 current published implementation on itch.io:
 [
-ITCH.IO](https://gamedevteamx.itch.io/mazematestutmultiplayer)
+ITCH.IO](https://gamedevteamx.itch.io/maze-mates)
 
 
 </div>
