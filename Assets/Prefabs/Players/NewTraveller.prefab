@@ -1678,6 +1678,9 @@ GameObject:
   - component: {fileID: 2405277612761674292}
   - component: {fileID: 7508032283558191264}
   - component: {fileID: 4017053161408496354}
+  - component: {fileID: 2597093558159200488}
+  - component: {fileID: 2228604304566687000}
+  - component: {fileID: 5237550246597210494}
   m_Layer: 0
   m_Name: NewTraveller
   m_TagString: Player
@@ -2034,6 +2037,49 @@ MonoBehaviour:
   - {fileID: 3795207935381826647}
   - {fileID: 879111242240101055}
   runOnStart: 1
+--- !u!114 &2597093558159200488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2864662255250911286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6170df2f7fe1e894daa41d470d0e0ef9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  currentArea: 1
+--- !u!114 &2228604304566687000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2864662255250911286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94ca200017d26e74d8cea9eaf7453060, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  ShowTopMostFoldoutHeaderGroup: 1
+  outsideLayer: NavigatorOutside
+  insideLayer: NavigatorInside
+--- !u!114 &5237550246597210494
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2864662255250911286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f21266e1d2d6b342856aba335276653, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  ShowTopMostFoldoutHeaderGroup: 1
+  outsideLayer: NavigatorOutside
+  insideLayer: NavigatorInside
 --- !u!1 &3048801276893538600
 GameObject:
   m_ObjectHideFlags: 0
@@ -5853,13 +5899,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9030926245471488412}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.2008214, y: 0, z: 0, w: 0.9796279}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: -1.4268, z: 0}
   m_LocalScale: {x: 0.82, y: 0.82000005, z: 0.82000005}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 5706138600969234957}
-  m_LocalEulerAnglesHint: {x: 23.17, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &9102445286201308364
 GameObject:
   m_ObjectHideFlags: 0

@@ -352,9 +352,15 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         if (playerObject == null) return;
 
         var pm = playerObject.GetComponent<PlayerMovement>();
-        if (pm == null) return;
+        if (pm != null)
+            pm.SetRole(isTraveller ? PlayerMovement.PlayerRole.Traveller : PlayerMovement.PlayerRole.Navigator);
 
-        pm.SetRole(isTraveller ? PlayerMovement.PlayerRole.Traveller : PlayerMovement.PlayerRole.Navigator);
+        // ✅ Set initial area state
+        var area = playerObject.GetComponent<PlayerAreaState>();
+        if (area != null)
+            area.currentArea = isTraveller
+                ? PlayerAreaState.AreaState.Maze
+                : PlayerAreaState.AreaState.NavigatorRoom; // נווט מתחיל בחדר נווט
     }
 
     private IEnumerator WaitForNavigatorSpawnPoint(string sceneName, int token)

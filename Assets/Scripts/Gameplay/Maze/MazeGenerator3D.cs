@@ -27,14 +27,27 @@
         // Public API for deterministic spawning (read-only)
         // -------------------------------
         public Transform TravellerSpawn => travellerSpawn;
+    public Vector2Int StartCellPublic => StartCell;
 
-        public bool IsReady { get; private set; }
+    public bool IsReady { get; private set; }
         public event System.Action Ready;
         public float MazeWorldWidth => width * cellSize;
         public float MazeWorldHeight => height * cellSize;
+        public bool IsCellOpen(Vector2Int c)
+        {
+            return InBounds(c) && grid != null && !grid[c.x, c.y];
+        }
 
+        public Dictionary<Vector2Int, int> GetDistancesFromWorld(Vector3 worldPos)
+        {
+            Vector2Int start = WorldToCell(worldPos);
+            return BFS_Distances(start);
+        }
 
-        private void MarkReady()
+    public Vector2Int WorldToCellPublic(Vector3 worldPos) => WorldToCell(worldPos);
+    public float CellSize => cellSize;
+
+    private void MarkReady()
         {
             if (IsReady) return;
             IsReady = true;
@@ -109,9 +122,10 @@
         private Vector2Int WorldToCell(Vector3 worldPos)
         {
             Vector3 local = transform.InverseTransformPoint(worldPos);
-            int cx = Mathf.FloorToInt(local.x / cellSize);
-            int cy = Mathf.FloorToInt(local.z / cellSize);
-            return new Vector2Int(cx, cy);
+        int cx = Mathf.Clamp(Mathf.RoundToInt((local.x / cellSize) - 0.5f), 0, width - 1);
+        int cy = Mathf.Clamp(Mathf.RoundToInt((local.z / cellSize) - 0.5f), 0, height - 1);
+
+        return new Vector2Int(cx, cy);
         }
 
         private void Start()
@@ -612,10 +626,10 @@
                 Quaternion.Euler(0f, doorPrefabYawOffset, 0f);
 
             var go = Instantiate(prefab, world, rot);
-            SetLayerRecursive(go, doorsLayer);
+            go.layer = doorsLayer; // רק ל-Root, לא לילדים
 
 
-            var netObj = go.GetComponent<NetworkObject>();
+        var netObj = go.GetComponent<NetworkObject>();
             if (netObj == null)
             {
                 Debug.LogError($"[Doors] Prefab '{prefab.name}' is missing NetworkObject.");
@@ -1006,9 +1020,43 @@
 
             return count;
         }
+    public bool TrySnapToNearestOpenCell(Vector3 worldPos, int radius, out Vector2Int snapped)
+    {
+        Vector2Int start = WorldToCell(worldPos);
 
-        // BFS shortest path using your grid (grid[x,y] == true means WALL, false means OPEN)
-        private List<Vector2Int> FindShortestPathCells(Vector2Int start, Vector2Int goal)
+        snapped = start;
+        if (IsCellOpen(start))
+            return true;
+
+        int bestDist = int.MaxValue;
+        bool found = false;
+
+        for (int dx = -radius; dx <= radius; dx++)
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                Vector2Int c = new Vector2Int(start.x + dx, start.y + dy);
+                if (!IsCellOpen(c)) continue;
+
+                int md = Mathf.Abs(dx) + Mathf.Abs(dy);
+                if (md < bestDist)
+                {
+                    bestDist = md;
+                    snapped = c;
+                    found = true;
+                }
+            }
+
+        return found;
+    }
+
+    public Dictionary<Vector2Int, int> GetDistancesFromCell(Vector2Int startCell)
+    {
+        return BFS_Distances(startCell);
+    }
+
+
+    // BFS shortest path using your grid (grid[x,y] == true means WALL, false means OPEN)
+    private List<Vector2Int> FindShortestPathCells(Vector2Int start, Vector2Int goal)
         {
             if (!InBounds(start) || !InBounds(goal)) return null;
             if (grid[start.x, start.y]) return null; // wall
@@ -1062,5 +1110,13 @@
             path.Reverse();
             return path;
         }
+    public bool TryGetWalkCellFromWorld(Vector3 worldPos, int snapRadius, out Vector2Int cell)
+    {
+        cell = WorldToCell(worldPos);
+        if (IsCellOpen(cell)) return true;
 
+        return TrySnapToNearestOpenCell(worldPos, snapRadius, out cell);
     }
+
+
+}

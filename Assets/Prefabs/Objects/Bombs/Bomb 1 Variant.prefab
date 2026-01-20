@@ -232,6 +232,10 @@ PrefabInstance:
       propertyPath: EmissionModule.m_Bursts.Array.size
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7917514762138273319, guid: 4bb2fd50a9abd884ba2e3d3b7ab6b512, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 144014779
+      objectReference: {fileID: 0}
     - target: {fileID: 8682799855449752463, guid: 4bb2fd50a9abd884ba2e3d3b7ab6b512, type: 3}
       propertyPath: m_VelocityScale
       value: 0.03

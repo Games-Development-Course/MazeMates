@@ -32,8 +32,8 @@ TagManager:
   - Walls
   - CameraBlocker
   - Doors
-  - 
-  - 
+  - NavigatorOutside
+  - NavigatorInside
   - 
   - 
   - 
