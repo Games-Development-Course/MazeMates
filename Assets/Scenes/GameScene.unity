@@ -6392,6 +6392,7 @@ MonoBehaviour:
   Navigator: {fileID: 1555926127}
   defaultMessageDuration: 1.5
   HideDuration: 0.6
+  forcedMessageColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!4 &2092528590 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7926504760750204781, guid: 3e0479e7867e7da4eb6672e59c1afda8, type: 3}

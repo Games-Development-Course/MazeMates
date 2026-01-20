@@ -11,6 +11,7 @@ public class HUDManager : MonoBehaviour
 
     public float defaultMessageDuration = 2f;
     public float HideDuration = 0.6f;
+    [SerializeField] private Color forcedMessageColor = Color.white;
 
     private void Awake()
     {
@@ -26,12 +27,18 @@ public class HUDManager : MonoBehaviour
         var tm = FindFirstObjectByType<TutorialManager>();
         if (tm != null && tm.TutorialActive.Value)
             return; // בזמן טוטוריאל לא נוגעים בהודעות הרגילות
-
         if (!string.IsNullOrEmpty(travellerMsg) && Traveller != null)
+        {
+            Traveller.SetMessageColor(forcedMessageColor);
             Traveller.ShowMessage(travellerMsg);
+        }
 
         if (!string.IsNullOrEmpty(navigatorMsg) && Navigator != null)
+        {
+            Navigator.SetMessageColor(forcedMessageColor);
             Navigator.ShowMessage(navigatorMsg);
+        }
+
 
         StopAllCoroutines();
         StartCoroutine(HideMessagesAfter(duration));
