@@ -19,8 +19,7 @@ public sealed class LobbyState : NetworkBehaviour
         false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     // ----------------------------
-    // NEW: Lobby selections (2 players)
-    // index 0 = Host, index 1 = Client
+    // Lobby selections
     // ----------------------------
     public NetworkVariable<FixedString32Bytes> HostName { get; } = new(
         "", NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -70,33 +69,24 @@ public sealed class LobbyState : NetworkBehaviour
         }
     }
 
-    private void OnClientChangedServer(ulong clientId) => RecomputeServer();
+    private void OnClientChangedServer(ulong _) => RecomputeServer();
 
     private void RecomputeServer()
     {
         int connectedTotal = NetworkManager.Singleton != null
-            ? NetworkManager.Singleton.ConnectedClientsList.Count // includes host
+            ? NetworkManager.Singleton.ConnectedClientsList.Count
             : 0;
 
         ConnectedPlayers.Value = connectedTotal;
-
-        bool full = connectedTotal >= MaxPlayers.Value;
-
-        if (SessionFull.Value != full)
-        {
-            SessionFull.Value = full;
-            Debug.Log($"[LobbyState] SessionFull changed -> {SessionFull.Value} (connectedTotal={connectedTotal}/{MaxPlayers.Value})");
-        }
+        SessionFull.Value = connectedTotal >= MaxPlayers.Value;
     }
 
-    private bool IsHostClient(ulong clientId) => clientId == NetworkManager.ServerClientId;
+    private bool IsHostClient(ulong clientId) =>
+        clientId == NetworkManager.ServerClientId;
 
-    private bool IsKnownNonHostClient(ulong clientId)
-    {
-        if (NetworkManager.Singleton == null) return false;
-        // "Client" in your 2-player game = first non-host client
-        return NetworkManager.Singleton.ConnectedClientsIds.Any(id => id != NetworkManager.ServerClientId && id == clientId);
-    }
+    // ============================
+    // Main entry from LobbySkinUI
+    // ============================
     [ServerRpc(RequireOwnership = false)]
     public void SubmitLobbySelectionServerRpc(
         FixedString32Bytes playerName,
@@ -106,7 +96,10 @@ public sealed class LobbyState : NetworkBehaviour
     {
         ulong sender = rpcParams.Receive.SenderClientId;
 
-        playerName = playerName.Length == 0 ? new FixedString32Bytes("Player") : playerName;
+        playerName = playerName.Length == 0
+            ? new FixedString32Bytes("Player")
+            : playerName;
+
         skinIndex = Mathf.Clamp(skinIndex, 0, 3);
 
         bool isHostSender = IsHostClient(sender);
@@ -124,15 +117,22 @@ public sealed class LobbyState : NetworkBehaviour
             ClientReady.Value = ready;
         }
 
-        // ✅ NEW: גם לשמור את הסקינים ב-GameConfigNet כדי שישרדו מעבר סצנה
+        // 🔒 שמירה גם ב-GameConfigNet (שורד מעבר סצנה)
         var cfg = GameConfigNet.Instance;
         if (cfg != null && cfg.IsSpawned)
         {
-            if (isHostSender) cfg.HostSkin.Value = skinIndex;
-            else cfg.ClientSkin.Value = skinIndex;
+            if (isHostSender)
+            {
+                cfg.HostName.Value = playerName;
+                cfg.HostSkin.Value = skinIndex;
+            }
+            else
+            {
+                cfg.ClientName.Value = playerName;
+                cfg.ClientSkin.Value = skinIndex;
+            }
         }
     }
-
 
     [ServerRpc(RequireOwnership = false)]
     public void ResetReadiesServerRpc()

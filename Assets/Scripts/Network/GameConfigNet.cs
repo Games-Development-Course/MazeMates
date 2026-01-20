@@ -2,6 +2,11 @@
 using Unity.Netcode;
 using UnityEngine;
 
+using Unity.Collections; // למעלה עם ה-usingים
+
+
+
+
 public sealed class GameConfigNet : NetworkBehaviour
 {
     public static GameConfigNet Instance { get; private set; }
@@ -33,6 +38,18 @@ public sealed class GameConfigNet : NetworkBehaviour
 
     public NetworkVariable<int> Hints { get; } = new(
         1,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    public NetworkVariable<FixedString32Bytes> HostName { get; } = new(
+    new FixedString32Bytes("Host"),
+    NetworkVariableReadPermission.Everyone,
+    NetworkVariableWritePermission.Server
+);
+
+    public NetworkVariable<FixedString32Bytes> ClientName { get; } = new(
+        new FixedString32Bytes("Player"),
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
