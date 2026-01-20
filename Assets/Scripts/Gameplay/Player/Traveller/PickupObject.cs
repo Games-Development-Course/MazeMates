@@ -7,10 +7,12 @@
 // 3) Tutorial gating uses the pickup object's scene (gameObject.scene) + fallback isLoaded check.
 // 4) No brittle caching of TutorialManager (won’t get stuck on null).
 // 5) Bomb keeps the tutorial reset/teleport flow and calls the bomb tutorial notify.
+// 6) ✅ NEW: Bomb spotlight is ALWAYS turned off when bomb is consumed (even if BombTrigger is on a child).
 //
 // Notes:
 // - ResourceManager expects: p.type and PickupObject.PickupType to be public -> kept public.
 // - Colliders: relay is added to ALL child colliders and they are forced to isTrigger=true.
+// - ignoreRelayLayers: colliders on these layers will NOT forward pickup triggers to this script.
 
 using TMPro;
 using Unity.Netcode;
@@ -35,6 +37,9 @@ public class PickupObject : NetworkBehaviour
 
     [Header("Message Duration")]
     public float messageDuration = 1.5f;
+
+    [Header("Trigger Filtering")]
+    [SerializeField] private LayerMask ignoreRelayLayers; // layers that should NOT trigger pickup
 
     [Header("Bomb Reset Visuals (PlayerMovement1P BombResetAndTeleportClientRpc params)")]
     public float bombPreTeleportDelay = 0.25f;
@@ -100,6 +105,15 @@ public class PickupObject : NetworkBehaviour
             var c = cols[i];
             if (c == null) continue;
 
+            // ✅ skip colliders on ignore layers (e.g., SpotlightTrigger)
+            if (((1 << c.gameObject.layer) & ignoreRelayLayers.value) != 0)
+            {
+                c.isTrigger = true;
+                var existingRelay = c.GetComponent<PickupTriggerRelay>();
+                if (existingRelay != null) Destroy(existingRelay);
+                continue;
+            }
+
             c.isTrigger = true;
 
             var relay = c.GetComponent<PickupTriggerRelay>();
@@ -135,37 +149,39 @@ public class PickupObject : NetworkBehaviour
         var gm = GameManager.Instance;
         var hud = HUDManager.Instance;
 
-        if (gm == null)
-        {
-            DespawnNow();
-            return;
-        }
-
         bool gameOver = false;
         string finalMessage = customMessage;
+
+        // ✅ NEW: if this is a bomb, ALWAYS kill the bomb spotlight on server BEFORE despawn.
+        // (BombTrigger is on a child in your prefab, so use GetComponentInChildren.)
+        if (type == PickupType.Bomb)
+        {
+            var bt = GetComponentInChildren<BombTrigger>(true);
+            if (bt != null)
+                bt.ForceOff_Server();
+        }
 
         switch (type)
         {
             case PickupType.Heart:
-                gm.lives++;
+                if (gm != null) gm.lives++;
                 if (string.IsNullOrWhiteSpace(finalMessage))
                     finalMessage = "אספת לב! קיבלת חיים נוספים.";
                 break;
 
             case PickupType.Key:
-                gm.keys++;
+                if (gm != null) gm.keys++;
                 if (string.IsNullOrWhiteSpace(finalMessage))
                     finalMessage = "אספת מפתח!";
                 break;
 
             case PickupType.Lifebuoy:
-                gm.lifebuoys++;
+                if (gm != null) gm.lifebuoys++;
                 if (string.IsNullOrWhiteSpace(finalMessage))
                     finalMessage = "אספת מצוף הצלה!";
                 break;
 
             case PickupType.Bomb:
-                //gm.lives--;
                 if (string.IsNullOrWhiteSpace(finalMessage))
                     finalMessage = "דרכת על פצצה! איבדת לב.";
 
@@ -174,47 +190,47 @@ public class PickupObject : NetworkBehaviour
 
                 bool inTutorial = IsInTutorialContextOnServer();
 
-                if (inTutorial && pickedByTraveller)
+                if (gm != null)
                 {
-                    Vector3 pos = GetTutorialRespawnPos();
-                    Quaternion rot = GetTutorialRespawnRot();
-                    TryBombResetTeleportTo(playerNo, pos, rot);
+                    if (inTutorial && pickedByTraveller)
+                    {
+                        Vector3 pos = GetTutorialRespawnPos();
+                        Quaternion rot = GetTutorialRespawnRot();
+                        TryBombResetTeleportTo(playerNo, pos, rot);
 
-                    if(gm.lives <= 0) 
-                    {
-                        gm.lives = 1; // prevent death in tutorial
-                    }
-                }
-                else
-                {
-                    if(gm.lives <= 1)
-                    {
-                        gameOver = true;
+                        if (gm.lives <= 0)
+                            gm.lives = 1; // prevent death in tutorial
                     }
                     else
                     {
-                        gm.lives--;
+                        if (gm.lives <= 1)
+                        {
+                            gameOver = true;
+                        }
+                        else
+                        {
+                            gm.lives--;
+                        }
                     }
-                    // Optional: if you want bomb to "shake/teleport" even when not dead, keep this.
-                    // If you DON'T want any teleport unless dead, delete this block.
-                    // if (pickedByTraveller)
-                    //     TryBombResetTeleportTo(playerNo, new Vector3(1f, 1f, 1f), Quaternion.identity);
                 }
 
                 break;
         }
 
         // Mirror to all clients (your GameManager isn’t networked)
-        ApplyPickupClientRpc(
-            type,
-            finalMessage,
-            messageColor,
-            messageDuration,
-            gm.lives,
-            gm.keys,
-            gm.lifebuoys,
-            gameOver
-        );
+        if (gm != null)
+        {
+            ApplyPickupClientRpc(
+                type,
+                finalMessage,
+                messageColor,
+                messageDuration,
+                gm.lives,
+                gm.keys,
+                gm.lifebuoys,
+                gameOver
+            );
+        }
 
         DespawnNow();
     }

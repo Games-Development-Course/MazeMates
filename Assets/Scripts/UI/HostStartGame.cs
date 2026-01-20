@@ -47,7 +47,7 @@ public sealed class HostStartGame : MonoBehaviour
     [SerializeField] private int medLives = 2;
     [SerializeField] private int hardLives = 1;
 
-    private const int EASY_HINTS = 1;
+    private const int EASY_HINTS = 2;
     private const int MED_HINTS = 2;
     private const int HARD_HINTS = 4;
 

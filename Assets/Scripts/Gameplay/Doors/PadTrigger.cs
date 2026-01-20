@@ -1,4 +1,6 @@
-﻿// File: Assets/Scripts/Gameplay/Door/PadTrigger.cs (או איפה שהקובץ שלך יושב)
+﻿// Assets/Scripts/Gameplay/Door/PadTrigger.cs
+using System.Collections;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -7,7 +9,13 @@ public class PadTrigger : NetworkBehaviour
 {
     private DoorController controller;
 
-    // authoritative state on server, readable by everyone
+    [Header("Hint spotlight reminder (Puzzle only)")]
+    [SerializeField] private float hintReminderIntervalSeconds = 15f;   // כל כמה זמן לנסות להדליק שוב
+    [SerializeField] private float hintSpotlightPulseSeconds = 6f;      // כמה זמן הזרקור דולק כל פעם
+
+    private Coroutine hintLoopCo;
+    private bool puzzleActive;
+
     private readonly NetworkVariable<bool> playerOnPadNet = new(
         false,
         NetworkVariableReadPermission.Everyone,
@@ -28,30 +36,24 @@ public class PadTrigger : NetworkBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // IMPORTANT: only server sets state
-        if (!IsServer)
-            return;
-
-        if (!other.CompareTag("Player"))
-            return;
-
-        // We only care if the TRAVELLER is on pad (host player object).
-        if (!IsTravellerPlayerCollider(other))
-            return;
+        if (!IsServer) return;
+        if (!other.CompareTag("Player")) return;
+        if (!IsTravellerPlayerCollider(other)) return;
 
         EnsureController();
         playerOnPadNet.Value = true;
 
-        Debug.Log(
-            $"[PadTrigger][Server] Traveller ENTER pad | door={(controller != null ? controller.name : "NULL")} " +
-            $"isOpen={(controller != null && controller.IsOpen())}"
-        );
+        if (controller == null) return;
 
-        // tell traveller what to do (space prompt) - ONLY if door isn't open
-        if (controller != null && controller.IsOpen())
-            return;
+        Debug.Log($"[PadTrigger][Server] Traveller ENTER pad | door={controller.name} isOpen={controller.IsOpen()}");
 
-        // Only show messages if you allow space activation
+        // ✅ נוכחות על הפד (תמיד)
+        SetNavigatorPadPresenceTargetClientRpc(true, MakeAllNonServerClientsTargetParams());
+
+        // ✅ אם הדלת עדיין לא פתוחה – זרקור "פתח דלת" זמין (לפני שהתחילה חידה)
+        if (!controller.IsOpen())
+            SetNavigatorOpenDoorAvailableTargetClientRpc(true, MakeAllNonServerClientsTargetParams());
+
         if (!CanActivateDoorWithSpace())
             return;
 
@@ -60,23 +62,23 @@ public class PadTrigger : NetworkBehaviour
 
     private void OnTriggerExit(Collider other)
     {
-        // IMPORTANT: only server sets state
-        if (!IsServer)
-            return;
-
-        if (!other.CompareTag("Player"))
-            return;
-
-        if (!IsTravellerPlayerCollider(other))
-            return;
+        if (!IsServer) return;
+        if (!other.CompareTag("Player")) return;
+        if (!IsTravellerPlayerCollider(other)) return;
 
         EnsureController();
         playerOnPadNet.Value = false;
 
         Debug.Log($"[PadTrigger][Server] Traveller EXIT pad | door={(controller != null ? controller.name : "NULL")}");
 
-        // If leaving while puzzle open -> force close (server decides, but close is local puzzle UI)
-        // We'll keep your previous behavior but only execute it on everyone so traveller closes it.
+        // ✅ כיבוי נוכחות + הכל
+        SetNavigatorPadPresenceTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+        SetNavigatorOpenDoorAvailableTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+        SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+
+        StopHintLoop_Server();
+
+        // סגירת פאזל אם צריך
         if (controller != null && !controller.IsOpen())
         {
             var puzzle = controller.GetPuzzle();
@@ -85,11 +87,104 @@ public class PadTrigger : NetworkBehaviour
         }
     }
 
-    // Called by server to instruct traveller UI
+    // -------------------------------------------------------
+    // Called by DoorController when PUZZLE actually starts
+    // -------------------------------------------------------
+    public void NotifyPuzzleStarted_Server()
+    {
+        if (!IsServer) return;
+
+        EnsureController();
+        if (controller == null) return;
+
+        // ✅ רק מסתירים "פתח דלת", אבל המטייל עדיין על הפד!
+        SetNavigatorOpenDoorAvailableTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+
+        // ✅ מתחילים לולאת רמזים
+        StartHintLoop_Server();
+    }
+
+    // -------------------------------------------------------
+    // Called by DoorController when a normal/exit door opens
+    // -------------------------------------------------------
+    public void NotifyDoorActionStartedOrOpened_Server()
+    {
+        if (!IsServer) return;
+
+        // ✅ מסתירים "פתח דלת"
+        SetNavigatorOpenDoorAvailableTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+
+        // ✅ אם היה לנו רמזים רצים – מפסיקים
+        StopHintLoop_Server();
+    }
+
+    private void StartHintLoop_Server()
+    {
+        if (!IsServer) return;
+
+        EnsureController();
+        if (controller == null) return;
+        if (controller.doorType != DoorType.Puzzle) return;
+
+        StopHintLoop_Server();
+
+        puzzleActive = true;
+        hintLoopCo = StartCoroutine(HintLoop_Server());
+    }
+
+    private void StopHintLoop_Server()
+    {
+        puzzleActive = false;
+
+        if (hintLoopCo != null)
+        {
+            StopCoroutine(hintLoopCo);
+            hintLoopCo = null;
+        }
+
+        // ניקוי: לכבות זרקור רמז
+        SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+    }
+
+    private IEnumerator HintLoop_Server()
+    {
+        float nextPulseTime = Time.time + hintReminderIntervalSeconds;
+
+        while (puzzleActive)
+        {
+            while (puzzleActive && Time.time < nextPulseTime)
+                yield return null;
+
+            if (!puzzleActive) yield break;
+
+            nextPulseTime += hintReminderIntervalSeconds;
+
+            // חייב להיות עדיין על הפד
+            if (!playerOnPadNet.Value) continue;
+
+            EnsureController();
+            if (controller == null) continue;
+
+            // אם הדלת כבר פתוחה/נגמר – אין רמז
+            if (controller.IsOpen()) continue;
+
+            // חייבים עדיין רמזים
+            var gm = GameManager.Instance;
+            if (gm == null || gm.lifebuoys <= 0) continue;
+
+            // פולס ON ואז OFF
+            SetNavigatorHintSpotlightTargetClientRpc(true, MakeAllNonServerClientsTargetParams());
+            yield return new WaitForSeconds(hintSpotlightPulseSeconds);
+            SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+        }
+    }
+
+    // -------------------------------------------------------
+    // Traveller message
+    // -------------------------------------------------------
     private void ShowTravellerPadMessageServer()
     {
-        if (controller == null)
-            return;
+        if (controller == null) return;
 
         var gm = GameManager.Instance;
         string msg = null;
@@ -98,18 +193,12 @@ public class PadTrigger : NetworkBehaviour
         {
             case DoorType.Normal:
                 if (!controller.IsOpen())
-                {
-                msg = "בקש מחברך ללחוץ על 'פתח דלת'";
-                    break;
-                }
+                    msg = "בקש מחברך ללחוץ על 'פתח דלת'";
                 break;
 
             case DoorType.Puzzle:
                 if (!controller.IsOpen())
-                {
-                msg = $"בקש מחברך ללחוץ על 'פתח דלת' \nכדי להתחיל את החידה";
-                    break;
-                }
+                    msg = "בקש מחברך ללחוץ על 'פתח דלת' \nכדי להתחיל את החידה";
                 break;
 
             case DoorType.Exit:
@@ -126,25 +215,19 @@ public class PadTrigger : NetworkBehaviour
 
     private bool IsTravellerPlayerCollider(Collider other)
     {
-        // traveller is always host (ServerClientId)
         var no = other.GetComponentInParent<NetworkObject>();
         if (no == null || !no.IsSpawned || !no.IsPlayerObject)
             return false;
 
+        // אצלכם traveller הוא ה-host
         return no.OwnerClientId == NetworkManager.ServerClientId;
     }
 
-    public bool IsPlayerOnPad()
-    {
-        // Everyone can read the authoritative value
-        return playerOnPadNet.Value;
-    }
+    public bool IsPlayerOnPad() => playerOnPadNet.Value;
 
     public bool CanActivateDoorWithSpace()
     {
-        if (DoorPadToggle.Instance == null)
-            return true;
-
+        if (DoorPadToggle.Instance == null) return true;
         return DoorPadToggle.Instance.allowSpaceActivation;
     }
 
@@ -156,11 +239,46 @@ public class PadTrigger : NetworkBehaviour
         };
     }
 
+    private static ClientRpcParams MakeAllNonServerClientsTargetParams()
+    {
+        var nm = NetworkManager.Singleton;
+        var ids = nm.ConnectedClientsIds;
+
+        var list = new List<ulong>(ids.Count);
+        foreach (var id in ids)
+            if (id != NetworkManager.ServerClientId)
+                list.Add(id);
+
+        return new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams { TargetClientIds = list.ToArray() }
+        };
+    }
+
     [ClientRpc]
     private void SendTravellerMessageTargetClientRpc(string msg, ClientRpcParams rpcParams = default)
     {
-        // Runs only on the targeted client
         HUDManager.Instance?.ShowMessageForTraveller(msg);
+    }
+
+    // ✅ NEW: נוכחות על הפד
+    [ClientRpc]
+    private void SetNavigatorPadPresenceTargetClientRpc(bool onPad, ClientRpcParams rpcParams = default)
+    {
+        NavigatorSpotlights.I?.SetTravellerOnPad(onPad);
+    }
+
+    // ✅ NEW: זמינות זרקור "פתח דלת"
+    [ClientRpc]
+    private void SetNavigatorOpenDoorAvailableTargetClientRpc(bool available, ClientRpcParams rpcParams = default)
+    {
+        NavigatorSpotlights.I?.SetOpenDoorAvailable(available);
+    }
+
+    [ClientRpc]
+    private void SetNavigatorHintSpotlightTargetClientRpc(bool on, ClientRpcParams rpcParams = default)
+    {
+        NavigatorSpotlights.I?.SetHintReady(on);
     }
 
     [ClientRpc]

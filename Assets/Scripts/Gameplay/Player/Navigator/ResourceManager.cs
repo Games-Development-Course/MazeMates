@@ -112,6 +112,27 @@ public class ResourceManager : NetworkBehaviour
     // ============================================================
     // BOMB REMOVAL — SERVER LOGIC
     // ============================================================
+    [ClientRpc]
+    private void NavSetBombSpotlightClientRpc(bool on, ClientRpcParams rpcParams = default)
+    {
+        NavigatorSpotlights.I?.SetNearBomb(on);
+    }
+
+    private static ClientRpcParams MakeAllNonServerClientsTargetParams()
+    {
+        var nm = NetworkManager.Singleton;
+        var ids = nm.ConnectedClientsIds;
+
+        var list = new List<ulong>(ids.Count);
+        foreach (var id in ids)
+            if (id != NetworkManager.ServerClientId)
+                list.Add(id);
+
+        return new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams { TargetClientIds = list.ToArray() }
+        };
+    }
 
     private void ServerRemoveBomb()
     {
@@ -153,6 +174,7 @@ public class ResourceManager : NetworkBehaviour
         }
 
         Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, $"[SERVER] Removing bomb: {bombObj.name}");
+        NavSetBombSpotlightClientRpc(false, MakeAllNonServerClientsTargetParams());
 
         NetworkObject no = bombObj.GetComponent<NetworkObject>();
         if (no != null)
@@ -364,7 +386,10 @@ public class ResourceManager : NetworkBehaviour
 
         gm.activePuzzleDoor?.GetPuzzle()?.RevealRandomHint();
         RevealHintClientRpc();
-
+        if (gm != null && gm.activePuzzleDoor != null)
+        {
+            gm.activePuzzleDoor.ForceHideHintSpotlight_Server();
+        }
         gm.lifebuoys--;
         SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
     }

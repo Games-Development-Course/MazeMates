@@ -13,6 +13,12 @@ public class DoorController : NetworkBehaviour
     public float openAngle = 90f;
     public float openSpeed = 3f;
 
+
+
+    private Coroutine _hintReminderCo;
+    private bool _puzzleActiveServer;
+
+
     [Header("Pivot (Optional Override)")]
     [SerializeField] private Transform pivotOverride;
 
@@ -94,6 +100,22 @@ public class DoorController : NetworkBehaviour
         if (doorType == DoorType.Puzzle && navigatorPreview == null)
             navigatorPreview = ExtractPreviewFromPrefab();
     }
+ 
+
+    private void StopHintReminder_Server()
+    {
+        _puzzleActiveServer = false;
+
+        if (_hintReminderCo != null)
+        {
+            StopCoroutine(_hintReminderCo);
+            _hintReminderCo = null;
+        }
+
+        // נכבה רמז בניקיון
+        SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+    }
+
 
     // ---------------------------
     // Server API: set puzzle prefab + replicate
@@ -430,9 +452,18 @@ public class DoorController : NetworkBehaviour
         }
 
         float chosen = ChooseOpenAngleSign(openerWorldPos);
+        if (pad == null) pad = GetComponentInChildren<PadTrigger>(true);
+        if (pad != null)
+            pad.NotifyDoorActionStartedOrOpened_Server();
+
 
         StartCoroutine(OpenRoutine(chosen));
         OpenDoorRpc(chosen);
+    }
+    public void ForceHideHintSpotlight_Server()
+    {
+        if (!IsServer) return;
+        SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
     }
 
     [Rpc(SendTo.Everyone)]
@@ -537,6 +568,11 @@ public class DoorController : NetworkBehaviour
         if (!IsServer)
             return;
 
+        // ✅ כאן בדיוק:
+        if (pad == null) pad = GetComponentInChildren<PadTrigger>(true);
+        if (pad != null)
+            pad.NotifyPuzzleStarted_Server();   // יכבה את זרקור "פתח דלת" (ואם תרצה גם יתחיל טיימר רמז)
+
         EnsurePuzzleLoadedFromNet(puzzlePrefabPath.Value);
 
         if (navigatorPreview == null)
@@ -547,6 +583,7 @@ public class DoorController : NetworkBehaviour
 
         OpenPuzzleForTravellerClientRpc(NetworkObjectId);
     }
+
 
     [Rpc(SendTo.Everyone)]
     private void OpenPuzzleForTravellerClientRpc(ulong doorId)
@@ -597,5 +634,26 @@ public class DoorController : NetworkBehaviour
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[PUZZLE-RPC] Traveller owns this client — opening puzzle");
             door.GetPuzzle()?.TryOpen();
         }
+    }
+    private static ClientRpcParams MakeAllNonServerClientsTargetParams()
+    {
+        var nm = NetworkManager.Singleton;
+        var ids = nm.ConnectedClientsIds;
+
+        var list = new List<ulong>(ids.Count);
+        foreach (var id in ids)
+            if (id != NetworkManager.ServerClientId)
+                list.Add(id);
+
+        return new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams { TargetClientIds = list.ToArray() }
+        };
+    }
+
+    [ClientRpc]
+    private void SetNavigatorHintSpotlightTargetClientRpc(bool on, ClientRpcParams rpcParams = default)
+    {
+        NavigatorSpotlights.I?.SetHintReady(on);
     }
 }
