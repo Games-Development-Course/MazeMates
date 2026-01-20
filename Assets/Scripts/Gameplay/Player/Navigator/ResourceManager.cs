@@ -7,7 +7,8 @@ public class ResourceManager : NetworkBehaviour
     public static ResourceManager Instance;
 
     [Header("Bomb Settings")]
-    public float bombRemoveRange = 4f;
+    public int bombRemoveMaxSteps = 6;
+
 
     [Header("Prefabs")]
     public GameObject heartPrefab;
@@ -132,7 +133,17 @@ public class ResourceManager : NetworkBehaviour
         }
 
         Transform traveller = gm.traveller.transform;
-        GameObject bombObj = FindClosestBomb(traveller.position, bombRemoveRange);
+        var maze = Object.FindFirstObjectByType<MazeGenerator3D>();
+        Vector3 probe = traveller.position;
+
+        // להוריד לרצפה עם Raycast
+        if (Physics.Raycast(traveller.position + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 20f))
+        {
+            probe = hit.point;
+        }
+
+        // עכשיו עושים חיפוש לפי מיקום על הרצפה
+        GameObject bombObj = FindClosestBombByGridPath(maze, probe, bombRemoveMaxSteps);
 
         if (bombObj == null)
         {
@@ -164,6 +175,85 @@ public class ResourceManager : NetworkBehaviour
     // ------------------------------------------------------------
     // FIND CLOSEST BOMB
     // ------------------------------------------------------------
+    private GameObject FindClosestBombByGridPath(MazeGenerator3D maze, Vector3 travellerWorldPos, int maxSteps)
+    {
+        if (maze == null)
+        {
+            Debug.LogWarning("[SERVER] MazeGenerator3D not found.");
+            return null;
+        }
+
+        // 1) Start cell (walkable) for traveller
+        if (!maze.TryGetWalkCellFromWorld(travellerWorldPos, snapRadius: 6, out var travellerCell))
+        {
+            Debug.LogWarning("[SERVER] Traveller not on walkable cell (even after snap).");
+            return null;
+        }
+
+        // 2) BFS distances from traveller cell
+        var distMap = maze.GetDistancesFromCell(travellerCell);
+        if (distMap == null || distMap.Count == 0)
+        {
+            Debug.LogWarning("[SERVER] distMap empty.");
+            return null;
+        }
+
+        // 3) Collect bombs
+        var candidates = new List<GameObject>();
+        var seen = new HashSet<GameObject>();
+
+        GameObject[] tagged;
+        try { tagged = GameObject.FindGameObjectsWithTag("Bomb"); }
+        catch { tagged = System.Array.Empty<GameObject>(); }
+
+        foreach (var b in tagged)
+            if (b != null && seen.Add(b)) candidates.Add(b);
+
+        var pickups = FindObjectsByType<PickupObject>(FindObjectsSortMode.None);
+        foreach (var p in pickups)
+            if (p != null && p.type == PickupObject.PickupType.Bomb && seen.Add(p.gameObject))
+                candidates.Add(p.gameObject);
+
+        if (candidates.Count == 0)
+        {
+            Debug.LogWarning("[SERVER] No bomb candidates found (Tag=Bomb or PickupObject type=Bomb).");
+            return null;
+        }
+
+        // 4) Choose by shortest PATH distance (steps)
+        GameObject bestObj = null;
+        int bestSteps = int.MaxValue;
+        float bestEuclidSqr = float.PositiveInfinity;
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            var bomb = candidates[i];
+            if (bomb == null) continue;
+
+            // Snap bomb to nearest walkable cell (small radius is enough)
+            if (!maze.TryGetWalkCellFromWorld(bomb.transform.position, snapRadius: 2, out var bombCell))
+                continue; // bomb not on/near walkable cell -> ignore
+
+            if (!distMap.TryGetValue(bombCell, out int steps))
+                continue; // not reachable in grid
+
+            if (steps > maxSteps)
+                continue; // too far
+
+            float euclidSqr = (bomb.transform.position - travellerWorldPos).sqrMagnitude;
+
+            if (steps < bestSteps || (steps == bestSteps && euclidSqr < bestEuclidSqr))
+            {
+                bestSteps = steps;
+                bestEuclidSqr = euclidSqr;
+                bestObj = bomb;
+            }
+        }
+
+        Debug.Log($"[SERVER] Best bomb by PATH: {(bestObj ? bestObj.name : "NULL")} steps={bestSteps} max={maxSteps}");
+        return bestObj;
+    }
+
 
     private GameObject FindClosestBomb(Vector3 origin, float maxRange)
     {
@@ -334,6 +424,7 @@ public class ResourceManager : NetworkBehaviour
 
         HUDManager.Instance?.UpdateHUDs();
     }
+
 
     // ============================================================
     // RPC – SERVER → CLIENTS — HUD messages
