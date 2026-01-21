@@ -1749,7 +1749,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2030793351
+  GlobalObjectIdHash: 926584982
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1856,7 +1856,7 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings:
     - m_Name: 2DVector
-      m_Id: 8db0f30d-8ffd-43f0-8464-1c9a2be3f622
+      m_Id: f65ad49f-3581-4650-b313-b2652ac128dd
       m_Path: 2DVector
       m_Interactions: 
       m_Processors: 
@@ -1864,7 +1864,7 @@ MonoBehaviour:
       m_Action: Move
       m_Flags: 4
     - m_Name: Up
-      m_Id: c0114968-4806-4cdd-b0dd-97f79f48153b
+      m_Id: af23d894-9497-47c1-98b9-5d0757a4ec6a
       m_Path: <Keyboard>/upArrow
       m_Interactions: 
       m_Processors: 
@@ -1872,7 +1872,7 @@ MonoBehaviour:
       m_Action: Move
       m_Flags: 8
     - m_Name: Down
-      m_Id: 5b238730-31f8-4210-a592-efd4e9baa5be
+      m_Id: c228939e-537f-4896-81b8-6445a7955832
       m_Path: <Keyboard>/downArrow
       m_Interactions: 
       m_Processors: 
@@ -1880,7 +1880,7 @@ MonoBehaviour:
       m_Action: Move
       m_Flags: 8
     - m_Name: Left
-      m_Id: 2d349835-3043-4cd6-9cd5-ada711373a7a
+      m_Id: d781ff1d-af51-4b9a-8208-0ca25cdb6d62
       m_Path: <Keyboard>/leftArrow
       m_Interactions: 
       m_Processors: 
@@ -1888,8 +1888,48 @@ MonoBehaviour:
       m_Action: Move
       m_Flags: 8
     - m_Name: Right
-      m_Id: 138f2404-f9f2-4b85-8d52-bbfd0e20b305
+      m_Id: 2dfb5f6e-c3a5-49d8-8f3f-0aad412cf7c0
       m_Path: <Keyboard>/rightArrow
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: 2DVector
+      m_Id: 1829e180-984f-47cf-a989-f1b9b96c0a2e
+      m_Path: 2DVector
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 4
+    - m_Name: Up
+      m_Id: e4c4e240-e3fa-4813-9348-7c2e01f6a0d9
+      m_Path: <Keyboard>/w
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: Down
+      m_Id: 508b3a23-dc37-4269-9b9f-836adc99bbba
+      m_Path: <Keyboard>/s
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: Left
+      m_Id: 85c0afe6-1383-492d-8677-7b89c8606709
+      m_Path: <Keyboard>/a
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Move
+      m_Flags: 8
+    - m_Name: Right
+      m_Id: cc07ff83-b868-4ac6-9664-7265a8344231
+      m_Path: <Keyboard>/d
       m_Interactions: 
       m_Processors: 
       m_Groups: 

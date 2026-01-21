@@ -59,9 +59,9 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField] private float groundedStick = -2f;
 
     // =========================
-    // Input (Arrow Keys Only)
+    // Input (Arrow Keys + WASD)
     // =========================
-    [Header("Input (Arrow Keys Only)")]
+    [Header("Input (Arrow Keys + WASD)")]
     [SerializeField] private InputAction moveAction;
 
     // =========================
@@ -95,14 +95,24 @@ public class PlayerMovement : NetworkBehaviour
         if (moveAction == null)
             moveAction = new InputAction(type: InputActionType.Value);
 
+        // ✅ Rebuild bindings if empty (supports BOTH arrows and WASD)
         if (moveAction.bindings.Count == 0)
         {
+            // Arrows
             moveAction
                 .AddCompositeBinding("2DVector")
                 .With("Up", "<Keyboard>/upArrow")
                 .With("Down", "<Keyboard>/downArrow")
                 .With("Left", "<Keyboard>/leftArrow")
                 .With("Right", "<Keyboard>/rightArrow");
+
+            // WASD
+            moveAction
+                .AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/w")
+                .With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a")
+                .With("Right", "<Keyboard>/d");
         }
 
         maxSpeed = Mathf.Max(0f, maxSpeed);
@@ -256,7 +266,7 @@ public class PlayerMovement : NetworkBehaviour
         }
 
         // =========================
-        // INPUT (ARROWS ONLY)
+        // INPUT (ARROWS + WASD)
         // =========================
         Vector2 input = moveAction.ReadValue<Vector2>();
         float turnInput = Mathf.Clamp(input.x, -1f, 1f);
@@ -423,8 +433,8 @@ public class PlayerMovement : NetworkBehaviour
         StopAllCoroutines();
         StartCoroutine(BombResetRoutine(worldPos, worldRot, preDelay));
     }
-    public PlayerRole Role => role;
 
+    public PlayerRole Role => role;
 
     private IEnumerator BombResetRoutine(
         Vector3 pos,
@@ -450,7 +460,6 @@ public class PlayerMovement : NetworkBehaviour
         yield return new WaitForSeconds(0.05f);
         SetFrozen(false);
     }
-
 
     [ServerRpc(RequireOwnership = false)]
     private void ConfirmTeleportServerRpc(Vector3 pos, Quaternion rot)
