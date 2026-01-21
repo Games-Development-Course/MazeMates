@@ -6909,7 +6909,7 @@ Camera:
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 22784
+    m_Bits: 6400
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 8400000, guid: 05991a8855b30364b9814e1c127541cc, type: 2}
   m_TargetDisplay: 2
@@ -8159,7 +8159,7 @@ MonoBehaviour:
   background: {r: 0, g: 0, b: 0, a: 1}
   cullingMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 6400
 --- !u!23 &1939916033
 MeshRenderer:
   m_ObjectHideFlags: 0
