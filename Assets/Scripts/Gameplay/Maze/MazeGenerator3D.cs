@@ -446,7 +446,7 @@
                     if (x == forcedExitWallCell.x && y == forcedExitWallCell.y)
                         continue;
 
-                    Vector3 worldPos = CellCenterWorld(x, y, 1.5f);
+                    Vector3 worldPos = CellCenterWorld(x, y, 1.75f);
                     GameObject wall = Instantiate(wallPrefab, worldPos, Quaternion.identity, wallsRoot);
 
                     SetLayerRecursive(wall, wallsLayer);

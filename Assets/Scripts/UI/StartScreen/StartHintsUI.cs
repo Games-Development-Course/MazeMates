@@ -9,14 +9,12 @@ public class StartHintsUI : MonoBehaviour
     {
         if (!hintsToggle) return;
 
-        // ברירת מחדל
         bool defaultValue = true;
 
-        // אם כבר יש GameConfigNet
         if (GameConfigNet.Instance != null)
             defaultValue = GameConfigNet.Instance.ShowHints.Value;
 
-        hintsToggle.isOn = defaultValue;
+        hintsToggle.SetIsOnWithoutNotify(defaultValue);
         hintsToggle.onValueChanged.AddListener(OnHintsChanged);
     }
 
@@ -24,8 +22,7 @@ public class StartHintsUI : MonoBehaviour
     {
         if (GameConfigNet.Instance == null) return;
 
-        // אם זה רץ על Host/Server – אפשר ישירות
-        // אם זה Client – עדיף ServerRpc (ראה סעיף 2)
         GameConfigNet.Instance.SetShowHintsServerRpc(showHints);
+        // לא צריך פה להתעסק עם HUD בכלל — הוא יתעדכן לבד דרך OnValueChanged
     }
 }

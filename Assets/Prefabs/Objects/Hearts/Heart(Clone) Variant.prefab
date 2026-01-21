@@ -267,7 +267,7 @@ Transform:
   m_GameObject: {fileID: 8215813411732749290}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0.42013824, z: 0, w: 0.90746015}
-  m_LocalPosition: {x: 9, y: 0.3, z: 7}
+  m_LocalPosition: {x: 9, y: 0.6, z: 7}
   m_LocalScale: {x: 0.03, y: 0.03600001, z: 0.04}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -320,6 +320,9 @@ MonoBehaviour:
   messageColor: {r: 1, g: 0, b: 0, a: 1}
   messageFont: {fileID: 0}
   messageDuration: 1.5
+  ignoreRelayLayers:
+    serializedVersion: 2
+    m_Bits: 0
   bombPreTeleportDelay: 0.25
   bombRedSeconds: 0.15
   bombFadeOut: 0.25

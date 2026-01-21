@@ -239,6 +239,15 @@ public static class ResourcePlacement
 
             Vector3 pos = CellCenterWorld(it.cell, cellSize, parent, yOffset);
             GameObject go = Object.Instantiate(active[it.typeId].prefab, pos, Quaternion.identity, parent);
+            var pickup = go.GetComponent<PickupObject>();
+            if (pickup != null &&
+                (pickup.type == PickupObject.PickupType.Heart ||
+                 pickup.type == PickupObject.PickupType.Bomb))
+            {
+                var p = go.transform.position;
+                p.y += 0.5f;
+                go.transform.position = p;
+            }
 
             var netObj = go.GetComponent<NetworkObject>();
             if (netObj != null) netObj.Spawn();

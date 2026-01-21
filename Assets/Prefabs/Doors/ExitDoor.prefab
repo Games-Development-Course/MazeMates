@@ -157,6 +157,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PadTrigger
   ShowTopMostFoldoutHeaderGroup: 1
+  hintReminderIntervalSeconds: 15
+  hintSpotlightPulseSeconds: 6
 --- !u!1 &6154145809417291412
 GameObject:
   m_ObjectHideFlags: 0
@@ -186,8 +188,8 @@ Transform:
   m_GameObject: {fileID: 6154145809417291412}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.25, z: 0}
-  m_LocalScale: {x: 1, y: 2.5, z: 0.15}
+  m_LocalPosition: {x: 0, y: 1.458, z: 0}
+  m_LocalScale: {x: 1, y: 2.916, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4969297612110735611}
@@ -422,11 +424,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5453459274213243752, guid: 2c2c4d3043d70904d8c19e48e93e804a, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.05333335
+      value: 0.04572475
       objectReference: {fileID: 0}
     - target: {fileID: 5453459274213243752, guid: 2c2c4d3043d70904d8c19e48e93e804a, type: 3}
       propertyPath: m_LocalScale.z
-      value: 17.777773
+      value: 17.777771
       objectReference: {fileID: 0}
     - target: {fileID: 5453459274213243752, guid: 2c2c4d3043d70904d8c19e48e93e804a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -434,7 +436,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5453459274213243752, guid: 2c2c4d3043d70904d8c19e48e93e804a, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.11933327
+      value: 0.030978475
       objectReference: {fileID: 0}
     - target: {fileID: 5453459274213243752, guid: 2c2c4d3043d70904d8c19e48e93e804a, type: 3}
       propertyPath: m_LocalPosition.z
