@@ -251,76 +251,7 @@ public class ResourceManager : NetworkBehaviour
         };
     }
 
-    private void ServerRemoveBomb()
-    {
-        Debug.Log($"[SERVER][BOMBDBG] ServerRemoveBomb frame={Time.frameCount} time={Time.time:F3}");
-
-        GameManager gm = GameManager.Instance;
-        if (gm == null || gm.traveller == null)
-        {
-            Debug.LogWarning("[SERVER] Traveller missing");
-            NavNoTravellerRpc();
-            return;
-        }
-
-        if (gm.BombRemovals <= 0)
-        {
-            Debug.LogWarning("[SERVER] No BombRemovals left");
-            NavNoBombAttemptsRpc();
-            return;
-        }
-
-        var maze = Object.FindFirstObjectByType<MazeGenerator3D>();
-        if (maze == null)
-        {
-            Debug.LogWarning("[SERVER] MazeGenerator3D not found");
-            NavNoBombFoundRpc();
-            return;
-        }
-
-        // ✅ במקום gm.traveller.transform ישר:
-        Transform travellerTr = ResolveTravellerTransformServer(maze, gm);
-        if (travellerTr == null)
-        {
-            Debug.LogWarning("[SERVER][BOMBDBG] travellerTr NULL even after resolve");
-            NavNoTravellerRpc();
-            return;
-        }
-
-        Vector3 travellerPos = travellerTr.position;
-
-        // probe לרצפה (אופציונלי)
-        Vector3 probe = travellerPos;
-        bool hitFloor = Physics.Raycast(travellerPos + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 30f);
-        if (hitFloor) probe = hit.point;
-
-        Debug.Log($"[SERVER][BOMBDBG] travellerTr='{travellerTr.name}' travellerPos={travellerPos} probe={probe} hitFloor={hitFloor}");
-        GameObject bombObj = FindClosestBombByGridPath(maze, travellerPos, probe);
-
-
-        if (bombObj == null)
-        {
-            Debug.LogWarning("[SERVER] No bomb found near traveller");
-            NavNoBombFoundRpc();
-            return;
-        }
-
-        Debug.Log($"[SERVER][BOMBDBG] REMOVING bomb='{bombObj.name}' id={bombObj.GetInstanceID()} pos={bombObj.transform.position}");
-        NavSetBombSpotlightClientRpc(false, MakeAllNonServerClientsTargetParams());
-
-        NetworkObject no = bombObj.GetComponent<NetworkObject>();
-        if (no != null)
-            no.Despawn(true);
-        else
-            Destroy(bombObj);
-
-        gm.BombRemovals--;
-        SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
-
-        var tm = EnsureTutorial();
-        if (tm != null)
-            tm.NotifyNavigatorRemovedBomb();
-    }
+  
 
     // ✅ World -> Cell that RESPECTS maze transform (position + rotation)
     private static Vector2Int WorldToCell_TransformAware(MazeGenerator3D maze, Vector3 worldPos)
@@ -335,8 +266,14 @@ public class ResourceManager : NetworkBehaviour
     // ------------------------------------------------------------
     // FIND CLOSEST BOMB BY GRID PATH
     // ------------------------------------------------------------
-    private GameObject FindClosestBombByGridPath(MazeGenerator3D maze, Vector3 travellerWorldPos, Vector3 travellerProbePos)
+    private GameObject FindClosestBombByGridPath(
+     MazeGenerator3D maze,
+     Vector3 travellerWorldPos,
+     Vector3 travellerProbePos,
+     out int pickedSteps)
     {
+        pickedSteps = int.MaxValue;
+
         float cs = maze.CellSize;
 
         // Traveller cell: נעדיף probe אם הוא הגיוני, אחרת travellerWorldPos
@@ -430,6 +367,7 @@ public class ResourceManager : NetworkBehaviour
 
         Debug.Log($"[SERVER][BOMBDBG] PICK best='{(bestObj ? bestObj.name : "NULL")}' id={(bestObj ? bestObj.GetInstanceID() : 0)} steps={bestSteps} euclid={Mathf.Sqrt(bestEuclidSqr):F2}");
 
+        pickedSteps = bestSteps;
         return bestObj;
     }
     private Transform ResolveTravellerTransformServer(MazeGenerator3D maze, GameManager gm)
@@ -617,6 +555,87 @@ public class ResourceManager : NetworkBehaviour
         gm.lifebuoys--;
         SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
     }
+    private void ServerRemoveBomb()
+    {
+        Debug.Log($"[SERVER][BOMBDBG] ServerRemoveBomb frame={Time.frameCount} time={Time.time:F3}");
+
+        GameManager gm = GameManager.Instance;
+        if (gm == null || gm.traveller == null)
+        {
+            Debug.LogWarning("[SERVER] Traveller missing");
+            NavNoTravellerRpc();
+            return;
+        }
+
+        if (gm.BombRemovals <= 0)
+        {
+            Debug.LogWarning("[SERVER] No BombRemovals left");
+            NavNoBombAttemptsRpc();
+            return;
+        }
+
+        var maze = Object.FindFirstObjectByType<MazeGenerator3D>();
+        if (maze == null)
+        {
+            Debug.LogWarning("[SERVER] MazeGenerator3D not found");
+            NavNoBombFoundRpc();
+            return;
+        }
+
+        // ✅ במקום gm.traveller.transform ישר:
+        Transform travellerTr = ResolveTravellerTransformServer(maze, gm);
+        if (travellerTr == null)
+        {
+            Debug.LogWarning("[SERVER][BOMBDBG] travellerTr NULL even after resolve");
+            NavNoTravellerRpc();
+            return;
+        }
+
+        Vector3 travellerPos = travellerTr.position;
+
+        // probe לרצפה (אופציונלי)
+        Vector3 probe = travellerPos;
+        bool hitFloor = Physics.Raycast(travellerPos + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 30f);
+        if (hitFloor) probe = hit.point;
+
+        Debug.Log($"[SERVER][BOMBDBG] travellerTr='{travellerTr.name}' travellerPos={travellerPos} probe={probe} hitFloor={hitFloor}");
+
+        int pickedSteps;
+        GameObject bombObj = FindClosestBombByGridPath(maze, travellerPos, probe, out pickedSteps);
+
+        if (bombObj == null)
+        {
+            Debug.LogWarning("[SERVER] No bomb found near traveller");
+            NavNoBombFoundRpc();
+            return;
+        }
+
+        // ✅ MAX STEPS LIMIT
+        if (pickedSteps > maxBombRemoveSteps)
+        {
+            Debug.LogWarning($"[SERVER][BOMBDBG] DENY remove: steps={pickedSteps} > max={maxBombRemoveSteps}");
+            // אם אין לך RPC ייעודי, אפשר להשאיר את זה ככה (רק לא להסיר).
+            // אם תרצה הודעה נפרדת ב-HUD לנווט, תגיד לי איך אתה מציג הודעות ואני אתן RPC קטן.
+            return;
+        }
+
+        Debug.Log($"[SERVER][BOMBDBG] REMOVING bomb='{bombObj.name}' id={bombObj.GetInstanceID()} steps={pickedSteps} pos={bombObj.transform.position}");
+        NavSetBombSpotlightClientRpc(false, MakeAllNonServerClientsTargetParams());
+
+        NetworkObject no = bombObj.GetComponent<NetworkObject>();
+        if (no != null)
+            no.Despawn(true);
+        else
+            Destroy(bombObj);
+
+        gm.BombRemovals--;
+        SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);
+
+        var tm = EnsureTutorial();
+        if (tm != null)
+            tm.NotifyNavigatorRemovedBomb();
+    }
+
 
     // ============================================================
     // RPC – CLIENT → SERVER
