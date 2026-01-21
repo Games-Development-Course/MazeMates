@@ -388,7 +388,13 @@ public class ResourceManager : NetworkBehaviour
         RevealHintClientRpc();
         if (gm != null && gm.activePuzzleDoor != null)
         {
-            gm.activePuzzleDoor.ForceHideHintSpotlight_Server();
+            if (gm != null && gm.activePuzzleDoor != null)
+            {
+                var pad = gm.activePuzzleDoor.GetComponentInChildren<PadTrigger>(true);
+                if (pad != null)
+                    pad.NotifyHintUsed_Server();
+            }
+
         }
         gm.lifebuoys--;
         SyncResourceCountsRpc(gm.lifebuoys, gm.HeartPlacements, gm.BombRemovals);

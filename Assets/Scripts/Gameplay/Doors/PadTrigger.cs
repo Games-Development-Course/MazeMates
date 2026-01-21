@@ -12,9 +12,12 @@ public class PadTrigger : NetworkBehaviour
     [Header("Hint spotlight reminder (Puzzle only)")]
     [SerializeField] private float hintReminderIntervalSeconds = 15f;   // כל כמה זמן לנסות להדליק שוב
     [SerializeField] private float hintSpotlightPulseSeconds = 6f;      // כמה זמן הזרקור דולק כל פעם
+    private float nextPulseTimeServer = -1f;
 
     private Coroutine hintLoopCo;
     private bool puzzleActive;
+    private bool cancelCurrentPulse;
+
 
     private readonly NetworkVariable<bool> playerOnPadNet = new(
         false,
@@ -129,12 +132,20 @@ public class PadTrigger : NetworkBehaviour
         StopHintLoop_Server();
 
         puzzleActive = true;
+
+        // ✅ הפולס הראשון יהיה עוד X שניות מרגע תחילת החידה
+        nextPulseTimeServer = Time.time + hintReminderIntervalSeconds;
+
         hintLoopCo = StartCoroutine(HintLoop_Server());
     }
+
 
     private void StopHintLoop_Server()
     {
         puzzleActive = false;
+
+        // ✅ אם היינו באמצע Pulse ארוך — לבטל אותו
+        cancelCurrentPulse = true;
 
         if (hintLoopCo != null)
         {
@@ -146,38 +157,61 @@ public class PadTrigger : NetworkBehaviour
         SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
     }
 
+
     private IEnumerator HintLoop_Server()
     {
-        float nextPulseTime = Time.time + hintReminderIntervalSeconds;
-
         while (puzzleActive)
         {
-            while (puzzleActive && Time.time < nextPulseTime)
+            // מחכים עד הזמן הבא
+            while (puzzleActive && Time.time < nextPulseTimeServer)
                 yield return null;
 
             if (!puzzleActive) yield break;
 
-            nextPulseTime += hintReminderIntervalSeconds;
+            // קובעים כבר עכשיו את הפולס הבא
+            nextPulseTimeServer = Time.time + hintReminderIntervalSeconds;
 
-            // חייב להיות עדיין על הפד
+            // תנאים
             if (!playerOnPadNet.Value) continue;
 
             EnsureController();
             if (controller == null) continue;
 
-            // אם הדלת כבר פתוחה/נגמר – אין רמז
             if (controller.IsOpen()) continue;
 
-            // חייבים עדיין רמזים
             var gm = GameManager.Instance;
             if (gm == null || gm.lifebuoys <= 0) continue;
 
-            // פולס ON ואז OFF
+            // ✅ פולס ON ואז OFF (עם אפשרות ביטול אם השתמשו ברמז באמצע)
+            cancelCurrentPulse = false;
+
             SetNavigatorHintSpotlightTargetClientRpc(true, MakeAllNonServerClientsTargetParams());
-            yield return new WaitForSeconds(hintSpotlightPulseSeconds);
+
+            float endTime = Time.time + hintSpotlightPulseSeconds;
+            while (puzzleActive && !cancelCurrentPulse && Time.time < endTime)
+                yield return null;
+
             SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
         }
     }
+
+    // ✅ לקרוא לזה כשהנווט השתמש ברמז
+    public void NotifyHintUsed_Server()
+    {
+        if (!IsServer) return;
+        if (!puzzleActive) return;
+
+        // ✅ אם יש Pulse פעיל כרגע — לבטל את ההמתנה הארוכה שלו
+        cancelCurrentPulse = true;
+
+        // כבה מיד
+        SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+
+        // ✅ תדליק שוב עוד X שניות *מהשימוש*, לא מהפולס הקודם
+        nextPulseTimeServer = Time.time + hintReminderIntervalSeconds;
+    }
+
+
 
     // -------------------------------------------------------
     // Traveller message
