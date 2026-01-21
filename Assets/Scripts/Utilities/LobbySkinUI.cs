@@ -106,7 +106,7 @@ public sealed class LobbySkinUI : MonoBehaviour
 
         // Client = Traveller = שחקן 1
         // Host   = Navigator = שחקן 2
-        return nm.IsServer ? "שחקן 2" : "שחקן 1";
+        return NetworkManager.Singleton.IsServer ? "שחקן 1" : "שחקן 2";
     }
 
     private static bool ContainsHebrew(string s)

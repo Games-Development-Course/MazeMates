@@ -423,6 +423,8 @@ public class PlayerMovement : NetworkBehaviour
         StopAllCoroutines();
         StartCoroutine(BombResetRoutine(worldPos, worldRot, preDelay));
     }
+    public PlayerRole Role => role;
+
 
     private IEnumerator BombResetRoutine(
         Vector3 pos,
@@ -448,6 +450,7 @@ public class PlayerMovement : NetworkBehaviour
         yield return new WaitForSeconds(0.05f);
         SetFrozen(false);
     }
+
 
     [ServerRpc(RequireOwnership = false)]
     private void ConfirmTeleportServerRpc(Vector3 pos, Quaternion rot)

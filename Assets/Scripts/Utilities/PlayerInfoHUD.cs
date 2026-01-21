@@ -7,10 +7,8 @@ public sealed class PlayerInfoHUD : MonoBehaviour
 {
     [SerializeField] private TMP_Text infoText;
 
-    private const char LTR = '\u202A'; // Left-To-Right Embedding
-    private const char RTL = '\u202B'; // Right-To-Left Embedding
-    private const char POP = '\u202C'; // Pop directional formatting
-
+    private const char LTR = '\u202A';
+    private const char POP = '\u202C';
 
     private void Start()
     {
@@ -43,27 +41,24 @@ public sealed class PlayerInfoHUD : MonoBehaviour
 
     private void OnChanged(FixedString32Bytes _, FixedString32Bytes __) => Refresh();
 
-
-
     private void Refresh()
     {
         var nm = NetworkManager.Singleton;
         var cfg = GameConfigNet.Instance;
         if (nm == null || cfg == null || infoText == null) return;
 
-        bool isHost = nm.LocalClientId == NetworkManager.ServerClientId;
+        // ✅ אצלך: Host=מטייל, Client=נווט
+        bool iAmHost = nm.IsServer;
 
-        string rawName = isHost
+        string rawName = iAmHost
             ? cfg.HostName.Value.ToString()
             : cfg.ClientName.Value.ToString();
 
         if (string.IsNullOrWhiteSpace(rawName))
             rawName = "שחקן";
 
-        string role = isHost ? "נווט" : "מטייל";
+        string role = iAmHost ? "מטייל" : "נווט";
 
-        // 👉 אם יש עברית – לא נוגעים
-        // 👉 אם אין עברית – עוטפים ב-LTR
         string nameForUI = ContainsHebrew(rawName)
             ? rawName
             : $"{LTR}{rawName}{POP}";
@@ -73,10 +68,8 @@ public sealed class PlayerInfoHUD : MonoBehaviour
             $"תפקיד: {role}";
     }
 
-
     private static bool ContainsHebrew(string s)
     {
-        // טווח יוניקוד עברי: 0590–05FF
         for (int i = 0; i < s.Length; i++)
         {
             char c = s[i];
