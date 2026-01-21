@@ -182,6 +182,7 @@ public sealed class PlayerSpawnManager : MonoBehaviour
 
         sceneSpawnsReady = true;
         SpawnOrMoveAllPlayers();
+
     }
 
     // -------------------------------------------------
@@ -256,6 +257,29 @@ public sealed class PlayerSpawnManager : MonoBehaviour
     // -------------------------------------------------
     // Spawn / Teleport
     // -------------------------------------------------
+    private void RegisterPlayersInGameManager(ulong travellerId, ulong? navigatorId)
+    {
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer) return;
+
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+
+        if (nm.ConnectedClients.TryGetValue(travellerId, out var tClient) && tClient.PlayerObject != null)
+            gm.traveller = tClient.PlayerObject.gameObject;
+
+        if (navigatorId.HasValue &&
+            nm.ConnectedClients.TryGetValue(navigatorId.Value, out var nClient) &&
+            nClient.PlayerObject != null)
+        {
+            gm.navigator = nClient.PlayerObject.gameObject;
+        }
+
+        // דיבאג שמוכיח שהשרת באמת רואה מיקום נכון (לא (0,0,0))
+        var tPos = gm.traveller ? gm.traveller.transform.position : Vector3.zero;
+        var nPos = gm.navigator ? gm.navigator.transform.position : Vector3.zero;
+        Debug.Log($"[SPAWN] RegisterPlayersInGameManager | traveller={(gm.traveller ? gm.traveller.name : "NULL")} pos={tPos} | navigator={(gm.navigator ? gm.navigator.name : "NULL")} pos={nPos}");
+    }
 
     private void SpawnOrMoveAllPlayers()
     {
@@ -275,6 +299,11 @@ public sealed class PlayerSpawnManager : MonoBehaviour
 
         if (hasNavigator && ids.Contains(navigatorId))
             EnsurePlayer(navigatorId, navigatorPrefab, navigatorSpawn, false);
+
+
+        RegisterPlayersInGameManager(travellerId, hasNavigator ? navigatorId : (ulong?)null);   
+
+
     }
 
     private void EnsureOnlyThisClient(ulong clientId)

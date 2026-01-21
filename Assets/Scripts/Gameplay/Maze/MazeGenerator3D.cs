@@ -119,16 +119,19 @@
             return transform.TransformPoint(CellCenterLocal(x, y, localY));
         }
 
-        private Vector2Int WorldToCell(Vector3 worldPos)
-        {
-            Vector3 local = transform.InverseTransformPoint(worldPos);
-        int cx = Mathf.Clamp(Mathf.RoundToInt((local.x / cellSize) - 0.5f), 0, width - 1);
-        int cy = Mathf.Clamp(Mathf.RoundToInt((local.z / cellSize) - 0.5f), 0, height - 1);
+    private Vector2Int WorldToCell(Vector3 worldPos)
+    {
+        Vector3 local = transform.InverseTransformPoint(worldPos);
+
+        // ✅ יציב ודטרמיניסטי: FLOOR (לא RoundToInt ולא -0.5)
+        int cx = Mathf.Clamp(Mathf.FloorToInt(local.x / cellSize), 0, width - 1);
+        int cy = Mathf.Clamp(Mathf.FloorToInt(local.z / cellSize), 0, height - 1);
 
         return new Vector2Int(cx, cy);
-        }
+    }
 
-        private void Start()
+
+    private void Start()
         {
             // תמיד למשוך קונפיג (גם בקליינט)
             PullConfigIfExists();
@@ -1110,6 +1113,21 @@
             path.Reverse();
             return path;
         }
+
+    public Bounds GetCellWorldBounds(Vector2Int c, float yCenter = 0f, float ySize = 10f)
+    {
+        float cs = cellSize;
+
+        // מרכז התא בעולם (XZ), Y לפי yCenter
+        Vector3 center = transform.TransformPoint(
+            new Vector3((c.x + 0.5f) * cs, yCenter, (c.y + 0.5f) * cs)
+        );
+
+        // גודל התא: cs x ySize x cs
+        Vector3 size = new Vector3(cs, ySize, cs);
+        return new Bounds(center, size);
+    }
+
     public bool TryGetWalkCellFromWorld(Vector3 worldPos, int snapRadius, out Vector2Int cell)
     {
         cell = WorldToCell(worldPos);

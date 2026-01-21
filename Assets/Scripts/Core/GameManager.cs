@@ -15,6 +15,7 @@ public class GameManager : MonoBehaviour
     [HideInInspector] public PlayerCamera1P travellerCam;
     [HideInInspector] public PlayerCamera1P navigatorCam;
 
+
     public int lives = 3;
     public int keys = 0;
     public bool inPuzzle = false;
@@ -36,6 +37,11 @@ public class GameManager : MonoBehaviour
 
    private void Start()
     {
+        Debug.Log($"[GM][TRAVELLER-ASSIGN] traveller='{traveller?.name}' pos={traveller?.transform.position} " +
+          $"netId={(traveller ? traveller.GetComponent<NetworkObject>()?.NetworkObjectId : 0)} " +
+          $"owner={(traveller ? traveller.GetComponent<NetworkObject>()?.OwnerClientId : 0)} " +
+          $"isSpawned={(traveller ? traveller.GetComponent<NetworkObject>()?.IsSpawned : false)}");
+
         HUDManager.Instance?.UpdateHUD();
         ApplyConfigFromNetwork();
         BindConfigListeners();   // <-- הוסף
