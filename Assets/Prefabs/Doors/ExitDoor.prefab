@@ -1313,6 +1313,8 @@ MonoBehaviour:
   doorType: 2
   openAngle: 90
   openSpeed: 2
+  doorCollider: {fileID: 6920401791398003695}
+  doorPadCollider: {fileID: 4351806728093364951}
   pivotOverride: {fileID: 0}
   exitCinematicSpinTarget: {fileID: 4276358029880512215}
   exitDoorPivotOverride: {fileID: 6533422190067134996}
@@ -1358,4 +1360,4 @@ BoxCollider:
   m_Enabled: 1
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 0.043310285}
-  m_Center: {x: 0, y: 0.5, z: -0.35}
+  m_Center: {x: 0, y: 0.5, z: -0.12}

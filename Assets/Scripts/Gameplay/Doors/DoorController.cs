@@ -16,12 +16,15 @@ public class DoorController : NetworkBehaviour
     private Coroutine _hintReminderCo;
     private bool _puzzleActiveServer;
 
+    [Header("Disable On Open")]
+    [SerializeField] private Collider doorCollider;      // הקוליידר של הדלת
+    [SerializeField] private Collider doorPadCollider;   // הקוליידר של הפד (אם יש)
+
     [Header("Pivot (Optional Override)")]
     [SerializeField] private Transform pivotOverride;
 
     // ============================================================
     // EXIT DOOR (CINEMATIC) — ONLY USED WHEN doorType == Exit
-    // (UNCHANGED - per your request)
     // ============================================================
     [Header("Exit Door (Cinematic)")]
     [SerializeField] private Transform exitCinematicSpinTarget;
@@ -49,10 +52,7 @@ public class DoorController : NetworkBehaviour
     private IDoor door;
 
     // --- Closed rotation caches ---
-    // Local (used by Exit logic - keep as-is)
     private Quaternion _closedPivotLocalRot;
-
-    // World (used by NORMAL door logic to guarantee Y-world rotation)
     private Quaternion _closedPivotWorldRot;
     private bool _closedPivotCached;
 
@@ -72,6 +72,12 @@ public class DoorController : NetworkBehaviour
     // Prevent multiple open coroutines fighting each other (NORMAL doors only)
     private Coroutine _normalOpenCo;
 
+    // ============================================================
+    // DISABLE / STATE
+    // ============================================================
+    private bool _interactionDisabled;
+    private bool _padDisabled;
+
     private void Awake()
     {
         // Intentionally empty (TV handled elsewhere)
@@ -88,9 +94,8 @@ public class DoorController : NetworkBehaviour
 
         pad = GetComponentInChildren<PadTrigger>();
 
-        if (pivot == null)
-            FindOrCreatePivot();
-
+        // ✅ IMPORTANT: use EnsurePivot so Exit doors use their override pivot
+        EnsurePivot();
         CacheClosedRotationsIfNeeded();
 
         puzzlePrefabPath.OnValueChanged += OnPuzzlePrefabPathChanged;
@@ -111,11 +116,35 @@ public class DoorController : NetworkBehaviour
         if (_closedPivotCached) return;
         if (pivot == null) return;
 
-        // Cache BOTH local+world. Exit uses local in your existing flow.
         _closedPivotLocalRot = pivot.localRotation;
         _closedPivotWorldRot = pivot.rotation;
 
         _closedPivotCached = true;
+    }
+
+    /// <summary>
+    /// Disables only the physical door collider immediately (prevents re-trigger/open spam),
+    /// but does NOT disable the pad here. The pad is disabled AFTER the door finishes opening.
+    /// </summary>
+    private void DisableDoorInteraction()
+    {
+        if (_interactionDisabled) return;
+        _interactionDisabled = true;
+
+        if (doorCollider != null)
+            doorCollider.enabled = false;
+    }
+
+    /// <summary>
+    /// Disable the pad collider only AFTER the door is fully open.
+    /// </summary>
+    private void DisablePadColliderAfterOpen()
+    {
+        if (_padDisabled) return;
+        _padDisabled = true;
+
+        if (doorPadCollider != null)
+            doorPadCollider.enabled = false;
     }
 
     private void OnPuzzlePrefabPathChanged(FixedString128Bytes _, FixedString128Bytes newVal)
@@ -221,7 +250,6 @@ public class DoorController : NetworkBehaviour
     // ============================================================
     // INTERACTION
     // ============================================================
-
     public void Interact(Vector3 openerWorldPos)
     {
         if (doorType == DoorType.Puzzle)
@@ -255,7 +283,7 @@ public class DoorController : NetworkBehaviour
     // ============================================================
     private void EnsurePivot()
     {
-        // Exit door override (ONLY Exit) — DO NOT TOUCH (kept same behavior)
+        // Exit door override (ONLY Exit)
         if (doorType == DoorType.Exit && exitDoorPivotOverride != null)
         {
             pivot = exitDoorPivotOverride;
@@ -264,7 +292,6 @@ public class DoorController : NetworkBehaviour
             if (_closedPivotLocalRot == default)
                 _closedPivotLocalRot = pivot.localRotation;
 
-            // but still cache world for normals if ever needed elsewhere
             CacheClosedRotationsIfNeeded();
             return;
         }
@@ -317,12 +344,12 @@ public class DoorController : NetworkBehaviour
         GameObject pivotObj = new GameObject("Pivot");
         pivotObj.transform.SetParent(transform, true);
 
-        // IMPORTANT: Keep pivot scaled clean if possible
+        // Keep pivot scaled clean if possible
         pivotObj.transform.localScale = Vector3.one;
 
         pivotObj.transform.position = pivotWorld;
 
-        // Keep original orientation (your logic). Normal door rotation will now be WORLD-UP so it won't flip to Z.
+        // Keep original orientation
         pivotObj.transform.rotation = doorModel.rotation;
 
         foreach (Transform child in transform)
@@ -342,7 +369,7 @@ public class DoorController : NetworkBehaviour
     }
 
     // ============================================================
-    // NORMAL DOOR OPEN (WORLD-Y to avoid “rotates on Z”)
+    // NORMAL DOOR OPEN (LOCAL-Y)
     // ============================================================
     private void StartNormalOpen(float angle)
     {
@@ -351,7 +378,6 @@ public class DoorController : NetworkBehaviour
 
         _normalOpenCo = StartCoroutine(NormalOpenRoutine(angle));
     }
-
 
     private IEnumerator NormalOpenRoutine(float angle)
     {
@@ -362,14 +388,10 @@ public class DoorController : NetworkBehaviour
             yield break;
         }
 
-        // cache closed LOCAL rotation once
-        if (!_closedPivotCached)
-        {
-            _closedPivotLocalRot = pivot.localRotation;
-            _closedPivotCached = true;
-        }
+        CacheClosedRotationsIfNeeded();
 
-        Quaternion target = _closedPivotLocalRot * Quaternion.Euler(0f, 0f, angle);
+        // ✅ FIX: rotate around Y (not Z)
+        Quaternion target = _closedPivotLocalRot * Quaternion.Euler(0f, angle, 0f);
 
         while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
         {
@@ -382,11 +404,15 @@ public class DoorController : NetworkBehaviour
         }
 
         pivot.localRotation = target;
+
+        // ✅ Disable pad only AFTER fully opened
+        DisablePadColliderAfterOpen();
+
         _normalOpenCo = null;
     }
 
     // ============================================================
-    // ORIGINAL OPEN ROUTINE (USED BY EXIT DOOR CINEMATIC) — UNCHANGED
+    // ORIGINAL OPEN ROUTINE (USED BY EXIT DOOR CINEMATIC)
     // ============================================================
     private IEnumerator OpenRoutine(float angle)
     {
@@ -397,7 +423,10 @@ public class DoorController : NetworkBehaviour
             yield break;
         }
 
-        Quaternion target = _closedPivotLocalRot * Quaternion.Euler(0f, 0f, angle);
+        CacheClosedRotationsIfNeeded();
+
+        // ✅ FIX: rotate around Y (not Z)
+        Quaternion target = _closedPivotLocalRot * Quaternion.Euler(0f, angle, 0f);
 
         while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
         {
@@ -410,10 +439,13 @@ public class DoorController : NetworkBehaviour
         }
 
         pivot.localRotation = target;
+
+        // ✅ Disable pad only AFTER fully opened
+        DisablePadColliderAfterOpen();
     }
 
     // ============================================================
-    // EXIT DOOR CINEMATIC — UNCHANGED
+    // EXIT DOOR CINEMATIC
     // ============================================================
     private IEnumerator ExitCinematicOpenRoutine()
     {
@@ -445,59 +477,40 @@ public class DoorController : NetworkBehaviour
 
     // ============================================================
     // Choose +openAngle / -openAngle so the DOOR LEAF opens AWAY
-    // (Adjusted to also test WORLD-Y rotation to match new normal open)
+    // (Test +/- on LOCAL-Y, restore LOCAL rotation)
     // ============================================================
-    private float ChooseOpenAngleSign(Vector3 openerWorldPos)
+    private float ChooseOpenAngleSign(Vector3 travellerWorldPos)
     {
         EnsurePivot();
         if (pivot == null) return openAngle;
 
-        if (_doorModelForSign == null)
-            _doorModelForSign = (pivot.childCount > 0) ? pivot.GetChild(0) : pivot;
+        CacheClosedRotationsIfNeeded();
 
-        var mf = _doorModelForSign.GetComponentInChildren<MeshFilter>(true);
-        if (mf == null || mf.sharedMesh == null)
+        // כיוון מהפיבוט אל המטייל
+        Vector3 toTraveller = (travellerWorldPos - pivot.position);
+        toTraveller.y = 0f;
+
+        if (toTraveller.sqrMagnitude < 0.0001f)
             return openAngle;
 
-        Bounds b = mf.sharedMesh.bounds;
-        Vector3 c = b.center;
-        Vector3 e = b.extents;
+        toTraveller.Normalize();
 
-        Vector3[] corners =
-        {
-            c + new Vector3(+e.x, +e.y, +e.z),
-            c + new Vector3(+e.x, +e.y, -e.z),
-            c + new Vector3(+e.x, -e.y, +e.z),
-            c + new Vector3(+e.x, -e.y, -e.z),
-            c + new Vector3(-e.x, +e.y, +e.z),
-            c + new Vector3(-e.x, +e.y, -e.z),
-            c + new Vector3(-e.x, -e.y, +e.z),
-            c + new Vector3(-e.x, -e.y, -e.z),
-        };
+        Quaternion baseLocal = _closedPivotLocalRot;
 
-        Quaternion savedWorld = pivot.rotation;
-        CacheClosedRotationsIfNeeded();
-        Quaternion baseWorld = _closedPivotWorldRot;
+        Vector3 nPlus = (baseLocal * Quaternion.Euler(0f, +openAngle, 0f)) * Vector3.forward;
+        Vector3 nMinus = (baseLocal * Quaternion.Euler(0f, -openAngle, 0f)) * Vector3.forward;
 
-        float Score(float angle)
-        {
-            pivot.rotation = baseWorld * Quaternion.AngleAxis(angle, Vector3.forward);
+        float dPlus = Vector3.Dot(Flatten(nPlus), toTraveller);
+        float dMinus = Vector3.Dot(Flatten(nMinus), toTraveller);
 
-            float sum = 0f;
-            for (int i = 0; i < corners.Length; i++)
-            {
-                Vector3 wp = mf.transform.TransformPoint(corners[i]);
-                sum += (wp - openerWorldPos).sqrMagnitude;
-            }
-            return sum / corners.Length;
-        }
+        return (dPlus <= dMinus) ? +openAngle : -openAngle;
+    }
 
-        float sPlus = Score(+openAngle);
-        float sMinus = Score(-openAngle);
-
-        pivot.rotation = savedWorld;
-
-        return (sPlus >= sMinus) ? +openAngle : -openAngle;
+    private static Vector3 Flatten(Vector3 v)
+    {
+        v.y = 0f;
+        float m = v.magnitude;
+        return (m > 0.0001f) ? (v / m) : Vector3.zero;
     }
 
     // ============================================================
@@ -568,15 +581,22 @@ public class DoorController : NetworkBehaviour
         if (pad != null)
             pad.NotifyDoorActionStartedOrOpened_Server();
 
+        // ✅ Disable only the DOOR collider immediately (pad is disabled after open completes)
+        DisableDoorInteraction();
+
         if (doorType == DoorType.Exit)
         {
-            // UNCHANGED (your flawless flow)
-            StartCoroutine(ExitCinematicOpenRoutine());
+            // ✅ FIX: don't start locally AND via RPC (server would run it twice)
             OpenExitDoorCinematicRpc();
             return;
         }
 
-        float chosen = ChooseOpenAngleSign(openerWorldPos);
+        Vector3 travellerPos = openerWorldPos;
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+            travellerPos = gm.traveller.transform.position;
+
+        float chosen = ChooseOpenAngleSign(travellerPos);
         OpenDoorRpc(chosen);
     }
 
@@ -589,17 +609,16 @@ public class DoorController : NetworkBehaviour
     [Rpc(SendTo.Everyone)]
     private void OpenDoorRpc(float chosenAngle)
     {
-        // Normal doors: world-Y open, no Z-axis surprises
+        // Normal doors
         if (doorType != DoorType.Exit)
             StartNormalOpen(chosenAngle);
         else
-            StartCoroutine(OpenRoutine(chosenAngle)); // not expected in your flow
+            StartCoroutine(OpenRoutine(chosenAngle));
     }
 
     [Rpc(SendTo.Everyone)]
     private void OpenExitDoorCinematicRpc()
     {
-        // UNCHANGED
         StartCoroutine(ExitCinematicOpenRoutine());
     }
 
