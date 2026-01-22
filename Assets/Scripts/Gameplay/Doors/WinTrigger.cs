@@ -12,8 +12,16 @@ public class WinTrigger : MonoBehaviour
 
         if (other.CompareTag("Player"))
         {
-            Debug.Log("WinTrigger: Player detected � loading scene: " + sceneName);
-            NetworkManager.Singleton.SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
+            Debug.Log("WinTrigger: Player detected — ending level (invoking GameManager.EndLevel)");
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.EndLevel();
+            }
+            else
+            {
+                Debug.Log("WinTrigger: GameManager.Instance is null — falling back to loading scene " + sceneName);
+                NetworkManager.Singleton.SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
+            }
         }
         else
         {

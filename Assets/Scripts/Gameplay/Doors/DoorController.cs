@@ -599,8 +599,23 @@ public class DoorController : NetworkBehaviour
     [Rpc(SendTo.Everyone)]
     private void OpenExitDoorCinematicRpc()
     {
-        // UNCHANGED
-        StartCoroutine(ExitCinematicOpenRoutine());
+        // Play the cinematic locally, then notify local GameManager that level ended
+        StartCoroutine(ExitCinematicOpenThenNotifyRoutine());
+    }
+
+    private IEnumerator ExitCinematicOpenThenNotifyRoutine()
+    {
+        yield return ExitCinematicOpenRoutine();
+
+        var gm = GameManager.Instance;
+        if (gm != null)
+        {
+            gm.EndLevel();
+        }
+        else
+        {
+            Debug.LogWarning("[DoorController] Exit opened but GameManager.Instance is null; cannot notify level end.");
+        }
     }
 
     // ============================================================
