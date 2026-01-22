@@ -13,14 +13,23 @@ public class DoorController : NetworkBehaviour
     public float openAngle = 90f;
     public float openSpeed = 3f;
 
-
-
     private Coroutine _hintReminderCo;
     private bool _puzzleActiveServer;
 
-
     [Header("Pivot (Optional Override)")]
     [SerializeField] private Transform pivotOverride;
+
+    // ============================================================
+    // EXIT DOOR (CINEMATIC) — ONLY USED WHEN doorType == Exit
+    // 1) exitCinematicSpinTarget rotates slowly around Z (optional)
+    // 2) exitDoorPivotOverride is the pivot/door object that will open in Y (optional)
+    //    If set, we will use this pivot ONLY for Exit doors (other doors stay as-is).
+    // ============================================================
+    [Header("Exit Door (Cinematic)")]
+    [SerializeField] private Transform exitCinematicSpinTarget;
+    [SerializeField] private Transform exitDoorPivotOverride;
+    [SerializeField] private float exitSpinDegrees = 90f;
+    [SerializeField] private float exitSpinDuration = 1.25f;
 
     [Header("Puzzle Settings")]
     public GameObject puzzlePrefab;
@@ -52,9 +61,6 @@ public class DoorController : NetworkBehaviour
 
     // ============================================================
     // OPEN DIRECTION (ROBUST)
-    // We keep the pivot EXACTLY as-is. Only choose +angle or -angle
-    // so the door opens outward from the opener.
-    // This version DOES NOT assume the door leaf is along local X.
     // ============================================================
     private Transform _doorModelForSign;
 
@@ -100,7 +106,6 @@ public class DoorController : NetworkBehaviour
         if (doorType == DoorType.Puzzle && navigatorPreview == null)
             navigatorPreview = ExtractPreviewFromPrefab();
     }
- 
 
     private void StopHintReminder_Server()
     {
@@ -115,7 +120,6 @@ public class DoorController : NetworkBehaviour
         // נכבה רמז בניקיון
         SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
     }
-
 
     // ---------------------------
     // Server API: set puzzle prefab + replicate
@@ -234,6 +238,18 @@ public class DoorController : NetworkBehaviour
     // ============================================================
     private void EnsurePivot()
     {
+        // Exit door override (only for Exit)
+        if (doorType == DoorType.Exit && exitDoorPivotOverride != null)
+        {
+            pivot = exitDoorPivotOverride;
+
+            // keep closed rotation cached correctly for override too
+            if (_closedPivotLocalRot == default)
+                _closedPivotLocalRot = pivot.localRotation;
+
+            return;
+        }
+
         if (pivotOverride != null)
         {
             pivot = pivotOverride;
@@ -323,13 +339,41 @@ public class DoorController : NetworkBehaviour
     }
 
     // ============================================================
+    // EXIT DOOR CINEMATIC: spin around Z (optional) then open in Y 90°
+    // ============================================================
+    private IEnumerator ExitCinematicOpenRoutine()
+    {
+        // 1) optional Z spin
+        if (exitCinematicSpinTarget != null && exitSpinDuration > 0f && Mathf.Abs(exitSpinDegrees) > 0.01f)
+        {
+            Quaternion start = exitCinematicSpinTarget.localRotation;
+            Quaternion end = start * Quaternion.Euler(0f, 0f, exitSpinDegrees);
+
+            float t = 0f;
+            while (t < 1f)
+            {
+                t += Time.deltaTime / Mathf.Max(0.0001f, exitSpinDuration);
+                float s = Smooth01(t);
+                exitCinematicSpinTarget.localRotation = Quaternion.Slerp(start, end, s);
+                yield return null;
+            }
+
+            exitCinematicSpinTarget.localRotation = end;
+        }
+
+        // 2) force open exactly 90° in Y (and still opens away from opener if you want later;
+        //    here we do fixed 90 as you asked)
+        yield return OpenRoutine(90f);
+    }
+
+    private static float Smooth01(float t)
+    {
+        t = Mathf.Clamp01(t);
+        return t * t * (3f - 2f * t); // smoothstep
+    }
+
+    // ============================================================
     // Choose +openAngle / -openAngle so the DOOR LEAF opens AWAY
-    // from the opener position. Pivot does not change.
-    //
-    // Robust method:
-    // - Samples the 8 corners of the DOOR MODEL mesh bounds in local space
-    // - Scores opening by average distance from opener (bigger => opens away)
-    // - Does NOT assume hinge axis orientation in mesh local space
     // ============================================================
     private float ChooseOpenAngleSign(Vector3 openerWorldPos)
     {
@@ -451,15 +495,23 @@ public class DoorController : NetworkBehaviour
                 tutorial.NotifyNavigatorOpenedExitDoor();
         }
 
-        float chosen = ChooseOpenAngleSign(openerWorldPos);
         if (pad == null) pad = GetComponentInChildren<PadTrigger>(true);
         if (pad != null)
             pad.NotifyDoorActionStartedOrOpened_Server();
 
+        if (doorType == DoorType.Exit)
+        {
+            // ✅ Cinematic sequence for Exit door
+            StartCoroutine(ExitCinematicOpenRoutine());
+            OpenExitDoorCinematicRpc();
+            return;
+        }
 
+        float chosen = ChooseOpenAngleSign(openerWorldPos);
         StartCoroutine(OpenRoutine(chosen));
         OpenDoorRpc(chosen);
     }
+
     public void ForceHideHintSpotlight_Server()
     {
         if (!IsServer) return;
@@ -470,6 +522,12 @@ public class DoorController : NetworkBehaviour
     private void OpenDoorRpc(float chosenAngle)
     {
         StartCoroutine(OpenRoutine(chosenAngle));
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void OpenExitDoorCinematicRpc()
+    {
+        StartCoroutine(ExitCinematicOpenRoutine());
     }
 
     // ============================================================
@@ -584,7 +642,6 @@ public class DoorController : NetworkBehaviour
         OpenPuzzleForTravellerClientRpc(NetworkObjectId);
     }
 
-
     [Rpc(SendTo.Everyone)]
     private void OpenPuzzleForTravellerClientRpc(ulong doorId)
     {
@@ -635,6 +692,7 @@ public class DoorController : NetworkBehaviour
             door.GetPuzzle()?.TryOpen();
         }
     }
+
     private static ClientRpcParams MakeAllNonServerClientsTargetParams()
     {
         var nm = NetworkManager.Singleton;
