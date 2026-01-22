@@ -274,6 +274,7 @@ MonoBehaviour:
   navigatorPreview: {fileID: 0}
   puzzleResourcesFolder: Puzzles
   spawnedHints: []
+  isExitDoor: 1
   tvApplyRetries: 90
   tvApplyRetryDelaySeconds: 0
 --- !u!1001 &1105890485245088659

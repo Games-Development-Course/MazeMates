@@ -317,6 +317,7 @@ public class TutorialManager : NetworkBehaviour
             Debug.Log("[TUTORIAL] Finished all steps.");
             stepActive = false;
             TutorialActive.Value = false;
+            LevelFlowManager.Instance.EndLevelWin_Server();
             return;
         }
 
@@ -680,6 +681,7 @@ public class TutorialManager : NetworkBehaviour
     {
         NotifyCondition(TutorialConditionType.NavigatorOpenExitDoor);
         ActivateDiscoMode();
+        LevelFlowManager.Instance.EndLevelWin_Server();
     }
 
     public void NotifyNavigatorPlacedHeart() => NotifyCondition(TutorialConditionType.NavigatorPlaceHeart);

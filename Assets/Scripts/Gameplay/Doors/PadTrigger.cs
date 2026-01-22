@@ -6,7 +6,7 @@ using UnityEngine;
 public class PadTrigger : NetworkBehaviour
 {
     private DoorController controller;
-
+    private LevelFlowManager levelFlowManager;
     // authoritative state on server, readable by everyone
     private readonly NetworkVariable<bool> playerOnPadNet = new(
         false,
@@ -75,6 +75,14 @@ public class PadTrigger : NetworkBehaviour
 
         Debug.Log($"[PadTrigger][Server] Traveller EXIT pad | door={(controller != null ? controller.name : "NULL")}");
 
+        if(controller.doorType == DoorType.Exit)
+        {
+            levelFlowManager = LevelFlowManager.Instance;
+            if(levelFlowManager != null)
+                levelFlowManager.EndLevelWin_Server();
+            Debug.Log("[PadTrigger] Exit door triggered - level win sent.");
+        }
+
         // If leaving while puzzle open -> force close (server decides, but close is local puzzle UI)
         // We'll keep your previous behavior but only execute it on everyone so traveller closes it.
         if (controller != null && !controller.IsOpen())
@@ -114,7 +122,11 @@ public class PadTrigger : NetworkBehaviour
 
             case DoorType.Exit:
                 if (gm != null && gm.AllKeysCollected())
+                {
                     msg = "יש לך את כל המפתחות!";
+                    break;
+                }
+                    
                 else
                     msg = "עליך לאסוף את כל המפתחות";
                 break;

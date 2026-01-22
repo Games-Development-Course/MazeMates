@@ -66,6 +66,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06ffa9add8fca65489663b40fa446866, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PadTrigger
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &4814643002943320219
 GameObject:
   m_ObjectHideFlags: 0
@@ -363,7 +364,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3074882614
+  GlobalObjectIdHash: 1501310754
   InScenePlacedSourceGlobalObjectIdHash: 1501310754
   DeferredDespawnTick: 0
   Ownership: 1
@@ -392,13 +393,14 @@ MonoBehaviour:
   doorType: 2
   openAngle: -90
   openSpeed: 2
+  pivotOverride: {fileID: 0}
   puzzlePrefab: {fileID: 0}
   navigatorPreview: {fileID: 0}
-  navigatorScreenQuad: {fileID: 0}
-  navigatorScreenMaterialIndex: 0
-  tvZoom: 1
-  navigatorScreenTag: NavigatorScreenTV
+  puzzleResourcesFolder: Puzzles
   spawnedHints: []
+  isExitDoor: 1
+  tvApplyRetries: 90
+  tvApplyRetryDelaySeconds: 0
 --- !u!65 &8392299586132365246
 BoxCollider:
   m_ObjectHideFlags: 0

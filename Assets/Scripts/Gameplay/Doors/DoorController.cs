@@ -37,6 +37,7 @@ public class DoorController : NetworkBehaviour
     private Quaternion _closedPivotLocalRot;
 
     private PadTrigger pad;
+    [SerializeField] private bool isExitDoor = false;
 
     private Coroutine _tvApplyRoutine;
 
@@ -416,29 +417,35 @@ public class DoorController : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void RequestOpenDoorServerRpc(Vector3 openerWorldPos)
     {
-        if (!IsServer)
+        if(!IsServer)
             return;
 
-        var tutorial = FindAnyObjectByType<TutorialManager>();
-
+        var tutorial = Object.FindFirstObjectByType<TutorialManager>(FindObjectsInactive.Include);
         if (tutorial != null && pad != null && pad.IsPlayerOnPad())
         {
-            if (doorType == DoorType.Normal)
+            if(doorType == DoorType.Normal)
                 tutorial.NotifyNavigatorOpenedNormalDoor();
-            else if (doorType == DoorType.Exit)
+            else if(doorType == DoorType.Exit)
+            {
                 tutorial.NotifyNavigatorOpenedExitDoor();
+                isExitDoor = true;
+            }
         }
-
-        float chosen = ChooseOpenAngleSign(openerWorldPos);
-
-        StartCoroutine(OpenRoutine(chosen));
-        OpenDoorRpc(chosen);
+        float choosen = ChooseOpenAngleSign(openerWorldPos);
+        StartCoroutine(OpenRoutine(choosen));
+        OpenDoorRpc(choosen);
+        if (isExitDoor)
+        {
+            var flow = LevelFlowManager.Instance;
+            if (flow != null)
+                flow.EndLevelWin_Server();
+        }
     }
 
     [Rpc(SendTo.Everyone)]
-    private void OpenDoorRpc(float chosenAngle)
+    private void OpenDoorRpc(float choosenAngel)
     {
-        StartCoroutine(OpenRoutine(chosenAngle));
+        StartCoroutine(OpenRoutine(choosenAngel));
     }
 
     // ============================================================
