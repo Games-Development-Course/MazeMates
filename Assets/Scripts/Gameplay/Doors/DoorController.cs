@@ -10,28 +10,45 @@ public class DoorController : NetworkBehaviour
 {
     [Header("Door Settings")]
     public DoorType doorType;
+
+    [Tooltip("NORMAL/Puzzle magnitude in degrees. Keep POSITIVE (e.g. 90). Code chooses +/- automatically.")]
     public float openAngle = 90f;
+
     public float openSpeed = 3f;
 
     private Coroutine _hintReminderCo;
     private bool _puzzleActiveServer;
 
+    [Header("Disable On Open")]
+    [Tooltip("A NON-trigger collider on the door leaf/body (can be disabled to prevent spam).")]
+    [SerializeField] private Collider doorCollider;
+
+    [Tooltip("The PAD trigger collider (disabled AFTER door fully opens).")]
+    [SerializeField] private Collider doorPadCollider;
+
     [Header("Pivot (Optional Override)")]
+    [Tooltip("Optional hinge pivot (door leaf should be child). Leave empty to auto-create pivot.")]
     [SerializeField] private Transform pivotOverride;
 
     // ============================================================
     // EXIT DOOR (CINEMATIC) — ONLY USED WHEN doorType == Exit
-    // (UNCHANGED - per your request)
     // ============================================================
-    [Header("Exit Door (Cinematic)")]
+    [Header("Exit Door (Manual)")]
+    [Tooltip("Optional: a separate object to spin (cosmetic). If null, skip spin.")]
     [SerializeField] private Transform exitCinematicSpinTarget;
+
+    [Tooltip("Optional: hinge pivot for Exit door. If set, it overrides pivotOverride for Exit doors.")]
     [SerializeField] private Transform exitDoorPivotOverride;
+
+    [Tooltip("Manual open angle for Exit door. SIGN MATTERS: +90 or -90 (your choice).")]
+    [SerializeField] private float exitOpenAngle = 90f;
+
     [SerializeField] private float exitSpinDegrees = 90f;
     [SerializeField] private float exitSpinDuration = 1.25f;
 
     [Header("Puzzle Settings")]
     public GameObject puzzlePrefab;
-    public Sprite navigatorPreview; // auto-filled from OriginalImage if null
+    public Sprite navigatorPreview;
 
     [Header("Puzzle Prefab Replication (Resources)")]
     [SerializeField] private string puzzleResourcesFolder = "Puzzles";
@@ -48,49 +65,36 @@ public class DoorController : NetworkBehaviour
     private Transform pivot;
     private IDoor door;
 
-    // --- Closed rotation caches ---
-    // Local (used by Exit logic - keep as-is)
-    private Quaternion _closedPivotLocalRot;
+    private Transform _doorModelForSign;
 
-    // World (used by NORMAL door logic to guarantee Y-world rotation)
+    private Quaternion _closedPivotLocalRot;
     private Quaternion _closedPivotWorldRot;
     private bool _closedPivotCached;
 
     private PadTrigger pad;
-
     private Coroutine _tvApplyRoutine;
 
     [Header("Puzzle-TV Robustness")]
-    [SerializeField] private int tvApplyRetries = 90;               // ~1.5s @ 60fps
-    [SerializeField] private float tvApplyRetryDelaySeconds = 0f;   // 0 = next frame
+    [SerializeField] private int tvApplyRetries = 90;
+    [SerializeField] private float tvApplyRetryDelaySeconds = 0f;
 
-    // ============================================================
-    // OPEN DIRECTION (ROBUST)
-    // ============================================================
-    private Transform _doorModelForSign;
-
-    // Prevent multiple open coroutines fighting each other (NORMAL doors only)
     private Coroutine _normalOpenCo;
+
+    private bool _interactionDisabled;
+    private bool _padDisabled;
 
     private void Awake()
     {
-        // Intentionally empty (TV handled elsewhere)
+        // Intentionally empty
     }
 
     public override void OnNetworkSpawn()
     {
-        Debug.LogFormat(
-            LogType.Log,
-            LogOption.NoStacktrace,
-            null,
-            $"[DOOR SPAWN] {name} | NetId={NetworkObjectId}"
-        );
+        pad = GetComponentInChildren<PadTrigger>(true);
 
-        pad = GetComponentInChildren<PadTrigger>();
+        EnsureColliders();
 
-        if (pivot == null)
-            FindOrCreatePivot();
-
+        EnsurePivot();
         CacheClosedRotationsIfNeeded();
 
         puzzlePrefabPath.OnValueChanged += OnPuzzlePrefabPathChanged;
@@ -111,11 +115,74 @@ public class DoorController : NetworkBehaviour
         if (_closedPivotCached) return;
         if (pivot == null) return;
 
-        // Cache BOTH local+world. Exit uses local in your existing flow.
         _closedPivotLocalRot = pivot.localRotation;
         _closedPivotWorldRot = pivot.rotation;
-
         _closedPivotCached = true;
+    }
+
+    private void EnsureColliders()
+    {
+        if (doorCollider == null)
+        {
+            var cols = GetComponentsInChildren<Collider>(true);
+            doorCollider = cols.FirstOrDefault(c =>
+                c != null &&
+                !c.isTrigger &&
+                c.gameObject != null &&
+                c.gameObject.name.ToLowerInvariant().Contains("door") &&
+                !c.gameObject.name.ToLowerInvariant().Contains("pad")
+            );
+
+            if (doorCollider == null)
+            {
+                doorCollider = cols.FirstOrDefault(c =>
+                    c != null &&
+                    !c.isTrigger &&
+                    c.gameObject != null &&
+                    !c.gameObject.name.ToLowerInvariant().Contains("pad")
+                );
+            }
+        }
+
+        if (doorPadCollider == null)
+        {
+            if (pad != null)
+            {
+                var c = pad.GetComponent<Collider>();
+                if (c != null) doorPadCollider = c;
+                else doorPadCollider = pad.GetComponentInChildren<Collider>(true);
+            }
+
+            if (doorPadCollider == null)
+            {
+                var cols = GetComponentsInChildren<Collider>(true);
+                doorPadCollider = cols.FirstOrDefault(c =>
+                    c != null &&
+                    c.gameObject != null &&
+                    c.gameObject.name.ToLowerInvariant().Contains("pad")
+                );
+            }
+        }
+    }
+
+    private void DisableDoorInteraction()
+    {
+        if (_interactionDisabled) return;
+        _interactionDisabled = true;
+
+        EnsureColliders();
+        if (doorCollider != null)
+            doorCollider.enabled = false;
+    }
+
+    private void DisablePadColliderAfterOpen()
+    {
+        if (_padDisabled) return;
+        _padDisabled = true;
+
+        EnsureColliders();
+        if (doorPadCollider != null)
+            doorPadCollider.enabled = false;
     }
 
     private void OnPuzzlePrefabPathChanged(FixedString128Bytes _, FixedString128Bytes newVal)
@@ -136,13 +203,9 @@ public class DoorController : NetworkBehaviour
             _hintReminderCo = null;
         }
 
-        // נכבה רמז בניקיון
         SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
     }
 
-    // ---------------------------
-    // Server API: set puzzle prefab + replicate
-    // ---------------------------
     public void SetPuzzlePrefabServer(GameObject prefab)
     {
         if (!IsServer) return;
@@ -160,13 +223,9 @@ public class DoorController : NetworkBehaviour
             navigatorPreview = ExtractPreviewFromPrefab();
     }
 
-    // ============================================================
-    // TV ACCESS (per-world, NO static)
-    // ============================================================
     private NavigatorTVScreen GetLocalTV()
     {
         var tv = Object.FindFirstObjectByType<NavigatorTVScreen>(FindObjectsInactive.Include);
-
         if (tv == null)
         {
             Debug.LogWarning(
@@ -174,7 +233,6 @@ public class DoorController : NetworkBehaviour
                 this
             );
         }
-
         return tv;
     }
 
@@ -192,19 +250,14 @@ public class DoorController : NetworkBehaviour
         tv.Clear();
     }
 
-    // ============================================================
-    // DOOR INITIALIZATION
-    // ============================================================
     private void InitDoorLogic()
     {
         switch (doorType)
         {
             case DoorType.Puzzle:
                 EnsurePuzzleLoadedFromNet(puzzlePrefabPath.Value);
-
                 if (navigatorPreview == null)
                     navigatorPreview = ExtractPreviewFromPrefab();
-
                 door = new PuzzleDoor(this);
                 break;
 
@@ -217,10 +270,6 @@ public class DoorController : NetworkBehaviour
                 break;
         }
     }
-
-    // ============================================================
-    // INTERACTION
-    // ============================================================
 
     public void Interact(Vector3 openerWorldPos)
     {
@@ -250,22 +299,20 @@ public class DoorController : NetworkBehaviour
     public bool IsOpen() => door != null && door.IsOpen();
     public PuzzleDoor GetPuzzle() => door as PuzzleDoor;
 
-    // ============================================================
-    // PIVOT
-    // ============================================================
     private void EnsurePivot()
     {
-        // Exit door override (ONLY Exit) — DO NOT TOUCH (kept same behavior)
         if (doorType == DoorType.Exit && exitDoorPivotOverride != null)
         {
             pivot = exitDoorPivotOverride;
 
-            // keep existing behavior; do not refactor Exit caching
             if (_closedPivotLocalRot == default)
                 _closedPivotLocalRot = pivot.localRotation;
 
-            // but still cache world for normals if ever needed elsewhere
             CacheClosedRotationsIfNeeded();
+
+            if (_doorModelForSign == null)
+                _doorModelForSign = GetDoorModelForSign();
+
             return;
         }
 
@@ -273,6 +320,10 @@ public class DoorController : NetworkBehaviour
         {
             pivot = pivotOverride;
             CacheClosedRotationsIfNeeded();
+
+            if (_doorModelForSign == null)
+                _doorModelForSign = GetDoorModelForSign();
+
             return;
         }
 
@@ -285,13 +336,14 @@ public class DoorController : NetworkBehaviour
     private void FindOrCreatePivot()
     {
         MeshFilter mf = GetComponentsInChildren<MeshFilter>(true)
-            .FirstOrDefault(m => m.CompareTag("Door"));
+            .FirstOrDefault(m => m != null && m.CompareTag("Door"));
 
         if (mf == null)
         {
             mf = GetComponentsInChildren<MeshFilter>(true)
                 .FirstOrDefault(m =>
                 {
+                    if (m == null) return false;
                     string n = m.name.ToLowerInvariant();
                     return !n.Contains("trigger") && !n.Contains("pad");
                 });
@@ -299,8 +351,10 @@ public class DoorController : NetworkBehaviour
 
         if (mf == null)
         {
-            Debug.LogError($"[DoorController] No suitable MeshFilter found for pivot on '{name}'. " +
-                           $"Either tag the moving mesh as 'Door' or assign Pivot Override.", this);
+            Debug.LogError(
+                $"[DoorController] No suitable MeshFilter found for pivot on '{name}'. Tag moving mesh as 'Door' or assign Pivot Override.",
+                this
+            );
             return;
         }
 
@@ -310,19 +364,14 @@ public class DoorController : NetworkBehaviour
         Bounds b = mf.sharedMesh.bounds;
         float half = b.size.x * 0.5f;
 
-        // LEFT edge
         Vector3 leftLocal = new Vector3(b.center.x - half, b.center.y, b.center.z);
         Vector3 pivotWorld = doorModel.TransformPoint(leftLocal);
 
         GameObject pivotObj = new GameObject("Pivot");
         pivotObj.transform.SetParent(transform, true);
 
-        // IMPORTANT: Keep pivot scaled clean if possible
         pivotObj.transform.localScale = Vector3.one;
-
         pivotObj.transform.position = pivotWorld;
-
-        // Keep original orientation (your logic). Normal door rotation will now be WORLD-UP so it won't flip to Z.
         pivotObj.transform.rotation = doorModel.rotation;
 
         foreach (Transform child in transform)
@@ -341,9 +390,6 @@ public class DoorController : NetworkBehaviour
         CacheClosedRotationsIfNeeded();
     }
 
-    // ============================================================
-    // NORMAL DOOR OPEN (WORLD-Y to avoid “rotates on Z”)
-    // ============================================================
     private void StartNormalOpen(float angle)
     {
         if (_normalOpenCo != null)
@@ -351,7 +397,6 @@ public class DoorController : NetworkBehaviour
 
         _normalOpenCo = StartCoroutine(NormalOpenRoutine(angle));
     }
-
 
     private IEnumerator NormalOpenRoutine(float angle)
     {
@@ -362,14 +407,9 @@ public class DoorController : NetworkBehaviour
             yield break;
         }
 
-        // cache closed LOCAL rotation once
-        if (!_closedPivotCached)
-        {
-            _closedPivotLocalRot = pivot.localRotation;
-            _closedPivotCached = true;
-        }
+        CacheClosedRotationsIfNeeded();
 
-        Quaternion target = _closedPivotLocalRot * Quaternion.Euler(0f, 0f, angle);
+        Quaternion target = _closedPivotLocalRot * Quaternion.Euler(0f, angle, 0f);
 
         while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
         {
@@ -382,12 +422,11 @@ public class DoorController : NetworkBehaviour
         }
 
         pivot.localRotation = target;
+        DisablePadColliderAfterOpen();
+
         _normalOpenCo = null;
     }
 
-    // ============================================================
-    // ORIGINAL OPEN ROUTINE (USED BY EXIT DOOR CINEMATIC) — UNCHANGED
-    // ============================================================
     private IEnumerator OpenRoutine(float angle)
     {
         EnsurePivot();
@@ -397,7 +436,9 @@ public class DoorController : NetworkBehaviour
             yield break;
         }
 
-        Quaternion target = _closedPivotLocalRot * Quaternion.Euler(0f, 0f, angle);
+        CacheClosedRotationsIfNeeded();
+
+        Quaternion target = _closedPivotLocalRot * Quaternion.Euler(0f, angle, 0f);
 
         while (Quaternion.Angle(pivot.localRotation, target) > 0.1f)
         {
@@ -410,12 +451,10 @@ public class DoorController : NetworkBehaviour
         }
 
         pivot.localRotation = target;
+        DisablePadColliderAfterOpen();
     }
 
-    // ============================================================
-    // EXIT DOOR CINEMATIC — UNCHANGED
-    // ============================================================
-    private IEnumerator ExitCinematicOpenRoutine()
+    private IEnumerator ExitCinematicOpenRoutine(float chosenAngle)
     {
         if (exitCinematicSpinTarget != null && exitSpinDuration > 0f && Mathf.Abs(exitSpinDegrees) > 0.01f)
         {
@@ -434,7 +473,7 @@ public class DoorController : NetworkBehaviour
             exitCinematicSpinTarget.localRotation = end;
         }
 
-        yield return OpenRoutine(90f);
+        yield return OpenRoutine(chosenAngle);
     }
 
     private static float Smooth01(float t)
@@ -443,66 +482,86 @@ public class DoorController : NetworkBehaviour
         return t * t * (3f - 2f * t);
     }
 
-    // ============================================================
-    // Choose +openAngle / -openAngle so the DOOR LEAF opens AWAY
-    // (Adjusted to also test WORLD-Y rotation to match new normal open)
-    // ============================================================
-    private float ChooseOpenAngleSign(Vector3 openerWorldPos)
+    // --------- Away-from-traveller for NORMAL doors only ----------
+    private float ChooseOpenAngleSign(Vector3 travellerWorldPos)
     {
         EnsurePivot();
-        if (pivot == null) return openAngle;
+        if (pivot == null) return Mathf.Abs(openAngle);
 
-        if (_doorModelForSign == null)
-            _doorModelForSign = (pivot.childCount > 0) ? pivot.GetChild(0) : pivot;
-
-        var mf = _doorModelForSign.GetComponentInChildren<MeshFilter>(true);
-        if (mf == null || mf.sharedMesh == null)
-            return openAngle;
-
-        Bounds b = mf.sharedMesh.bounds;
-        Vector3 c = b.center;
-        Vector3 e = b.extents;
-
-        Vector3[] corners =
-        {
-            c + new Vector3(+e.x, +e.y, +e.z),
-            c + new Vector3(+e.x, +e.y, -e.z),
-            c + new Vector3(+e.x, -e.y, +e.z),
-            c + new Vector3(+e.x, -e.y, -e.z),
-            c + new Vector3(-e.x, +e.y, +e.z),
-            c + new Vector3(-e.x, +e.y, -e.z),
-            c + new Vector3(-e.x, -e.y, +e.z),
-            c + new Vector3(-e.x, -e.y, -e.z),
-        };
-
-        Quaternion savedWorld = pivot.rotation;
         CacheClosedRotationsIfNeeded();
-        Quaternion baseWorld = _closedPivotWorldRot;
 
-        float Score(float angle)
-        {
-            pivot.rotation = baseWorld * Quaternion.AngleAxis(angle, Vector3.forward);
+        float mag = Mathf.Abs(openAngle);
+        if (mag < 0.0001f) return 0f;
 
-            float sum = 0f;
-            for (int i = 0; i < corners.Length; i++)
-            {
-                Vector3 wp = mf.transform.TransformPoint(corners[i]);
-                sum += (wp - openerWorldPos).sqrMagnitude;
-            }
-            return sum / corners.Length;
-        }
+        if (!TryGetHandleEdgeWorldPoint(out Vector3 handleWorld0))
+            return mag;
 
-        float sPlus = Score(+openAngle);
-        float sMinus = Score(-openAngle);
+        Vector3 pivotPos = pivot.position;
 
-        pivot.rotation = savedWorld;
+        Vector3 axis = pivot.up;
+        if (axis.sqrMagnitude < 0.0001f) axis = Vector3.up;
+        axis.Normalize();
 
-        return (sPlus >= sMinus) ? +openAngle : -openAngle;
+        Vector3 r0 = handleWorld0 - pivotPos;
+
+        Quaternion qPlus = Quaternion.AngleAxis(+mag, axis);
+        Quaternion qMinus = Quaternion.AngleAxis(-mag, axis);
+
+        Vector3 handlePlus = pivotPos + qPlus * r0;
+        Vector3 handleMinus = pivotPos + qMinus * r0;
+
+        Vector3 t = travellerWorldPos;
+        t.y = handleWorld0.y;
+
+        float dPlus = (handlePlus - t).sqrMagnitude;
+        float dMinus = (handleMinus - t).sqrMagnitude;
+
+        return (dPlus >= dMinus) ? +mag : -mag;
     }
 
-    // ============================================================
-    // PUZZLE PREFAB LOAD (CLIENT)
-    // ============================================================
+    private Transform GetDoorModelForSign()
+    {
+        if (_doorModelForSign != null)
+            return _doorModelForSign;
+
+        MeshFilter mf = GetComponentsInChildren<MeshFilter>(true)
+            .FirstOrDefault(m => m != null && m.CompareTag("Door"));
+
+        if (mf == null)
+        {
+            mf = GetComponentsInChildren<MeshFilter>(true)
+                .FirstOrDefault(m =>
+                {
+                    if (m == null) return false;
+                    string n = m.name.ToLowerInvariant();
+                    return !n.Contains("trigger") && !n.Contains("pad");
+                });
+        }
+
+        _doorModelForSign = (mf != null) ? mf.transform : null;
+        return _doorModelForSign;
+    }
+
+    private bool TryGetHandleEdgeWorldPoint(out Vector3 handleWorld)
+    {
+        handleWorld = default;
+
+        Transform doorModel = GetDoorModelForSign();
+        if (doorModel == null)
+            return false;
+
+        var mf = doorModel.GetComponent<MeshFilter>();
+        if (mf == null || mf.sharedMesh == null)
+            return false;
+
+        Bounds b = mf.sharedMesh.bounds;
+        float halfX = b.size.x * 0.5f;
+
+        Vector3 handleLocal = new Vector3(b.center.x + halfX, b.center.y, b.center.z);
+        handleWorld = doorModel.TransformPoint(handleLocal);
+        return true;
+    }
+
     private void EnsurePuzzleLoadedFromNet(FixedString128Bytes explicitPath)
     {
         if (puzzlePrefab != null)
@@ -517,8 +576,7 @@ public class DoorController : NetworkBehaviour
 
         if (loaded == null)
         {
-            Debug.LogWarning($"[PUZZLE-TV] Resources.Load failed for path '{path}'. " +
-                             $"Put prefab under Assets/Resources/{path}.prefab", this);
+            Debug.LogWarning($"[PUZZLE-TV] Resources.Load failed for path '{path}'. Put prefab under Assets/Resources/{path}.prefab", this);
             return;
         }
 
@@ -554,8 +612,9 @@ public class DoorController : NetworkBehaviour
         if (!IsServer)
             return;
 
-        var tutorial = FindAnyObjectByType<TutorialManager>();
+        if (pad == null) pad = GetComponentInChildren<PadTrigger>(true);
 
+        var tutorial = FindAnyObjectByType<TutorialManager>();
         if (tutorial != null && pad != null && pad.IsPlayerOnPad())
         {
             if (doorType == DoorType.Normal)
@@ -564,48 +623,53 @@ public class DoorController : NetworkBehaviour
                 tutorial.NotifyNavigatorOpenedExitDoor();
         }
 
-        if (pad == null) pad = GetComponentInChildren<PadTrigger>(true);
         if (pad != null)
             pad.NotifyDoorActionStartedOrOpened_Server();
 
+        DisableDoorInteraction();
+
+        // NORMAL: open away from traveller
+        // EXIT: manual, based on prefab setting (exitOpenAngle sign)
         if (doorType == DoorType.Exit)
         {
-            // UNCHANGED (your flawless flow)
-            StartCoroutine(ExitCinematicOpenRoutine());
-            OpenExitDoorCinematicRpc();
+            float chosenExit = exitOpenAngle; // SIGN MATTERS, you decide in inspector
+            OpenExitDoorCinematicRpc(chosenExit);
             return;
         }
 
-        float chosen = ChooseOpenAngleSign(openerWorldPos);
-        OpenDoorRpc(chosen);
-    }
+        Vector3 travellerPos = openerWorldPos;
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+            travellerPos = gm.traveller.transform.position;
 
-    public void ForceHideHintSpotlight_Server()
-    {
-        if (!IsServer) return;
-        SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
+        float chosen = ChooseOpenAngleSign(travellerPos);
+        OpenDoorRpc(chosen);
     }
 
     [Rpc(SendTo.Everyone)]
     private void OpenDoorRpc(float chosenAngle)
     {
-        // Normal doors: world-Y open, no Z-axis surprises
         if (doorType != DoorType.Exit)
             StartNormalOpen(chosenAngle);
         else
-            StartCoroutine(OpenRoutine(chosenAngle)); // not expected in your flow
+            StartCoroutine(OpenRoutine(chosenAngle));
     }
 
+    // ✅ FIXED: play cinematic once on everyone, and end-level only from the server after it finishes
     [Rpc(SendTo.Everyone)]
-    private void OpenExitDoorCinematicRpc()
+    private void OpenExitDoorCinematicRpc(float chosenAngle)
     {
-        // Play the cinematic locally, then notify local GameManager that level ended
-        StartCoroutine(ExitCinematicOpenThenNotifyRoutine());
+        StartCoroutine(ExitCinematicOpenThenNotifyRoutine(chosenAngle));
     }
 
-    private IEnumerator ExitCinematicOpenThenNotifyRoutine()
+    private IEnumerator ExitCinematicOpenThenNotifyRoutine(float chosenAngle)
     {
-        yield return ExitCinematicOpenRoutine();
+        yield return ExitCinematicOpenRoutine(chosenAngle);
+
+        // Prevent every client from calling EndLevel() locally.
+        // Server should drive end-level flow (Netcode).
+        if (!IsServer)
+            yield break;
 
         var gm = GameManager.Instance;
         if (gm != null)
@@ -618,9 +682,6 @@ public class DoorController : NetworkBehaviour
         }
     }
 
-    // ============================================================
-    // PUBLIC API FOR PUZZLE-TV
-    // ============================================================
     public void ShowNavigatorPreviewOnScreen(Sprite sprite)
     {
         navigatorPreview = sprite;
@@ -670,14 +731,6 @@ public class DoorController : NetworkBehaviour
             if (navigatorPreview != null && navigatorPreview.texture != null)
             {
                 ApplyTextureToNavigatorScreenSlot(navigatorPreview.texture);
-
-                Debug.LogFormat(
-                    LogType.Log,
-                    LogOption.NoStacktrace,
-                    null,
-                    $"[DoorController] Applied puzzle texture '{navigatorPreview.name}' on '{name}' (retries={i})"
-                );
-
                 _tvApplyRoutine = null;
                 yield break;
             }
@@ -688,29 +741,13 @@ public class DoorController : NetworkBehaviour
                 yield return null;
         }
 
-        Debug.LogFormat(
-            LogType.Warning,
-            LogOption.NoStacktrace,
-            null,
-            $"[DoorController] Cannot apply puzzle texture — no valid sprite on {name} after retries. path='{prefabPath.ToString()}'"
-        );
-
+        Debug.LogWarning($"[DoorController] Cannot apply puzzle texture — no valid sprite on {name} after retries. path='{prefabPath.ToString()}'", this);
         _tvApplyRoutine = null;
     }
 
-    // ============================================================
-    // PUZZLE OPEN — RPC
-    // ============================================================
     [ServerRpc(RequireOwnership = false)]
     public void RequestOpenPuzzleDoorServerRpc()
     {
-        Debug.LogFormat(
-            LogType.Log,
-            LogOption.NoStacktrace,
-            null,
-            $"[PUZZLE-RPC] RequestOpenPuzzleDoorRpc CALLED on {(IsServer ? "SERVER" : "CLIENT")} | door={name}"
-        );
-
         if (!IsServer)
             return;
 
@@ -732,50 +769,24 @@ public class DoorController : NetworkBehaviour
     [Rpc(SendTo.Everyone)]
     private void OpenPuzzleForTravellerClientRpc(ulong doorId)
     {
-        Debug.LogFormat(
-            LogType.Log,
-            LogOption.NoStacktrace,
-            null,
-            $"[PUZZLE-RPC] OpenPuzzleForTravellerClientRpc on {(IsServer ? "SERVER" : "CLIENT")} | doorId={doorId}"
-        );
-
         if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(doorId, out NetworkObject obj))
-        {
-            Debug.LogFormat(
-                LogType.Warning,
-                LogOption.NoStacktrace,
-                null,
-                $"[PUZZLE-RPC] doorId {doorId} not found in SpawnedObjects"
-            );
             return;
-        }
 
         DoorController door = obj.GetComponent<DoorController>();
         if (door == null)
-        {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "[PUZZLE-RPC] NetworkObject has no DoorController");
             return;
-        }
 
         var gm = GameManager.Instance;
         if (gm == null || gm.traveller == null)
-        {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "[PUZZLE-RPC] traveller uninitialized");
             return;
-        }
 
         var travellerNet = gm.traveller.GetComponent<NetworkObject>();
         if (travellerNet == null)
-        {
-            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "[PUZZLE-RPC] traveller has no NetworkObject");
             return;
-        }
 
         if (travellerNet.IsOwner)
         {
             door.EnsurePuzzleLoadedFromNet();
-
-            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "[PUZZLE-RPC] Traveller owns this client — opening puzzle");
             door.GetPuzzle()?.TryOpen();
         }
     }
