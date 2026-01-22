@@ -189,34 +189,35 @@ public class PickupObject : NetworkBehaviour
                 if (hud != null) hud.FlashTravellerLife();
 
                 bool inTutorial = IsInTutorialContextOnServer();
+                gm.lives--;
+                bool shouldRespawn = pickedByTraveller;
 
-                if (gm != null)
+                if(gm.lives <= 0)
                 {
-                    if (inTutorial && pickedByTraveller)
+                    if (inTutorial)
                     {
-                        Vector3 pos = GetTutorialRespawnPos();
-                        Quaternion rot = GetTutorialRespawnRot();
-                        TryBombResetTeleportTo(playerNo, pos, rot);
-
-                        if (gm.lives <= 0)
-                            gm.lives = 1; // prevent death in tutorial
+                        gm.lives = 1; // prevent death in tutorial
+                        if (shouldRespawn && TryGetLevelTravellerStart(out var pos, out var rot))
+                        {
+                            TryBombResetTeleportTo(playerNo, pos, rot);
+                        }
                     }
                     else
                     {
-                        if (gm.lives <= 1)
-                        {
-                            gameOver = true;
-                        }
-                        else
-                        {
-                            gm.lives--;
-                        }
+                        gameOver = true;
                     }
                 }
-
+                else
+                {
+                    if (shouldRespawn && TryGetLevelTravellerStart(out var pos, out var rot))
+                    {
+                        TryBombResetTeleportTo(playerNo, pos, rot);
+                    }
+                }
                 break;
-        }
 
+        
+        }
         // Mirror to all clients (your GameManager isn’t networked)
         if (gm != null)
         {
@@ -402,4 +403,26 @@ public class PickupObject : NetworkBehaviour
                 owner.HandleTriggerEnter(other);
         }
     }
+
+
+    private bool TryGetLevelTravellerStart(out Vector3 pos, out Quaternion rot)
+    {
+        pos = default;
+        rot = default;
+
+        var points = Object.FindObjectsByType<PlayerStartPoint>(FindObjectsSortMode.None);
+        foreach (var p in points)
+        {
+            if (p != null && p.role == PlayerStartPoint.Role.Traveller)
+            {
+                pos = p.transform.position;
+                rot = p.transform.rotation;
+                return true;
+            }
+        }
+
+        Debug.LogWarning("[PickupObject] No PlayerStartPoint(Role.Traveller) found in this scene.");
+        return false;
+    }
+
 }
