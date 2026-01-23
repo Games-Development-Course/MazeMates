@@ -385,7 +385,16 @@ public class PickupObject : NetworkBehaviour
         hud.UpdateHUDs();
 
         if (gameOver)
-            NetworkManager.Singleton.SceneManager.LoadScene("GameOver", LoadSceneMode.Single);
+        {
+            if (gm != null)
+            {
+                gm.EndLevel();
+            }
+            else
+            {
+                Debug.LogWarning("[PickupObject] gameOver flagged but GameManager.Instance is null; cannot show end-level popup.");
+            }
+        }
     }
 
     // ============================================================

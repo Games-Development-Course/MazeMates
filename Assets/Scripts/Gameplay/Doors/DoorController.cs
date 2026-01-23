@@ -655,11 +655,30 @@ public class DoorController : NetworkBehaviour
             StartCoroutine(OpenRoutine(chosenAngle));
     }
 
-    [Rpc(SendTo.Everyone)]
-    private void OpenExitDoorCinematicRpc(float chosenAngle)
+[Rpc(SendTo.Everyone)]
+private void OpenExitDoorCinematicRpc(float chosenAngle)
+{
+    // Run cinematic on everyone, but only the server should trigger level end logic
+    StartCoroutine(ExitCinematicOpenThenNotifyRoutine(chosenAngle));
+}
+
+private IEnumerator ExitCinematicOpenThenNotifyRoutine(float chosenAngle)
+{
+    yield return ExitCinematicOpenRoutine(chosenAngle);
+
+    // IMPORTANT: this RPC runs on everyone, so guard the game-ending logic
+    if (!IsServer) yield break;
+
+    var gm = GameManager.Instance;
+    if (gm != null)
     {
-        StartCoroutine(ExitCinematicOpenRoutine(chosenAngle));
+        gm.EndLevel();
     }
+    else
+    {
+        Debug.LogWarning("[DoorController] Exit opened but GameManager.Instance is null; cannot notify level end.");
+    }
+}
 
     public void ShowNavigatorPreviewOnScreen(Sprite sprite)
     {

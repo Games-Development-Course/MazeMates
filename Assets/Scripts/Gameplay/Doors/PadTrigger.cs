@@ -237,9 +237,9 @@ public class PadTrigger : NetworkBehaviour
 
             case DoorType.Exit:
                 if (gm != null && gm.AllKeysCollected())
-                    msg = "יש לך את כל המפתחות!";
+                    msg = "יש לך את כל המפתחות! בקש מחברך ללחוץ על 'פתח דלת' \nכדי לצאת";
                 else
-                    msg = "עליך לאסוף את כל המפתחות";
+                    msg = "עליך לאסוף את כל המפתחות כדי לצאת";
                 break;
         }
 

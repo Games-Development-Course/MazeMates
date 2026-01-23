@@ -1,5 +1,4 @@
 ﻿// Assets/Scripts/Net/LobbyState.cs
-using System.Linq;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -8,6 +7,8 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkObject))]
 public sealed class LobbyState : NetworkBehaviour
 {
+    public static LobbyState Instance { get; private set; }
+
     // Total players INCLUDING the host.
     public NetworkVariable<int> MaxPlayers { get; } = new(
         2, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -39,8 +40,25 @@ public sealed class LobbyState : NetworkBehaviour
     public NetworkVariable<bool> ClientReady { get; } = new(
         false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    public bool BothReady =>
-        HostReady.Value && ClientReady.Value && SessionFull.Value;
+    public bool BothReady => HostReady.Value && ClientReady.Value && SessionFull.Value;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+
+    public override void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+        base.OnDestroy();
+    }
 
     public override void OnNetworkSpawn()
     {
@@ -81,12 +99,8 @@ public sealed class LobbyState : NetworkBehaviour
         SessionFull.Value = connectedTotal >= MaxPlayers.Value;
     }
 
-    private bool IsHostClient(ulong clientId) =>
-        clientId == NetworkManager.ServerClientId;
+    private bool IsHostClient(ulong clientId) => clientId == NetworkManager.ServerClientId;
 
-    // ============================
-    // Main entry from LobbySkinUI
-    // ============================
     [ServerRpc(RequireOwnership = false)]
     public void SubmitLobbySelectionServerRpc(
         FixedString32Bytes playerName,
@@ -117,7 +131,7 @@ public sealed class LobbyState : NetworkBehaviour
             ClientReady.Value = ready;
         }
 
-        // 🔒 שמירה גם ב-GameConfigNet (שורד מעבר סצנה)
+        // Keep also in GameConfigNet (persists across scenes)
         var cfg = GameConfigNet.Instance;
         if (cfg != null && cfg.IsSpawned)
         {

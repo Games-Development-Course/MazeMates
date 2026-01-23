@@ -5,6 +5,8 @@ using UnityEngine;
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
+    public event System.Action OnLevelStarted;
+    public event System.Action OnLevelEnded;
 
     [HideInInspector] public GameObject traveller;
     [HideInInspector] public GameObject navigator;
@@ -46,6 +48,13 @@ public class GameManager : MonoBehaviour
         ApplyConfigFromNetwork();
         BindConfigListeners();   // <-- הוסף
         HUDManager.Instance?.UpdateHUD();
+
+        OnLevelStarted?.Invoke();
+    }
+
+    public void EndLevel()
+    {
+        OnLevelEnded?.Invoke();
     }
     private bool _cfgBound = false;
 

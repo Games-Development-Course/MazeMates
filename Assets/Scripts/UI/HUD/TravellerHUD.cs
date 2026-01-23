@@ -13,6 +13,14 @@ public class TravellerHUD : MonoBehaviour
     public TMP_Text messageText;
     public GameObject PuzzleSlot;
     public Image[] lifeFlashIcons;
+    
+    [Header("Start Level Message")]
+    [Tooltip("Message shown at the start of the level (leave empty to disable)")]
+    public string startLevelMessage = "";
+    public float startMessageDuration = 3f;
+    public bool showStartMessageOnStart = true;
+    [Tooltip("If true, TravellerHUD will subscribe to GameManager.OnLevelStarted instead of showing the message in Start().")]
+    public bool useGameManagerEvent = true;
 
     [Header("Effects - Bomb Overlay")]
     [Tooltip("הספרייט האדום שלך (1920x1080)")]
@@ -37,6 +45,8 @@ public class TravellerHUD : MonoBehaviour
         if (!sharedBar)
             sharedBar = GetComponentInChildren<HUDShared>(true);
     }
+    private Coroutine startMessageCo;
+    private bool _subscribedToGM = false;
 
     private void Start()
     {
@@ -51,6 +61,61 @@ public class TravellerHUD : MonoBehaviour
 
         HUDManager.Instance?.UpdateHUD();
 
+        if (!useGameManagerEvent)
+        {
+            if (showStartMessageOnStart && !string.IsNullOrEmpty(startLevelMessage))
+            {
+                if (startMessageCo != null)
+                    StopCoroutine(startMessageCo);
+
+                startMessageCo = StartCoroutine(ShowMessageRoutine(startLevelMessage, startMessageDuration));
+            }
+        }
+    }
+
+    private void OnEnable()
+    {
+        TrySubscribeToGameManager();
+    }
+
+    private void OnDisable()
+    {
+        if (_subscribedToGM && GameManager.Instance != null)
+        {
+            GameManager.Instance.OnLevelStarted -= OnGameManagerLevelStarted;
+            _subscribedToGM = false;
+        }
+    }
+
+    private void TrySubscribeToGameManager()
+    {
+        if (!useGameManagerEvent) return;
+        if (_subscribedToGM) return;
+        if (GameManager.Instance == null) return;
+
+        GameManager.Instance.OnLevelStarted += OnGameManagerLevelStarted;
+        _subscribedToGM = true;
+    }
+
+    private void OnGameManagerLevelStarted()
+    {
+        if (startMessageCo != null)
+            StopCoroutine(startMessageCo);
+
+        startMessageCo = StartCoroutine(ShowMessageRoutine(startLevelMessage, startMessageDuration));
+    }
+
+    private IEnumerator ShowMessageRoutine(string msg, float duration)
+    {
+        ShowMessage(msg);
+
+        if (duration > 0f)
+            yield return new WaitForSeconds(duration);
+        else
+            yield return null;
+
+        Clear();
+        startMessageCo = null;
     }
 
     private void EnsureOverlayImage()
