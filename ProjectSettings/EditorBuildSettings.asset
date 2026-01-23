@@ -29,6 +29,9 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/VideoScene.unity
     guid: bc527ca255a12104fbe51fb23e8582ff
+  - enabled: 1
+    path: Assets/Scenes/MenuScene.unity
+    guid: fabf88541968f4ecf9a73deb537ca04f
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
