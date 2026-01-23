@@ -4,104 +4,217 @@ using UnityEngine;
 
 public static class DoorPlacement
 {
+    // Toggle logs (console only, no gizmos)
+    public static bool EnableLogs = true;
+    private static void DLog(string msg)
+    {
+        if (!EnableLogs) return;
+        Debug.Log(msg);
+    }
+
     // ----------------------------------------------------------
-    // DoorSpot candidates:
-    // Door is allowed only if:
-    //  1) This cell is OPEN (grid[x,y] == false)
-    //  2) There are OPEN cells on the two sides of the passage
-    //  3) There are WALLS on the perpendicular sides (so it sits "between 2 walls")
+    // DoorSpot candidates (SUB-CELL):
+    // We DO NOT rely on carvedWalls anymore (it was too restrictive).
+    // Instead, we scan the whole grid and pick STRAIGHT corridor cells:
+    //   - Horizontal corridor cell: open + left/right open + up/down walls
+    //   - Vertical corridor cell:   open + up/down open + left/right walls
     //
-    // NEW (Pivot Side / Hinge Side legality):
-    // - Your DoorController creates a pivot on the model's LOCAL "left edge".
-    // - Therefore we MUST choose a yaw that makes that local-left edge sit against a WALL cell
-    //   (otherwise the hinge ends up in the corridor and opening 90/-90 will block the path).
+    // Sub-cell candidates:
+    // - For each eligible corridor cell, generate multiple candidate positions along the corridor axis.
+    // - Step is doorWidthCells (in "cell units").
     //
-    // We do this by allowing TWO rotations for every spot:
-    //   rotA = baseRotation
-    //   rotB = baseRotation * 180 yaw flip
-    // Then we select the first rotation whose "hinge side" (rot * Vector3.left)
-    // points to a WALL cell (perpendicular wall side).
+    // Corridor end legality (your rule: remove positions with distance < 1 cell from corridor end):
+    // - runLen >= 3 -> allow only interior CELLS (not first/last of the run)
+    // - runLen == 2 -> allow exactly ONE candidate: seam between the two cells (distance==1 from both ends)
+    // - runLen == 1 -> none
+    //
+    // NOTE: hinge-safe removed (per your request).
     // ----------------------------------------------------------
     public static List<DoorSpot> FromCarvedWalls(
         bool[,] grid,
-        List<Vector2Int> carvedWalls,
+        List<Vector2Int> carvedWalls, // kept for API compatibility, not used for candidate enumeration
         int width,
-        int height)
+        int height,
+        float doorWidthCells = 0.2f)
     {
         List<DoorSpot> spots = new();
 
-        foreach (var cell in carvedWalls)
+        // normalize (do NOT clamp to <=1; if door wider than cell, offsets will fallback to center)
+        doorWidthCells = Mathf.Max(0.01f, doorWidthCells);
+        float half = doorWidthCells * 0.5f;
+
+        // stats
+        int totalCellsScanned = 0;
+        int totalOpenCells = 0;
+        int totalStraightCells = 0;
+
+        int runLenLE1 = 0;
+        int runLenEQ2 = 0;
+        int endCellsSkipped = 0;
+
+        int seamCandidatesAdded = 0;
+        int interiorCellsPassed = 0;
+        int subCandidatesAdded = 0;
+
+        // avoid duplicating the special seam candidate for len==2 runs
+        HashSet<int> seamRunKeys = new();
+
+        // Scan ALL interior cells of the grid (this is the important fix)
+        for (int x = 1; x < width - 1; x++)
         {
-            int x = cell.x;
-            int y = cell.y;
-
-            if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1)
-                continue;
-
-            // This cell must be OPEN to place a door "in the passage"
-            if (grid[x, y]) // true == wall
-                continue;
-
-            bool leftOpen = !grid[x - 1, y];
-            bool rightOpen = !grid[x + 1, y];
-            bool downOpen = !grid[x, y - 1];
-            bool upOpen = !grid[x, y + 1];
-
-            bool isHorizontal = leftOpen && rightOpen && !upOpen && !downOpen; // passage L<->R, walls U/D
-            bool isVertical = upOpen && downOpen && !leftOpen && !rightOpen;   // passage D<->U, walls L/R
-
-            if (!isHorizontal && !isVertical)
-                continue;
-
-            // base rotation that aligns the door plane with the corridor opening
-            Quaternion baseRot = isHorizontal
-                ? Quaternion.Euler(0f, 90f, 0f)
-                : Quaternion.Euler(0f, 0f, 0f);
-
-            // Determine the two OPEN cells on the passage sides
-            Vector2Int aOpen, bOpen;
-            if (isHorizontal)
+            for (int y = 1; y < height - 1; y++)
             {
-                aOpen = new Vector2Int(x - 1, y);
-                bOpen = new Vector2Int(x + 1, y);
+                totalCellsScanned++;
+
+                if (grid[x, y]) // wall
+                    continue;
+
+                totalOpenCells++;
+
+                bool leftOpen = !grid[x - 1, y];
+                bool rightOpen = !grid[x + 1, y];
+                bool downOpen = !grid[x, y - 1];
+                bool upOpen = !grid[x, y + 1];
+
+                bool isHorizontal = leftOpen && rightOpen && !upOpen && !downOpen; // passage L<->R, walls U/D
+                bool isVertical = upOpen && downOpen && !leftOpen && !rightOpen;   // passage D<->U, walls L/R
+
+                if (!isHorizontal && !isVertical)
+                    continue;
+
+                totalStraightCells++;
+
+                // Determine corridor run extents
+                int runMinX = x, runMaxX = x;
+                int runMinY = y, runMaxY = y;
+
+                int runLen;
+                if (isHorizontal)
+                {
+                    GetHorizontalRun(grid, width, height, x, y, out runMinX, out runMaxX);
+                    runLen = runMaxX - runMinX + 1;
+                }
+                else
+                {
+                    GetVerticalRun(grid, width, height, x, y, out runMinY, out runMaxY);
+                    runLen = runMaxY - runMinY + 1;
+                }
+
+                // Corridor legality
+                if (runLen <= 1)
+                {
+                    runLenLE1++;
+                    continue;
+                }
+
+                // base rotation
+                Quaternion rot = isHorizontal
+                    ? Quaternion.Euler(0f, 90f, 0f)
+                    : Quaternion.Euler(0f, 0f, 0f);
+
+                // ---- runLen == 2: ONE seam candidate ----
+                if (runLen == 2)
+                {
+                    runLenEQ2++;
+
+                    int runKey = isHorizontal
+                        ? HashRunKey(axis: 0, fixedCoord: y, runMin: runMinX, runMax: runMaxX)
+                        : HashRunKey(axis: 1, fixedCoord: x, runMin: runMinY, runMax: runMaxY);
+
+                    if (seamRunKeys.Contains(runKey))
+                        continue;
+
+                    seamRunKeys.Add(runKey);
+
+                    // seam between the TWO corridor cells (these are the passable sides)
+                    Vector2Int c0 = isHorizontal ? new Vector2Int(runMinX, y) : new Vector2Int(x, runMinY);
+                    Vector2Int c1 = isHorizontal ? new Vector2Int(runMaxX, y) : new Vector2Int(x, runMaxY);
+
+                    // Put the candidate in the first cell with offset +0.5 toward the second cell
+                    Vector2Int seamCell = c0;
+                    Vector2 seamOffset = isHorizontal ? new Vector2(+0.5f, 0f) : new Vector2(0f, +0.5f);
+
+                    int id = HashCandidateId(seamCell, seamOffset, isHorizontal, subIndex: 0);
+
+                    spots.Add(new DoorSpot
+                    {
+                        cell = seamCell,
+                        rotation = rot,
+                        aOpen = c0,
+                        bOpen = c1,
+                        offset = seamOffset,
+                        id = id
+                    });
+
+                    seamCandidatesAdded++;
+                    continue;
+                }
+
+                // ---- runLen >= 3: only interior CELLS (distance < 1 cell from end is forbidden) ----
+                bool isEndCell = isHorizontal
+                    ? (x == runMinX || x == runMaxX)
+                    : (y == runMinY || y == runMaxY);
+
+                if (isEndCell)
+                {
+                    endCellsSkipped++;
+                    continue;
+                }
+
+                interiorCellsPassed++;
+
+                // For normal interior corridor cell: passable sides are the neighbors along the corridor axis
+                Vector2Int aOpen, bOpen;
+                if (isHorizontal)
+                {
+                    aOpen = new Vector2Int(x - 1, y);
+                    bOpen = new Vector2Int(x + 1, y);
+                }
+                else
+                {
+                    aOpen = new Vector2Int(x, y - 1);
+                    bOpen = new Vector2Int(x, y + 1);
+                }
+
+                // Generate multiple offsets inside this cell along corridor axis.
+                // positions range inside cell: [-0.5 + half, +0.5 - half] step=doorWidthCells
+                List<float> axisOffsets = GenerateAxisOffsets(half, doorWidthCells);
+
+                for (int oi = 0; oi < axisOffsets.Count; oi++)
+                {
+                    float t = axisOffsets[oi];
+
+                    Vector2 off = isHorizontal ? new Vector2(t, 0f) : new Vector2(0f, t);
+                    int id = HashCandidateId(new Vector2Int(x, y), off, isHorizontal, oi);
+
+                    spots.Add(new DoorSpot
+                    {
+                        cell = new Vector2Int(x, y),
+                        rotation = rot,
+                        aOpen = aOpen,
+                        bOpen = bOpen,
+                        offset = off,
+                        id = id
+                    });
+
+                    subCandidatesAdded++;
+                }
             }
-            else
-            {
-                aOpen = new Vector2Int(x, y - 1);
-                bOpen = new Vector2Int(x, y + 1);
-            }
-
-            // Determine the two WALL cells on the perpendicular sides
-            // (these MUST be walls by isHorizontal/isVertical definition)
-            Vector2Int w1, w2;
-            if (isHorizontal)
-            {
-                w1 = new Vector2Int(x, y + 1); // up wall
-                w2 = new Vector2Int(x, y - 1); // down wall
-            }
-            else
-            {
-                w1 = new Vector2Int(x - 1, y); // left wall
-                w2 = new Vector2Int(x + 1, y); // right wall
-            }
-
-            // Two candidate rotations: base + flipped (swap hinge side)
-            Quaternion rotA = baseRot;
-            Quaternion rotB = baseRot * Quaternion.Euler(0f, 180f, 0f);
-
-            // Pick a rotation whose hinge (local-left) points into one of the perpendicular WALL cells.
-            // If neither does, this spot is NOT safe for your pivot logic -> skip.
-            if (!TryPickSafeRotation(grid, width, height, new Vector2Int(x, y), w1, w2, rotA, rotB, out Quaternion chosenRot))
-                continue;
-
-            spots.Add(new DoorSpot
-            {
-                cell = new Vector2Int(x, y),
-                rotation = chosenRot,
-                aOpen = aOpen,
-                bOpen = bOpen
-            });
         }
+
+        DLog(
+            "[DoorPlacement] Candidate scan stats:\n" +
+            $"  scannedCells={totalCellsScanned}\n" +
+            $"  openCells(all)={totalOpenCells}\n" +
+            $"  straightCorridorCells={totalStraightCells}\n" +
+            $"  runLen<=1 (rejected)={runLenLE1}\n" +
+            $"  runLen==2 (seam-handled visits)={runLenEQ2}\n" +
+            $"  endCellsSkipped(runLen>=3)={endCellsSkipped}\n" +
+            $"  interiorCellsPassed(runLen>=3)={interiorCellsPassed}\n" +
+            $"  seamCandidatesAdded={seamCandidatesAdded}\n" +
+            $"  subCandidatesAdded={subCandidatesAdded}\n" +
+            $"  FINAL spots(sub-cell total)={spots.Count}  (doorWidthCells={doorWidthCells:0.###})"
+        );
 
         return spots;
     }
@@ -137,10 +250,10 @@ public static class DoorPlacement
 
     /// <summary>
     /// Plans puzzle + normal door spots.
-    /// - Enforces "uniform-ish" distribution via greedy max-min.
-    /// - Relaxes constraints gradually until all doors are planned.
-    /// - Keeps start clear: prevents doors from being placed on StartCell and N steps forward from start corridor.
-    /// - Keeps forced exit clear.
+    /// - Enforces "uniform-ish" distribution via greedy max-min (maximizes nearest-distance).
+    /// - Relaxes minDist gradually until all doors are planned (or candidates exhausted).
+    /// - Keeps start clear (StartCell + N forward).
+    /// - Keeps forced exit clear (also used as a distance "reserve").
     /// </summary>
     public static DoorPlan PlanDoors(
         bool[,] grid,
@@ -154,42 +267,59 @@ public static class DoorPlacement
         int keepClearStepsForward,
         Vector2Int startForwardDir,
         float[] minDistStepsCells,
-        int nearPathManhattanRadius = 1)
+        int nearPathManhattanRadius = 1,
+        float doorWidthCells = 0.2f)
     {
-        // candidates (now hinge-safe)
-        List<DoorSpot> spots = FromCarvedWalls(grid, carvedWalls, width, height);
+        // candidates (sub-cell) — carvedWalls kept only for signature compatibility
+        List<DoorSpot> spots = FromCarvedWalls(grid, carvedWalls, width, height, doorWidthCells);
+        DLog($"[DoorPlacement] PlanDoors: initial spots={spots.Count} (wantPuzzle={wantPuzzle}, wantNormal={wantNormal})");
 
-        // Always block these:
+        // Always block these cells:
         HashSet<Vector2Int> blockedCells = new();
         blockedCells.Add(forcedExitCell);
         blockedCells.Add(startCell);
 
         // keep clear "N forward"
+        int beforeForward = blockedCells.Count;
         AddForwardClearCells(blockedCells, grid, width, height, startCell, startForwardDir, keepClearStepsForward);
+        DLog($"[DoorPlacement] blockedCells: base={beforeForward} +forwardClear -> {blockedCells.Count}");
 
-        // remove blocked from base candidates
+        // remove blocked from base candidates (by CELL; offsets don't matter here)
+        int beforeBlockedFilter = spots.Count;
         spots = FilterOutCellSet(spots, blockedCells);
+        DLog($"[DoorPlacement] spots after blocked filter: {beforeBlockedFilter} -> {spots.Count}");
 
         // Build path for puzzle prioritization (strict/near/any)
         List<Vector2Int> solutionPath = FindPathBFS(grid, width, height, startCell, forcedExitCell);
         HashSet<Vector2Int> pathSet = new(solutionPath);
+        DLog($"[DoorPlacement] solutionPath length={solutionPath.Count} (pathSet={pathSet.Count}) nearRadius={nearPathManhattanRadius}");
 
-        List<DoorSpot> puzzleStrict = FilterOnPath(spots, pathSet); // both sides on path
+        List<DoorSpot> puzzleStrict = FilterOnPath(spots, pathSet); // both passable sides on path
         List<DoorSpot> puzzleNear = BuildNearPathCandidates(spots, pathSet, nearPathManhattanRadius);
         List<DoorSpot> puzzleAny = spots;
 
-        // used spots for distance scoring (CELL distance)
+        DLog($"[DoorPlacement] puzzle candidates: strict={puzzleStrict.Count} near={puzzleNear.Count} any={puzzleAny.Count}");
+
+        // used spots for distance scoring (continuous position in cell-units)
         List<DoorSpot> used = new();
 
-        // (reserve forced exit, so doors won't cluster near it)
-        used.Add(new DoorSpot { cell = forcedExitCell, rotation = Quaternion.identity, aOpen = forcedExitCell, bOpen = forcedExitCell });
+        // Reserve forced exit for distance scoring (so doors won't cluster near it)
+        used.Add(new DoorSpot
+        {
+            cell = forcedExitCell,
+            rotation = Quaternion.identity,
+            aOpen = forcedExitCell,
+            bOpen = forcedExitCell,
+            offset = Vector2.zero,
+            id = 0
+        });
 
         // plan outputs
         List<DoorSpot> plannedPuzzle = new();
         List<DoorSpot> plannedNormal = new();
 
-        HashSet<Vector2Int> usedPuzzleCells = new();
-        HashSet<Vector2Int> usedNormalCells = new();
+        // track exact chosen candidates (NOT by cell anymore)
+        HashSet<int> usedIds = new();
 
         int placedPuzzle = 0;
         int placedNormal = 0;
@@ -201,10 +331,10 @@ public static class DoorPlacement
         if (minDistStepsCells == null || minDistStepsCells.Length == 0)
             minDistStepsCells = new float[] { 4f, 3f, 2f, 1f, 0.5f, 0f };
 
-        // Relax loop
         for (int step = 0; step < minDistStepsCells.Length; step++)
         {
             float minDist = minDistStepsCells[step];
+            DLog($"[DoorPlacement] ---- Relax step {step + 1}/{minDistStepsCells.Length} | minDist={minDist} | puzzleScope={puzzleScope} ----");
 
             // -------- PUZZLE --------
             while (placedPuzzle < wantPuzzle)
@@ -214,25 +344,29 @@ public static class DoorPlacement
                     (puzzleScope == 1) ? puzzleNear :
                     puzzleAny;
 
-                // remove already-used cells (planned puzzle/normal)
-                List<DoorSpot> candidates = FilterOutCells(baseCandidates, usedPuzzleCells, usedNormalCells);
-
-                // also remove the blocked cells set again (safe)
+                List<DoorSpot> candidates = FilterOutUsedIds(baseCandidates, usedIds);
                 candidates = FilterOutCellSet(candidates, blockedCells);
 
+                DLog($"[DoorPlacement] Puzzle loop: base={baseCandidates.Count} afterUsed+blocked={candidates.Count} placed={placedPuzzle}/{wantPuzzle}");
+
                 if (!TrySelectSpotMaxMin(candidates, used, minDist, out DoorSpot chosen))
+                {
+                    DLog("[DoorPlacement] Puzzle loop: no selectable spot at this minDist.");
                     break;
+                }
 
                 plannedPuzzle.Add(chosen);
                 used.Add(chosen);
-                usedPuzzleCells.Add(chosen.cell);
+                usedIds.Add(chosen.id);
                 placedPuzzle++;
+
+                DLog($"[DoorPlacement] +PUZZLE at cell={chosen.cell} off={chosen.offset} | now placedPuzzle={placedPuzzle}/{wantPuzzle} usedTotal={used.Count}");
             }
 
-            // If puzzle missing: widen scope first (minimal relaxation), retry same distance
             if (placedPuzzle < wantPuzzle && puzzleScope < 2)
             {
                 puzzleScope++;
+                DLog($"[DoorPlacement] Puzzle still missing -> widen scope to {puzzleScope} and retry same minDist.");
                 step--;
                 continue;
             }
@@ -240,111 +374,175 @@ public static class DoorPlacement
             // -------- NORMAL --------
             while (placedNormal < wantNormal)
             {
-                List<DoorSpot> candidates = FilterOutCells(spots, usedPuzzleCells, usedNormalCells);
+                List<DoorSpot> candidates = FilterOutUsedIds(spots, usedIds);
                 candidates = FilterOutCellSet(candidates, blockedCells);
 
+                DLog($"[DoorPlacement] Normal loop: base={spots.Count} afterUsed+blocked={candidates.Count} placed={placedNormal}/{wantNormal}");
+
                 if (!TrySelectSpotMaxMin(candidates, used, minDist, out DoorSpot chosen))
+                {
+                    DLog("[DoorPlacement] Normal loop: no selectable spot at this minDist.");
                     break;
+                }
 
                 plannedNormal.Add(chosen);
                 used.Add(chosen);
-                usedNormalCells.Add(chosen.cell);
+                usedIds.Add(chosen.id);
                 placedNormal++;
+
+                DLog($"[DoorPlacement] +NORMAL at cell={chosen.cell} off={chosen.offset} | now placedNormal={placedNormal}/{wantNormal} usedTotal={used.Count}");
             }
 
             if (placedPuzzle >= wantPuzzle && placedNormal >= wantNormal)
                 break;
         }
 
+        DLog($"[DoorPlacement] PlanDoors result:\n" +
+             $"  placedPuzzle={placedPuzzle}/{wantPuzzle}\n" +
+             $"  placedNormal={placedNormal}/{wantNormal}\n" +
+             $"  finalUsed(inc exit-reserve)={used.Count}");
+
         return new DoorPlan(plannedPuzzle, plannedNormal, wantPuzzle, wantNormal, placedPuzzle, placedNormal);
     }
 
     // ==========================================================
-    // Pivot/Hinge legality helpers (NEW)
+    // Corridor-run helpers
     // ==========================================================
-    private static bool TryPickSafeRotation(
-        bool[,] grid,
-        int width,
-        int height,
-        Vector2Int doorCell,
-        Vector2Int perpWall1,
-        Vector2Int perpWall2,
-        Quaternion rotA,
-        Quaternion rotB,
-        out Quaternion chosen)
+    private static void GetHorizontalRun(bool[,] grid, int width, int height, int x, int y, out int minX, out int maxX)
     {
-        chosen = default;
+        minX = x;
+        maxX = x;
 
-        // Prefer rotA if safe, else rotB
-        if (IsRotationHingeOnPerpWall(grid, width, height, doorCell, perpWall1, perpWall2, rotA))
+        while (minX - 1 > 0 && IsStraightHorizontalCell(grid, width, height, minX - 1, y))
+            minX--;
+
+        while (maxX + 1 < width - 1 && IsStraightHorizontalCell(grid, width, height, maxX + 1, y))
+            maxX++;
+    }
+
+    private static void GetVerticalRun(bool[,] grid, int width, int height, int x, int y, out int minY, out int maxY)
+    {
+        minY = y;
+        maxY = y;
+
+        while (minY - 1 > 0 && IsStraightVerticalCell(grid, width, height, x, minY - 1))
+            minY--;
+
+        while (maxY + 1 < height - 1 && IsStraightVerticalCell(grid, width, height, x, maxY + 1))
+            maxY++;
+    }
+
+    private static bool IsStraightHorizontalCell(bool[,] grid, int width, int height, int x, int y)
+    {
+        if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1)
+            return false;
+
+        if (grid[x, y]) return false;
+
+        bool leftOpen = !grid[x - 1, y];
+        bool rightOpen = !grid[x + 1, y];
+        bool upOpen = !grid[x, y + 1];
+        bool downOpen = !grid[x, y - 1];
+
+        return leftOpen && rightOpen && !upOpen && !downOpen;
+    }
+
+    private static bool IsStraightVerticalCell(bool[,] grid, int width, int height, int x, int y)
+    {
+        if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1)
+            return false;
+
+        if (grid[x, y]) return false;
+
+        bool leftOpen = !grid[x - 1, y];
+        bool rightOpen = !grid[x + 1, y];
+        bool upOpen = !grid[x, y + 1];
+        bool downOpen = !grid[x, y - 1];
+
+        return upOpen && downOpen && !leftOpen && !rightOpen;
+    }
+
+    // ==========================================================
+    // Sub-cell offset generation
+    // ==========================================================
+    private static List<float> GenerateAxisOffsets(float halfDoor, float step)
+    {
+        // Valid center positions in cell local axis are within [-0.5+half, +0.5-half]
+        float a = -0.5f + halfDoor;
+        float b = 0.5f - halfDoor;
+
+        List<float> res = new();
+
+        if (b < a)
         {
-            chosen = rotA;
-            return true;
+            // door too wide, fallback to center
+            res.Add(0f);
+            return res;
         }
 
-        if (IsRotationHingeOnPerpWall(grid, width, height, doorCell, perpWall1, perpWall2, rotB))
+        // Deterministic stepping from a to b by step (inclusive end)
+        step = Mathf.Max(0.0001f, step);
+
+        float t = a;
+        int guard = 0;
+        while (t <= b + 1e-5f && guard++ < 10000)
         {
-            chosen = rotB;
-            return true;
+            res.Add(t);
+            t += step;
         }
 
-        return false;
+        // If last point is far from b, include b to hit the far edge
+        if (res.Count == 0 || Mathf.Abs(res[res.Count - 1] - b) > 1e-3f)
+            res.Add(b);
+
+        // Optional: ensure center included when it fits (helps symmetry)
+        if (0f >= a - 1e-5f && 0f <= b + 1e-5f)
+        {
+            bool hasCenter = false;
+            for (int i = 0; i < res.Count; i++)
+                if (Mathf.Abs(res[i]) < 1e-3f) { hasCenter = true; break; }
+            if (!hasCenter) res.Add(0f);
+        }
+
+        res.Sort();
+        return res;
     }
 
-    // The hinge direction is where the prefab's LOCAL "left edge" points in world.
-    // We approximate it using the rotation only:
-    //   hingeWorldDir = rot * Vector3.left
-    // Then snap it to the nearest cardinal direction on the grid (x/z),
-    // and require that the adjacent cell in that direction is one of the perpendicular WALL cells.
-    private static bool IsRotationHingeOnPerpWall(
-        bool[,] grid,
-        int width,
-        int height,
-        Vector2Int doorCell,
-        Vector2Int perpWall1,
-        Vector2Int perpWall2,
-        Quaternion rot)
+    // ==========================================================
+    // Filtering helpers
+    // ==========================================================
+    private static List<DoorSpot> FilterOutUsedIds(List<DoorSpot> all, HashSet<int> usedIds)
     {
-        Vector3 hingeDirWorld = rot * Vector3.left; // local-left => hinge side in world
-        Vector2Int hingeDirCell = SnapWorldDirToCellDir(hingeDirWorld);
+        if (all == null) return new List<DoorSpot>();
+        if (usedIds == null || usedIds.Count == 0) return new List<DoorSpot>(all);
 
-        if (hingeDirCell == Vector2Int.zero)
-            return false;
-
-        Vector2Int hingeCell = doorCell + hingeDirCell;
-
-        // hinge must be adjacent and inside bounds
-        if (!InBounds(hingeCell, width, height))
-            return false;
-
-        // hinge must point to one of the perpendicular wall cells
-        // (and that cell must actually be a WALL in the grid)
-        bool matchesPerp =
-            (hingeCell == perpWall1) ||
-            (hingeCell == perpWall2);
-
-        if (!matchesPerp)
-            return false;
-
-        // Must be wall (true == wall)
-        if (!grid[hingeCell.x, hingeCell.y])
-            return false;
-
-        return true;
+        List<DoorSpot> res = new();
+        for (int i = 0; i < all.Count; i++)
+        {
+            var s = all[i];
+            if (usedIds.Contains(s.id)) continue;
+            res.Add(s);
+        }
+        return res;
     }
 
-    private static Vector2Int SnapWorldDirToCellDir(Vector3 dir)
+    private static List<DoorSpot> FilterOutCellSet(List<DoorSpot> all, HashSet<Vector2Int> blocked)
     {
-        dir.y = 0f;
-        if (dir.sqrMagnitude < 0.000001f) return Vector2Int.zero;
-        dir.Normalize();
+        if (all == null) return new List<DoorSpot>();
+        if (blocked == null || blocked.Count == 0) return new List<DoorSpot>(all);
 
-        // Choose dominant axis between world X and world Z
-        if (Mathf.Abs(dir.x) >= Mathf.Abs(dir.z))
-            return (dir.x >= 0f) ? new Vector2Int(1, 0) : new Vector2Int(-1, 0);
-        else
-            return (dir.z >= 0f) ? new Vector2Int(0, 1) : new Vector2Int(0, -1);
+        List<DoorSpot> res = new();
+        for (int i = 0; i < all.Count; i++)
+        {
+            var s = all[i];
+            if (blocked.Contains(s.cell)) continue;
+            res.Add(s);
+        }
+        return res;
     }
+
+    private static bool InBounds(Vector2Int c, int w, int h) =>
+        c.x >= 0 && c.y >= 0 && c.x < w && c.y < h;
 
     // ==========================================================
     // Path filtering
@@ -361,93 +559,6 @@ public static class DoorPlacement
         return res;
     }
 
-    // blockedCells contains occupied/reserved OPEN cells from ResourcePlacement.
-    public static List<DoorSpot> FilterBlockedByResources(List<DoorSpot> spots, HashSet<Vector2Int> blockedCells)
-    {
-        if (spots == null) return new List<DoorSpot>();
-        if (blockedCells == null || blockedCells.Count == 0) return new List<DoorSpot>(spots);
-
-        List<DoorSpot> res = new();
-        foreach (var s in spots)
-        {
-            if (blockedCells.Contains(s.aOpen)) continue;
-            if (blockedCells.Contains(s.bOpen)) continue;
-            res.Add(s);
-        }
-        return res;
-    }
-
-    // ==========================================================
-    // Placement validity (CELL distance)
-    // ==========================================================
-    public static bool IsValidSpot(DoorSpot spot, List<DoorSpot> used, float minDist)
-    {
-        if (used == null || used.Count == 0) return true;
-        if (minDist <= 0f) return true;
-
-        foreach (var u in used)
-            if (Vector2.Distance(spot.cell, u.cell) < minDist)
-                return false;
-
-        return true;
-    }
-
-    // ==========================================================
-    // Uniform-ish placement helper (CELL space)
-    // Greedy Max-Min
-    // ==========================================================
-    public static bool TrySelectSpotMaxMin(
-        List<DoorSpot> candidates,
-        List<DoorSpot> used,
-        float minDist,
-        out DoorSpot selected)
-    {
-        selected = default;
-
-        if (candidates == null || candidates.Count == 0)
-            return false;
-
-        int bestIndex = -1;
-        float bestScore = -1f;
-
-        for (int i = 0; i < candidates.Count; i++)
-        {
-            var s = candidates[i];
-            if (!IsValidSpot(s, used, minDist))
-                continue;
-
-            float nearest = float.PositiveInfinity;
-
-            if (used != null && used.Count > 0)
-            {
-                for (int k = 0; k < used.Count; k++)
-                {
-                    float d = Vector2.Distance(s.cell, used[k].cell);
-                    if (d < nearest) nearest = d;
-                }
-            }
-            else
-            {
-                nearest = 999999f;
-            }
-
-            if (nearest > bestScore)
-            {
-                bestScore = nearest;
-                bestIndex = i;
-            }
-        }
-
-        if (bestIndex < 0)
-            return false;
-
-        selected = candidates[bestIndex];
-        return true;
-    }
-
-    // ==========================================================
-    // Candidate expansion: Near a path (Manhattan radius)
-    // ==========================================================
     public static List<DoorSpot> BuildNearPathCandidates(
         List<DoorSpot> all,
         HashSet<Vector2Int> path,
@@ -480,93 +591,83 @@ public static class DoorPlacement
     }
 
     // ==========================================================
-    // Utility: filter out already-used cells
+    // Placement validity + selection (uses continuous position)
     // ==========================================================
-    public static List<DoorSpot> FilterOutCells(
-        List<DoorSpot> all,
-        HashSet<Vector2Int> a,
-        HashSet<Vector2Int> b)
-    {
-        if (all == null) return new List<DoorSpot>();
+    private static Vector2 SpotPos2(DoorSpot s) =>
+        new Vector2(s.cell.x + s.offset.x, s.cell.y + s.offset.y);
 
-        List<DoorSpot> res = new();
-        for (int i = 0; i < all.Count; i++)
+    public static bool IsValidSpot(DoorSpot spot, List<DoorSpot> used, float minDist)
+    {
+        if (used == null || used.Count == 0) return true;
+        if (minDist <= 0f) return true;
+
+        Vector2 p = SpotPos2(spot);
+
+        foreach (var u in used)
         {
-            var s = all[i];
-            if (a != null && a.Contains(s.cell)) continue;
-            if (b != null && b.Contains(s.cell)) continue;
-            res.Add(s);
+            Vector2 q = SpotPos2(u);
+            if (Vector2.Distance(p, q) < minDist)
+                return false;
         }
-        return res;
+
+        return true;
     }
 
-    // ==========================================================
-    // KEEP OLD API (compat)
-    // ==========================================================
-    public static List<DoorSpot> PickEvenlySpaced(List<DoorSpot> spots, int count, float minDist)
+    public static bool TrySelectSpotMaxMin(
+        List<DoorSpot> candidates,
+        List<DoorSpot> used,
+        float minDist,
+        out DoorSpot selected)
     {
-        List<DoorSpot> picked = new();
-        if (count <= 0 || spots == null || spots.Count == 0) return picked;
+        selected = default;
 
-        List<DoorSpot> pool = new(spots);
-        Shuffle(pool);
+        if (candidates == null || candidates.Count == 0)
+            return false;
 
-        float curMin = Mathf.Max(0f, minDist);
+        int bestIndex = -1;
+        float bestScore = -1f;
 
-        for (int pass = 0; pass < 6 && picked.Count < count; pass++)
+        for (int i = 0; i < candidates.Count; i++)
         {
-            foreach (var s in pool)
+            var s = candidates[i];
+            if (!IsValidSpot(s, used, minDist))
+                continue;
+
+            Vector2 sp = SpotPos2(s);
+            float nearest = float.PositiveInfinity;
+
+            if (used != null && used.Count > 0)
             {
-                if (picked.Count >= count) break;
-                if (IsValidSpot(s, picked, curMin))
-                    picked.Add(s);
+                for (int k = 0; k < used.Count; k++)
+                {
+                    Vector2 up = SpotPos2(used[k]);
+                    float d = Vector2.Distance(sp, up);
+                    if (d < nearest) nearest = d;
+                }
             }
-            curMin *= 0.6f;
-        }
-
-        if (picked.Count < count)
-        {
-            foreach (var s in pool)
+            else
             {
-                if (picked.Count >= count) break;
-                if (!picked.Contains(s))
-                    picked.Add(s);
+                nearest = 999999f;
+            }
+
+            if (nearest > bestScore)
+            {
+                bestScore = nearest;
+                bestIndex = i;
             }
         }
 
-        if (picked.Count > count)
-            picked.RemoveRange(count, picked.Count - count);
+        if (bestIndex < 0)
+            return false;
 
-        return picked;
+        selected = candidates[bestIndex];
+        DLog($"[DoorPlacement] TrySelectSpotMaxMin: candidates={candidates.Count}, minDist={minDist}, chosen=YES bestScore={bestScore:0.###}");
+        return true;
     }
 
     // ==========================================================
-    // INTERNAL HELPERS
+    // Start forward clear
     // ==========================================================
-    private static void Shuffle(List<DoorSpot> list)
-    {
-        for (int i = 0; i < list.Count; i++)
-        {
-            int j = Random.Range(i, list.Count);
-            (list[i], list[j]) = (list[j], list[i]);
-        }
-    }
-
-    private static List<DoorSpot> FilterOutCellSet(List<DoorSpot> all, HashSet<Vector2Int> blocked)
-    {
-        if (all == null) return new List<DoorSpot>();
-        if (blocked == null || blocked.Count == 0) return new List<DoorSpot>(all);
-
-        List<DoorSpot> res = new();
-        for (int i = 0; i < all.Count; i++)
-        {
-            var s = all[i];
-            if (blocked.Contains(s.cell)) continue;
-            res.Add(s);
-        }
-        return res;
-    }
-
     private static void AddForwardClearCells(
         HashSet<Vector2Int> blocked,
         bool[,] grid,
@@ -592,8 +693,40 @@ public static class DoorPlacement
         }
     }
 
-    private static bool InBounds(Vector2Int c, int w, int h) =>
-        c.x >= 0 && c.y >= 0 && c.x < w && c.y < h;
+    // ==========================================================
+    // Hash helpers (stable IDs)
+    // ==========================================================
+    private static int HashRunKey(int axis, int fixedCoord, int runMin, int runMax)
+    {
+        unchecked
+        {
+            int h = 17;
+            h = h * 31 + axis;
+            h = h * 31 + fixedCoord;
+            h = h * 31 + runMin;
+            h = h * 31 + runMax;
+            return h;
+        }
+    }
+
+    private static int HashCandidateId(Vector2Int cell, Vector2 off, bool isHorizontal, int subIndex)
+    {
+        unchecked
+        {
+            int h = 17;
+            h = h * 31 + cell.x;
+            h = h * 31 + cell.y;
+            h = h * 31 + (isHorizontal ? 1 : 2);
+            h = h * 31 + subIndex;
+
+            // quantized offsets to avoid float instability
+            int ox = Mathf.RoundToInt(off.x * 10000f);
+            int oy = Mathf.RoundToInt(off.y * 10000f);
+            h = h * 31 + ox;
+            h = h * 31 + oy;
+            return h;
+        }
+    }
 
     // ==========================================================
     // BFS PATHFINDING

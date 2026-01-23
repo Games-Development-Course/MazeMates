@@ -572,22 +572,34 @@
             // min dist relaxation in CELL units
             float[] distSteps = { 4f, 3f, 2f, 1f, 0.5f, 0f };
 
-            var plan = DoorPlacement.PlanDoors(
-                grid: grid,
-                carvedWalls: carvedWalls,
-                width: width,
-                height: height,
-                startCell: StartCell,
-                forcedExitCell: forcedExitCell,
-                wantNormal: normalDoorsAmount,
-                wantPuzzle: puzzleDoorsAmount,
-                keepClearStepsForward: 3,
-                startForwardDir: forwardDir,
-                minDistStepsCells: distSteps,
-                nearPathManhattanRadius: 1
+        // מחשבים רוחב דלת לפי ה-MESH בפועל (world units)
+        float doorWidthWorld = ComputeDoorWidthWorld_FromMesh(normalDoorPrefab != null ? normalDoorPrefab : puzzleDoorPrefab);
+
+        // המרה ל-"cell units"
+        float doorWidthCells = doorWidthWorld / cellSize;
+
+        // לוג שיעזור לוודא
+        Debug.Log($"[Doors] doorWidthWorld={doorWidthWorld:0.###} | cellSize={cellSize:0.###} => doorWidthCells={doorWidthCells:0.###}");
+
+
+        var plan = DoorPlacement.PlanDoors(
+              grid: grid,
+              carvedWalls: carvedWalls,
+              width: width,
+              height: height,
+              startCell: StartCell,
+              forcedExitCell: forcedExitCell,
+              wantNormal: normalDoorsAmount,
+              wantPuzzle: puzzleDoorsAmount,
+              keepClearStepsForward: 3,
+              startForwardDir: forwardDir,
+              minDistStepsCells: distSteps,
+              nearPathManhattanRadius: 1,
+              doorWidthCells: doorWidthCells
             );
 
-            Debug.Log($"[Doors] PLAN placed normal={plan.PlacedNormal}/{plan.WantNormal}, puzzle={plan.PlacedPuzzle}/{plan.WantPuzzle}");
+
+        Debug.Log($"[Doors] PLAN placed normal={plan.PlacedNormal}/{plan.WantNormal}, puzzle={plan.PlacedPuzzle}/{plan.WantPuzzle}");
 
             List<GameObject> puzzleDoorInstances = new();
 
@@ -621,9 +633,10 @@
             if (nm != null && !nm.IsServer)
                 return null;
 
-            Vector3 world = CellCenterWorld(spot.cell.x, spot.cell.y, 0f);
+        Vector3 world = CellCenterWorld(spot.cell.x, spot.cell.y, 0f)
+                      + transform.TransformVector(new Vector3(spot.offset.x * cellSize, 0f, spot.offset.y * cellSize));
 
-            Quaternion rot =
+        Quaternion rot =
                 transform.rotation *
                 spot.rotation *
                 Quaternion.Euler(0f, doorPrefabYawOffset, 0f);
@@ -645,10 +658,51 @@
             return go;
         }
 
-        // ================================================================
-        //   RESOURCES
-        // ================================================================
-        private void PlaceResources()
+    private float ComputeDoorWidthCells(GameObject doorPrefab)
+    {
+        if (doorPrefab == null) return 0.25f; // fallback
+
+        // עותק זמני למדידה
+        var temp = Instantiate(doorPrefab);
+        temp.name = "__DoorMeasureTemp__";
+        temp.hideFlags = HideFlags.HideAndDontSave;
+
+        temp.transform.position = Vector3.zero;
+        temp.transform.rotation = Quaternion.Euler(0f, doorPrefabYawOffset, 0f);
+        temp.transform.localScale = Vector3.one;
+
+        bool has = false;
+        Bounds b = default;
+
+        // ✅ Mesh-based only: Renderer bounds (MeshRenderer / SkinnedMeshRenderer)
+        var rends = temp.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < rends.Length; i++)
+        {
+            var r = rends[i];
+            if (r == null) continue;
+
+            // לפעמים יש Renderer של VFX/Particles – אפשר לדלג אם רוצים
+            if (r is ParticleSystemRenderer) continue;
+
+            if (!has) { b = r.bounds; has = true; }
+            else b.Encapsulate(r.bounds);
+        }
+
+        Destroy(temp);
+
+        if (!has) return 0.25f;
+
+        // רוחב "על הרצפה" (XZ). שמרני: לקחת מקסימום בין X ו-Z
+        float doorWidthWorld = Mathf.Max(b.size.x, b.size.z);
+
+        return doorWidthWorld / Mathf.Max(0.0001f, cellSize);
+    }
+
+
+    // ================================================================
+    //   RESOURCES
+    // ================================================================
+    private void PlaceResources()
         {
             HashSet<Vector2Int> blocked = new();
 
@@ -1113,6 +1167,30 @@
             path.Reverse();
             return path;
         }
+
+    private float ComputeDoorWidthWorld_FromMesh(GameObject doorPrefab)
+    {
+        if (doorPrefab == null) return 0.4f; // fallback סביר
+
+        // מודדים bounds של ה-Renderer-ים בפריפאב (MeshRenderer/SkinnedMeshRenderer)
+        var renderers = doorPrefab.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
+            return 0.4f;
+
+        Bounds b = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+            b.Encapsulate(renderers[i].bounds);
+
+        // NOTE:
+        // פה אנחנו מניחים ש"רוחב דלת" הוא העובי לרוחב המעבר (בדרך כלל X או Z).
+        // כדי לא להסתבך עם רוטציה, ניקח את המינימום בין X ל-Z כ"רוחב".
+        float w = Mathf.Min(b.size.x, b.size.z);
+
+        // bounds של prefab נמצאים בעולם? בפריפאב זה עדיין עובד טוב כמידה יחסית.
+        // אם יש scaling חריג בפריפאב, זה ייכנס לחישוב (וזה מה שאתה רוצה).
+        return Mathf.Max(0.01f, w);
+    }
+
 
     public Bounds GetCellWorldBounds(Vector2Int c, float yCenter = 0f, float ySize = 10f)
     {
