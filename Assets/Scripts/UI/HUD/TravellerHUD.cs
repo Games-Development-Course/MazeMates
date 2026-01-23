@@ -32,6 +32,11 @@ public class TravellerHUD : MonoBehaviour
 
     private bool flashing = false;
     private Coroutine bombEffectCo;
+    private void Awake()
+    {
+        if (!sharedBar)
+            sharedBar = GetComponentInChildren<HUDShared>(true);
+    }
 
     private void Start()
     {
@@ -43,6 +48,9 @@ public class TravellerHUD : MonoBehaviour
 
         if (fadeGroup != null)
             fadeGroup.alpha = 0f;
+
+        HUDManager.Instance?.UpdateHUD();
+
     }
 
     private void EnsureOverlayImage()
