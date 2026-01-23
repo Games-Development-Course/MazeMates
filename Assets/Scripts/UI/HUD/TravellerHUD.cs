@@ -40,8 +40,11 @@ public class TravellerHUD : MonoBehaviour
 
     private bool flashing = false;
     private Coroutine bombEffectCo;
-    private Coroutine startMessageCo;
-    private bool _subscribedToGM = false;
+    private void Awake()
+    {
+        if (!sharedBar)
+            sharedBar = GetComponentInChildren<HUDShared>(true);
+    }
 
     private void Start()
     {
@@ -54,61 +57,8 @@ public class TravellerHUD : MonoBehaviour
         if (fadeGroup != null)
             fadeGroup.alpha = 0f;
 
-        if (!useGameManagerEvent)
-        {
-            if (showStartMessageOnStart && !string.IsNullOrEmpty(startLevelMessage))
-            {
-                if (startMessageCo != null)
-                    StopCoroutine(startMessageCo);
+        HUDManager.Instance?.UpdateHUD();
 
-                startMessageCo = StartCoroutine(ShowMessageRoutine(startLevelMessage, startMessageDuration));
-            }
-        }
-    }
-
-    private void OnEnable()
-    {
-        TrySubscribeToGameManager();
-    }
-
-    private void OnDisable()
-    {
-        if (_subscribedToGM && GameManager.Instance != null)
-        {
-            GameManager.Instance.OnLevelStarted -= OnGameManagerLevelStarted;
-            _subscribedToGM = false;
-        }
-    }
-
-    private void TrySubscribeToGameManager()
-    {
-        if (!useGameManagerEvent) return;
-        if (_subscribedToGM) return;
-        if (GameManager.Instance == null) return;
-
-        GameManager.Instance.OnLevelStarted += OnGameManagerLevelStarted;
-        _subscribedToGM = true;
-    }
-
-    private void OnGameManagerLevelStarted()
-    {
-        if (startMessageCo != null)
-            StopCoroutine(startMessageCo);
-
-        startMessageCo = StartCoroutine(ShowMessageRoutine(startLevelMessage, startMessageDuration));
-    }
-
-    private IEnumerator ShowMessageRoutine(string msg, float duration)
-    {
-        ShowMessage(msg);
-
-        if (duration > 0f)
-            yield return new WaitForSeconds(duration);
-        else
-            yield return null;
-
-        Clear();
-        startMessageCo = null;
     }
 
     private void EnsureOverlayImage()

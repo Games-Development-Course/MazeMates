@@ -26,7 +26,11 @@ public class NavigatorHUD : MonoBehaviour
         WireIfNeeded();
         if (messageText != null) defaultColor = messageText.color;
         if (hideOnStartButKeepActive) SetVisible(false);
+
+        if (!sharedBar)
+            sharedBar = GetComponentInChildren<HUDShared>(true); // ✅ מוקדם
     }
+
 
     private void WireIfNeeded()
     {
@@ -64,6 +68,8 @@ public class NavigatorHUD : MonoBehaviour
         if (!sharedBar)
             sharedBar = GetComponentInChildren<HUDShared>(true);
 
+        HUDManager.Instance?.UpdateHUD(); // ✅ עדכון ראשוני
+
         foreach (var b in actionButtons)
             b.interactable = false;
 
@@ -71,6 +77,7 @@ public class NavigatorHUD : MonoBehaviour
 
         Debug.Log("NavigatorHUD: Navigator is ready — buttons unlocked.");
     }
+
 
     private IEnumerator WaitForNavigator()
     {
