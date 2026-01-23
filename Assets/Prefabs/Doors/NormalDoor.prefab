@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 523037535219718996}
-  m_Layer: 0
+  m_Layer: 14
   m_Name: DoorObj
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -42,7 +42,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4969470049378256138}
   - component: {fileID: 9090430759978574217}
-  m_Layer: 0
+  m_Layer: 14
   m_Name: door_animated
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -98,7 +98,7 @@ GameObject:
   - component: {fileID: 6628796610111529129}
   - component: {fileID: 791449650068076892}
   - component: {fileID: 9158885345019487821}
-  m_Layer: 0
+  m_Layer: 14
   m_Name: DoorPad (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -236,6 +236,7 @@ MonoBehaviour:
   pivotOverride: {fileID: 0}
   exitCinematicSpinTarget: {fileID: 0}
   exitDoorPivotOverride: {fileID: 0}
+  exitOpenAngle: 90
   exitSpinDegrees: 90
   exitSpinDuration: 1.25
   puzzlePrefab: {fileID: 0}
@@ -255,7 +256,7 @@ GameObject:
   - component: {fileID: 1094946383766137356}
   - component: {fileID: 2874748686801867590}
   - component: {fileID: 1639471420159014866}
-  m_Layer: 0
+  m_Layer: 14
   m_Name: default
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -310,8 +311,8 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -4921242355210505637, guid: a0fcdb5c011ea2345bd20be623248c4b, type: 3}
-  - {fileID: -3622114235694381049, guid: a0fcdb5c011ea2345bd20be623248c4b, type: 3}
+  - {fileID: 2100000, guid: 4075a72876154054b86ce57919255dac, type: 2}
+  - {fileID: 2100000, guid: 4075a72876154054b86ce57919255dac, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
