@@ -122,7 +122,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6533422190067134996}
+  - {fileID: 8891580112988688947}
   - {fileID: 6708966184931652637}
   m_Father: {fileID: 7045232817841779585}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -337,6 +337,38 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!1 &1351632294107040027
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8891580112988688947}
+  m_Layer: 0
+  m_Name: pivot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8891580112988688947
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1351632294107040027}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.0506, y: 0, z: 0.047}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6533422190067134996}
+  m_Father: {fileID: 4488025081127309181}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1357634262605109457
 GameObject:
   m_ObjectHideFlags: 0
@@ -541,8 +573,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2437365250535156226}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 2.4880304, y: -10.360566, z: -8.217862}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 2.4880304, y: -10.360564, z: -8.217864}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1043,7 +1075,7 @@ GameObject:
   - component: {fileID: 6920401791398003695}
   m_Layer: 0
   m_Name: polySurface41
-  m_TagString: Untagged
+  m_TagString: Door
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1057,7 +1089,7 @@ Transform:
   m_GameObject: {fileID: 6749102803470525099}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.052, y: 0.06699641, z: 0.039749563}
+  m_LocalPosition: {x: 0.10259999, y: 0.066996396, z: -0.0072504245}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1066,7 +1098,7 @@ Transform:
   - {fileID: 3159909023406848404}
   - {fileID: 4276358029880512215}
   - {fileID: 8004776131683036472}
-  m_Father: {fileID: 4488025081127309181}
+  m_Father: {fileID: 8891580112988688947}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &2783048684582017292
 MeshFilter:
@@ -1317,7 +1349,8 @@ MonoBehaviour:
   doorPadCollider: {fileID: 4351806728093364951}
   pivotOverride: {fileID: 0}
   exitCinematicSpinTarget: {fileID: 4276358029880512215}
-  exitDoorPivotOverride: {fileID: 6533422190067134996}
+  exitDoorPivotOverride: {fileID: 8891580112988688947}
+  exitOpenAngle: 90
   exitSpinDegrees: 90
   exitSpinDuration: 3
   puzzlePrefab: {fileID: 0}

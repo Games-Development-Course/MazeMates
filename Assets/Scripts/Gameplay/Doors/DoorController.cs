@@ -659,6 +659,7 @@ public class DoorController : NetworkBehaviour
     [Rpc(SendTo.Everyone)]
     private void OpenExitDoorCinematicRpc(float chosenAngle)
     {
+<<<<<<< HEAD
         StartCoroutine(ExitCinematicOpenThenNotifyRoutine(chosenAngle));
     }
 
@@ -680,6 +681,9 @@ public class DoorController : NetworkBehaviour
         {
             Debug.LogWarning("[DoorController] Exit opened but GameManager.Instance is null; cannot notify level end.");
         }
+=======
+        StartCoroutine(ExitCinematicOpenRoutine(chosenAngle));
+>>>>>>> 9afbef7 (door opening out fixed)
     }
 
     public void ShowNavigatorPreviewOnScreen(Sprite sprite)
