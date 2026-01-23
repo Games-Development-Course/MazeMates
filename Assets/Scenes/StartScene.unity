@@ -1172,21 +1172,21 @@ MonoBehaviour:
   easyBombs: 3
   easyKeys: 3
   easyNormalDoors: 3
-  easyPuzzleDoors: 2
+  easyPuzzleDoors: 1
   medMazeW: 15
   medMazeH: 15
   medHearts: 3
   medBombs: 5
   medKeys: 5
   medNormalDoors: 4
-  medPuzzleDoors: 3
+  medPuzzleDoors: 1
   hardMazeW: 17
   hardMazeH: 17
   hardHearts: 3
   hardBombs: 7
   hardKeys: 7
   hardNormalDoors: 5
-  hardPuzzleDoors: 4
+  hardPuzzleDoors: 2
   easyLives: 2
   medLives: 2
   hardLives: 1
