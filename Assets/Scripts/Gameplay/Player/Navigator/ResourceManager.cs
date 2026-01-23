@@ -542,7 +542,6 @@ public class ResourceManager : NetworkBehaviour
         if (tm != null)
             tm.NotifyNavigatorGaveLifebuoy();
 
-        gm.activePuzzleDoor?.GetPuzzle()?.RevealRandomHint();
         RevealHintClientRpc();
 
         if (gm != null && gm.activePuzzleDoor != null)
