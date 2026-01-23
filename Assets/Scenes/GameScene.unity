@@ -3623,7 +3623,10 @@ GameObject:
   - component: {fileID: 784902582}
   - component: {fileID: 784902583}
   - component: {fileID: 784902584}
+<<<<<<< HEAD
   - component: {fileID: 784902585}
+=======
+>>>>>>> 75b56ea (resolve door controller)
   m_Layer: 9
   m_Name: TravellerHUD
   m_TagString: Untagged
@@ -3765,6 +3768,7 @@ MonoBehaviour:
   restartButton: {fileID: 1334402874}
   backToMenuButton: {fileID: 1084875200}
   menuSceneName: StartScene
+<<<<<<< HEAD
 --- !u!114 &784902585
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3779,6 +3783,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PanelToggleOnP
   panel: {fileID: 986079633}
   hideOnStart: 1
+=======
+>>>>>>> 75b56ea (resolve door controller)
 --- !u!1 &802133336
 GameObject:
   m_ObjectHideFlags: 0
@@ -4607,7 +4613,10 @@ GameObject:
   - component: {fileID: 986079634}
   - component: {fileID: 986079636}
   - component: {fileID: 986079635}
+<<<<<<< HEAD
   - component: {fileID: 986079637}
+=======
+>>>>>>> 75b56ea (resolve door controller)
   m_Layer: 9
   m_Name: PopupEndLevelPanel
   m_TagString: Untagged
@@ -4630,7 +4639,10 @@ RectTransform:
   - {fileID: 2040581264}
   - {fileID: 1334402871}
   - {fileID: 1084875203}
+<<<<<<< HEAD
   - {fileID: 273442569}
+=======
+>>>>>>> 75b56ea (resolve door controller)
   m_Father: {fileID: 784902577}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -4676,6 +4688,7 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 986079633}
   m_CullTransparentMesh: 1
+<<<<<<< HEAD
 --- !u!114 &986079637
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4688,6 +4701,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd607859f24344b11a3af940925f022a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BackToMenuButton
+=======
+>>>>>>> 75b56ea (resolve door controller)
 --- !u!1 &1012150771
 GameObject:
   m_ObjectHideFlags: 0
@@ -5055,6 +5070,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1084875201}
   m_OnClick:
     m_PersistentCalls:
+<<<<<<< HEAD
       m_Calls:
       - m_Target: {fileID: 986079637}
         m_TargetAssemblyTypeName: BackToMenuButton, Assembly-CSharp
@@ -5068,6 +5084,9 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+=======
+      m_Calls: []
+>>>>>>> 75b56ea (resolve door controller)
 --- !u!114 &1084875201
 MonoBehaviour:
   m_ObjectHideFlags: 0
