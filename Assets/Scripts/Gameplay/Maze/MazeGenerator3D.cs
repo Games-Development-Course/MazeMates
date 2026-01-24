@@ -920,6 +920,7 @@ public class MazeGenerator3D : MonoBehaviour
     }
 
     // Called after resources are placed (you already call this from Start coroutine)
+    // Called after resources are placed (you already call this from Start coroutine)
     private void ComputeAndApplyBombRemovalsRuntime()
     {
         // server only
@@ -929,23 +930,78 @@ public class MazeGenerator3D : MonoBehaviour
         var cfg = GameConfigNet.Instance;
         if (cfg == null) return;
 
-        int totalBombs = CountObjectsByNameContains("bomb");
+        // 1) collect placed bomb cells (ONLY root bomb objects, not child meshes/colliders)
+        HashSet<Vector2Int> bombCells = CollectPlacedBombCells_SceneWide();
+        int totalBombs = bombCells.Count;
 
-        // EASY: remove all bombs
+        // 2) shortest path cells from start -> forced exit
+        List<Vector2Int> exitPath = DoorPlacement.FindPathBFS(grid, width, height, StartCell, forcedExitCell);
+
+        // 3) count bombs that are ON that path
+        int bombsOnExitPath = 0;
+        for (int i = 0; i < exitPath.Count; i++)
+        {
+            if (bombCells.Contains(exitPath[i]))
+                bombsOnExitPath++;
+        }
+
+        // Requested logic:
+        // EASY  = total bombs
+        // HARD  = bombs on exit path
+        // MED   = midpoint between them
         int easy = totalBombs;
-
-        // HARD: stricter (example: half the bombs). You can change formula later.
-        int hard = Mathf.Max(0, Mathf.FloorToInt(totalBombs * 0.5f));
-
-        // MEDIUM: midpoint
+        int hard = bombsOnExitPath;
         int medium = Mathf.RoundToInt((easy + hard) * 0.5f);
 
         int diff = cfg.Difficulty.Value; // 0 easy, 1 medium, 2 hard
         int result = (diff == 0) ? easy : (diff == 1 ? medium : hard);
 
+        // safety clamp
+        result = Mathf.Clamp(result, 0, totalBombs);
+
         cfg.SetBombRemovalsRuntimeServerRpc(result);
 
-        Debug.Log($"[Maze] BombRemovals computed: easy={easy}, medium={medium}, hard={hard}, chosen={result} (diff={diff})");
+        Debug.Log($"[Maze] BombRemovals computed: totalBombs={totalBombs}, bombsOnExitPath={bombsOnExitPath}, " +
+                  $"easy={easy}, medium={medium}, hard={hard}, chosen={result} (diff={diff})");
+    }
+    // Finds bombs anywhere in the scene by *root object name* (MazeBomb or MazeBomb(Clone)).
+    // Counts each bomb once (not child transforms).
+    private HashSet<Vector2Int> CollectPlacedBombCells_SceneWide()
+    {
+        HashSet<Vector2Int> cells = new HashSet<Vector2Int>();
+
+        var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+        for (int r = 0; r < roots.Length; r++)
+        {
+            var root = roots[r];
+            if (root == null) continue;
+
+            // include inactive just in case
+            var all = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                var t = all[i];
+                if (t == null) continue;
+
+                // IMPORTANT: only count the bomb's ROOT object, not its children
+                string n = t.gameObject.name;
+                if (n != "MazeBomb" && n != "MazeBomb(Clone)") continue;
+
+                // Ensure we only count the top-level bomb GO once:
+                // If this transform is not the root of its own hierarchy, skip.
+                // (Children will have different names usually, but this makes it bulletproof.)
+                if (t != t.root && (t.parent != null && t.parent.name.StartsWith("MazeBomb")))
+                {
+                    // optional extra guard; safe to just not use this block
+                }
+
+                Vector2Int c = WorldToCell(t.position);
+                if (InBounds(c) && !grid[c.x, c.y])
+                    cells.Add(c);
+            }
+        }
+
+        return cells;
     }
 
     private int CountObjectsByNameContains(string needleLower)
