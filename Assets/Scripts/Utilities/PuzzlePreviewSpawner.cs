@@ -1,12 +1,16 @@
-﻿using UnityEngine;
+﻿// File: Assets/Scripts/UI/Puzzle/PuzzlePreviewSpawner.cs
+using UnityEngine;
 using UnityEngine.UI;
 
 public class PuzzlePreviewSpawner : MonoBehaviour
 {
     public Puzzle puzzle;
 
-    [Header("Canvas (already exists in your UI)")]
+    [Header("Canvas (optional; used for scaleFactor)")]
     public Canvas canvas;
+
+    [Header("Auto Run (Editor helper)")]
+    public bool autoRunInStart = false;
 
     [Header("Border")]
     public Sprite borderSprite;
@@ -56,9 +60,12 @@ public class PuzzlePreviewSpawner : MonoBehaviour
     public Vector2 bgBorderOffset = Vector2.zero;
     public float bgBorderPPU = 1f;
 
+    // ✅ expose UI
+    public PuzzlePreviewUI UI => _ui;
+
     private PuzzlePreviewUI _ui;
 
-    // Our guaranteed tray structure
+    // Our tray structure
     private RectTransform _trayOuter;
     private RectTransform _trayBgRT;
     private Image _trayBgImg;
@@ -67,33 +74,62 @@ public class PuzzlePreviewSpawner : MonoBehaviour
     private RectTransform _trayContentRT;
     private PuzzleTrayLayout2Rows _trayLayout;
 
-    private void Start()
+    // =========================================================
+    // ✅ Public API (used by PuzzleDoor)
+    // =========================================================
+
+    // Build everything INTO the provided root (no global canvas root creation)
+    public void BuildInto(RectTransform root, Puzzle puzzle, Canvas canvasOverride = null)
     {
-        EnsureSetup();
-        FullApply();
-        Debug.Log("[PuzzlePreviewSpawner] R = apply, Shift+R = rebuild all.");
+        this.puzzle = puzzle;
+        this.canvas = canvasOverride != null ? canvasOverride : (canvas != null ? canvas : root.GetComponentInParent<Canvas>());
+
+        // ensure UI component on that root
+        _ui = root.GetComponent<PuzzlePreviewUI>();
+        if (_ui == null) _ui = root.gameObject.AddComponent<PuzzlePreviewUI>();
+
+        _ui.puzzle = this.puzzle;
+        _ui.root = root;
+
+        _ui.Build();
     }
 
-    private void Update()
+    // Apply layout/borders now
+    public void ApplyNow(bool rebuildAll)
     {
         if (_ui == null) return;
+        if (rebuildAll) _ui.Build();
 
-        if (Input.GetKeyDown(KeyCode.R) && !(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))
-            FullApply();
-
-        if (Input.GetKeyDown(KeyCode.R) && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))
-        {
-            _ui.Build();
-            FullApply();
-        }
+        EnsureTrayStructure();
+        ApplyRuntimeAll();
+        RebuildBorders();
+        EnforceStableUILayers();
     }
 
-    private void FullApply()
+    private void Start()
     {
-        EnsureTrayStructure();   // ✅ fix hierarchy
-        ApplyRuntimeAll();       // ✅ sizes + positions + layout
-        RebuildBorders();        // ✅ bg border + tray border style
-        EnforceStableUILayers(); // ✅ ordering
+        if (!autoRunInStart) return;
+
+        // editor/debug usage only
+        if (canvas == null)
+            canvas = FindFirstObjectByType<Canvas>();
+
+        if (canvas == null)
+        {
+            Debug.LogError("[PuzzlePreviewSpawner] No Canvas found.");
+            return;
+        }
+
+        // If someone placed it manually on a root, use this transform as root
+        RectTransform root = transform as RectTransform;
+        if (root == null)
+        {
+            Debug.LogError("[PuzzlePreviewSpawner] Put this on a UI RectTransform root.");
+            return;
+        }
+
+        BuildInto(root, puzzle, canvas);
+        ApplyNow(rebuildAll: false);
     }
 
     private float UIScaleFactor()
@@ -101,42 +137,6 @@ public class PuzzlePreviewSpawner : MonoBehaviour
         if (!scaleOffsetsWithCanvas) return 1f;
         if (canvas == null) return 1f;
         return Mathf.Max(0.0001f, canvas.scaleFactor);
-    }
-
-    private void EnsureSetup()
-    {
-        if (canvas == null)
-            canvas = FindFirstObjectByType<Canvas>();
-
-        if (canvas == null)
-        {
-            Debug.LogError("[PuzzlePreviewSpawner] No Canvas found. Assign your existing UI Canvas.");
-            return;
-        }
-
-        Transform existingRoot = canvas.transform.Find("PuzzlePreviewRoot");
-        RectTransform root;
-
-        if (existingRoot != null)
-            root = existingRoot.GetComponent<RectTransform>();
-        else
-        {
-            var rootGO = new GameObject("PuzzlePreviewRoot", typeof(RectTransform));
-            rootGO.transform.SetParent(canvas.transform, false);
-            root = rootGO.GetComponent<RectTransform>();
-            root.anchorMin = Vector2.zero;
-            root.anchorMax = Vector2.one;
-            root.offsetMin = Vector2.zero;
-            root.offsetMax = Vector2.zero;
-        }
-
-        _ui = root.GetComponent<PuzzlePreviewUI>();
-        if (_ui == null) _ui = root.gameObject.AddComponent<PuzzlePreviewUI>();
-
-        _ui.puzzle = puzzle;
-        _ui.root = root;
-
-        _ui.Build();
     }
 
     // =========================================================
@@ -170,7 +170,6 @@ public class PuzzlePreviewSpawner : MonoBehaviour
         _trayBgImg = bgT.GetComponent<Image>();
         if (_trayBgImg == null) _trayBgImg = bgT.gameObject.AddComponent<Image>();
 
-        // stretch BG to fill outer
         _trayBgRT.anchorMin = Vector2.zero;
         _trayBgRT.anchorMax = Vector2.one;
         _trayBgRT.pivot = new Vector2(0.5f, 0.5f);
@@ -190,19 +189,25 @@ public class PuzzlePreviewSpawner : MonoBehaviour
         _borderTrayImg = borderT.GetComponent<Image>();
         if (_borderTrayImg == null) _borderTrayImg = borderT.gameObject.AddComponent<Image>();
 
-        // ---- TrayContent (only pieces) ----
-        Transform contentT = _trayOuter.Find("TrayContent");
-        if (contentT == null)
+        // ---- TrayContent ----
+        // Prefer PreviewUI's trayContentRoot if exists
+        if (_ui.trayContentRoot != null)
         {
-            var cgo = new GameObject("TrayContent", typeof(RectTransform));
-            cgo.transform.SetParent(_trayOuter, false);
-            contentT = cgo.transform;
+            _trayContentRT = _ui.trayContentRoot;
+        }
+        else
+        {
+            Transform contentT = _trayOuter.Find("TrayContent");
+            if (contentT == null)
+            {
+                var cgo = new GameObject("TrayContent", typeof(RectTransform));
+                cgo.transform.SetParent(_trayOuter, false);
+                contentT = cgo.transform;
+            }
+            _trayContentRT = contentT as RectTransform;
+            _ui.trayContentRoot = _trayContentRT;
         }
 
-        _trayContentRT = contentT as RectTransform;
-
-        // IMPORTANT: content is centered container (not stretch),
-        // so layout can set its sizeDelta reliably.
         _trayContentRT.anchorMin = new Vector2(0.5f, 0.5f);
         _trayContentRT.anchorMax = new Vector2(0.5f, 0.5f);
         _trayContentRT.pivot = new Vector2(0.5f, 0.5f);
@@ -212,27 +217,21 @@ public class PuzzlePreviewSpawner : MonoBehaviour
         _trayLayout = _trayContentRT.GetComponent<PuzzleTrayLayout2Rows>();
         if (_trayLayout == null) _trayLayout = _trayContentRT.gameObject.AddComponent<PuzzleTrayLayout2Rows>();
 
-        // drive outer size from layout (so BG+Border wrap perfectly)
+        // drive outer size from layout (wrap)
         _trayLayout.outerRectToResize = _trayOuter;
-        _trayLayout.outerExtraSize = Vector2.zero; // exact wrap
+        _trayLayout.outerExtraSize = Vector2.zero;
 
-        // Make sure layout ignores BG subtree (so it never counts border/bg)
+        // ignore BG subtree
         _trayLayout.ignoreSubtreeRoot = _trayBgRT;
 
-        // ---- Cleanup: if Border_Tray exists wrongly under TrayContent, move it back ----
-        var wrongBorder = _trayContentRT.Find("Border_Tray");
-        if (wrongBorder != null)
-            wrongBorder.SetParent(_trayBgRT, false);
-
-        // ---- Move ANY non BG/content children into content (treat as pieces) ----
-        for (int i = _trayOuter.childCount - 1; i >= 0; i--)
+        // If content has an Image from older builds, disable its visuals (BG handles visuals now)
+        var contentImg = _trayContentRT.GetComponent<Image>();
+        if (contentImg != null)
         {
-            Transform ch = _trayOuter.GetChild(i);
-            if (ch == _trayBgRT) continue;
-            if (ch == _trayContentRT) continue;
-
-            // everything else becomes content child (piece)
-            ch.SetParent(_trayContentRT, false);
+            var c = contentImg.color;
+            c.a = 0f;
+            contentImg.color = c;
+            contentImg.raycastTarget = false;
         }
     }
 
@@ -264,7 +263,7 @@ public class PuzzlePreviewSpawner : MonoBehaviour
             _trayBgImg.raycastTarget = false;
         }
 
-        // Layout params (on content)
+        // Layout params
         if (_trayLayout != null)
         {
             _trayLayout.maxRows = 1;
@@ -280,15 +279,6 @@ public class PuzzlePreviewSpawner : MonoBehaviour
             _trayLayout.spacingX = traySpacingX * s;
 
             _trayLayout.Rebuild();
-        }
-
-        // keep content centered in outer
-        if (_trayContentRT != null)
-        {
-            _trayContentRT.anchorMin = new Vector2(0.5f, 0.5f);
-            _trayContentRT.anchorMax = new Vector2(0.5f, 0.5f);
-            _trayContentRT.pivot = new Vector2(0.5f, 0.5f);
-            _trayContentRT.anchoredPosition = Vector2.zero;
         }
 
         // Place tray under BG if requested
@@ -315,11 +305,11 @@ public class PuzzlePreviewSpawner : MonoBehaviour
 
         Canvas.ForceUpdateCanvases();
 
-        // BG border (optional)
+        // BG border
         if (_ui.backgroundRect != null)
             CreateOrUpdateBorder_BG("Border_BG", _ui.backgroundRect, bgBorderPadding, bgBorderOffset, bgBorderPPU);
 
-        // Tray border (child of TrayBG) with padding via offsets
+        // Tray border (child of TrayBG)
         if (_borderTrayRT != null && _borderTrayImg != null)
         {
             _borderTrayRT.anchorMin = Vector2.zero;
@@ -356,7 +346,6 @@ public class PuzzlePreviewSpawner : MonoBehaviour
     // =========================
     // BG Border helper
     // =========================
-
     private void CreateOrUpdateBorder_BG(string name, RectTransform bgRect, Vector2 uniformPadding, Vector2 offset, float ppuMult)
     {
         RectTransform root = _ui.root;
@@ -420,7 +409,6 @@ public class PuzzlePreviewSpawner : MonoBehaviour
     // =========================
     // Helpers
     // =========================
-
     private float GetBottomY_InRootSpace(RectTransform rt, RectTransform root)
     {
         Vector3[] corners = new Vector3[4];

@@ -11,7 +11,10 @@ public class PuzzlePreviewUI : MonoBehaviour
     [Header("Runtime (read-only)")]
     public RectTransform backgroundRect;
 
-    // overlays sit on top of BG
+    // ✅ The real drawn sprite area inside BG (preserve-aspect area)
+    public RectTransform renderedAreaRect;
+
+    // overlays sit on top of the *rendered area*, not the full BG rect
     public RectTransform overlaysRoot;
     public RectTransform hintsRoot;
 
@@ -67,12 +70,16 @@ public class PuzzlePreviewUI : MonoBehaviour
         bgImg.color = Color.white;
         bgImg.sprite = (puzzle.backgroundImage != null) ? puzzle.backgroundImage : puzzle.originalImage;
 
-        // ===== Overlays (stretch over BG) =====
-        overlaysRoot = CreateStretchRoot("Overlays", backgroundRect);
+        // ===== Rendered Area (the actual drawn sprite area inside BG when preserveAspect = true) =====
+        renderedAreaRect = CreateRenderedArea("RenderedArea", backgroundRect, bgImg);
+
+        // ===== Overlays (stretch over RenderedArea, NOT BG rect) =====
+        overlaysRoot = CreateStretchRoot("Overlays", renderedAreaRect);
         hintsRoot = CreateStretchRoot("HintsRoot", overlaysRoot);
 
+        // Make sure rects are up-to-date
         Canvas.ForceUpdateCanvases();
-        Vector2 bgSize = (backgroundRect != null) ? backgroundRect.rect.size : new Vector2(1100f, 620f);
+        Vector2 renderSize = (renderedAreaRect != null) ? renderedAreaRect.rect.size : backgroundRect.rect.size;
 
         // ===== Hints (Image with sprite; also serve as Targets via their RectTransform) =====
         // IMPORTANT:
@@ -94,9 +101,9 @@ public class PuzzlePreviewUI : MonoBehaviour
 
                 rt.sizeDelta = (ns.x <= 0.0001f || ns.y <= 0.0001f)
                     ? new Vector2(90f, 90f)
-                    : new Vector2(bgSize.x * ns.x, bgSize.y * ns.y);
+                    : new Vector2(renderSize.x * ns.x, renderSize.y * ns.y);
 
-                rt.anchoredPosition = NormalizedToAnchored(h.normalizedPos, bgSize);
+                rt.anchoredPosition = NormalizedToAnchored(h.normalizedPos, renderSize);
 
                 var img = go.GetComponent<Image>();
                 img.sprite = h.sprite;
@@ -170,7 +177,7 @@ public class PuzzlePreviewUI : MonoBehaviour
 
         // ===== Pieces =====
         Canvas.ForceUpdateCanvases();
-        bgSize = (backgroundRect != null) ? backgroundRect.rect.size : new Vector2(1100f, 620f);
+        renderSize = (renderedAreaRect != null) ? renderedAreaRect.rect.size : backgroundRect.rect.size;
 
         if (puzzle.pieces != null)
         {
@@ -187,13 +194,13 @@ public class PuzzlePreviewUI : MonoBehaviour
                 Vector2 ns = p.normalizedSize;
                 rt.sizeDelta = (ns.x <= 0.0001f || ns.y <= 0.0001f)
                     ? new Vector2(140f, 120f)
-                    : new Vector2(bgSize.x * ns.x, bgSize.y * ns.y);
+                    : new Vector2(renderSize.x * ns.x, renderSize.y * ns.y);
 
                 var img = pieceGO.GetComponent<Image>();
                 img.sprite = p.sprite;
                 img.preserveAspect = true;
                 img.color = Color.white;
-                img.raycastTarget = false;
+                img.raycastTarget = true;
 
                 _pieces.Add(rt);
             }
@@ -274,6 +281,8 @@ public class PuzzlePreviewUI : MonoBehaviour
         }
 
         backgroundRect = null;
+        renderedAreaRect = null;
+
         overlaysRoot = null;
         hintsRoot = null;
 
@@ -302,11 +311,57 @@ public class PuzzlePreviewUI : MonoBehaviour
         return rt;
     }
 
-    // normalized 0..1 center -> anchored position in overlay space (centered)
-    private static Vector2 NormalizedToAnchored(Vector2 normalizedPos, Vector2 bgSize)
+    // Creates a centered rect that matches the actually-rendered sprite area inside BG when preserveAspect is on.
+    private static RectTransform CreateRenderedArea(string name, RectTransform bgRect, Image bgImg)
     {
-        float x = (normalizedPos.x - 0.5f) * bgSize.x;
-        float y = (normalizedPos.y - 0.5f) * bgSize.y;
+        var go = new GameObject(name, typeof(RectTransform));
+        go.transform.SetParent(bgRect, false);
+
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = Vector2.zero;
+
+        // If no sprite or preserveAspect off -> match BG rect
+        if (bgImg == null || bgImg.sprite == null || !bgImg.preserveAspect)
+        {
+            rt.sizeDelta = bgRect.rect.size;
+            return rt;
+        }
+
+        Vector2 bgSize = bgRect.rect.size;
+        float rw = bgSize.x;
+        float rh = bgSize.y;
+
+        float sw = bgImg.sprite.rect.width;
+        float sh = bgImg.sprite.rect.height;
+        float spriteAspect = (sh <= 0.0001f) ? 1f : (sw / sh);
+        float rectAspect = (rh <= 0.0001f) ? spriteAspect : (rw / rh);
+
+        float renderW, renderH;
+        if (rectAspect > spriteAspect)
+        {
+            // rect is wider than sprite -> full height, narrower width (pillarbox)
+            renderH = rh;
+            renderW = rh * spriteAspect;
+        }
+        else
+        {
+            // rect is taller -> full width, shorter height (letterbox)
+            renderW = rw;
+            renderH = rw / spriteAspect;
+        }
+
+        rt.sizeDelta = new Vector2(renderW, renderH);
+        return rt;
+    }
+
+    // normalized 0..1 center -> anchored position in overlay space (centered)
+    private static Vector2 NormalizedToAnchored(Vector2 normalizedPos, Vector2 areaSize)
+    {
+        float x = (normalizedPos.x - 0.5f) * areaSize.x;
+        float y = (normalizedPos.y - 0.5f) * areaSize.y;
         return new Vector2(x, y);
     }
 }

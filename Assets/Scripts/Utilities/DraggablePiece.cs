@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.EventSystems;
 
 public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
@@ -6,12 +6,18 @@ public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
     public RectTransform rectTransform;
     public CanvasGroup canvasGroup;
 
+    // ✅ target (hint rect)
     public RectTransform target;
+
+    // ✅ MUST be the shared root that contains BOTH pieces and targets
+    public RectTransform commonRoot;
+
+    // snap in "root-local" units
     public float snapDistance = 50f;
 
     private bool placed = false;
     private Canvas rootCanvas;
-    private Vector2 originalPos;
+    private Vector2 originalAnchoredPos;
 
     void Awake()
     {
@@ -23,32 +29,34 @@ public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
 
         rootCanvas = GetComponentInParent<Canvas>();
 
-        originalPos = rectTransform.anchoredPosition;
+        CaptureOriginalPos();
+    }
+
+    // ✅ call after layout/spawner moved pieces
+    public void CaptureOriginalPos()
+    {
+        if (rectTransform != null)
+            originalAnchoredPos = rectTransform.anchoredPosition;
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (placed)
-            return;
-
+        if (placed) return;
         canvasGroup.blocksRaycasts = false;
         canvasGroup.alpha = 0.7f;
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (placed)
-            return;
+        if (placed) return;
 
-        Vector3 worldPos;
-        if (
-            RectTransformUtility.ScreenPointToWorldPointInRectangle(
-                rectTransform,
+        // drag normally
+        RectTransform dragPlane = (commonRoot != null) ? commonRoot : (RectTransform)rootCanvas.transform;
+        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
+                dragPlane,
                 eventData.position,
                 eventData.pressEventCamera,
-                out worldPos
-            )
-        )
+                out var worldPos))
         {
             rectTransform.position = worldPos;
         }
@@ -56,32 +64,34 @@ public class DraggablePiece : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (placed)
-            return;
+        if (placed) return;
 
         canvasGroup.blocksRaycasts = true;
         canvasGroup.alpha = 1f;
 
-        if (target == null)
+        if (target == null || commonRoot == null)
         {
-            rectTransform.anchoredPosition = originalPos;
+            rectTransform.anchoredPosition = originalAnchoredPos;
             return;
         }
 
-        float dist = Vector2.Distance(rectTransform.anchoredPosition, target.anchoredPosition);
+        // ✅ compare in SAME space: commonRoot local space
+        Vector2 pieceLocal = commonRoot.InverseTransformPoint(rectTransform.position);
+        Vector2 targetLocal = commonRoot.InverseTransformPoint(target.position);
+
+        float dist = Vector2.Distance(pieceLocal, targetLocal);
 
         if (dist < snapDistance)
         {
-            rectTransform.anchoredPosition = target.anchoredPosition;
+            rectTransform.position = target.position;
             placed = true;
 
-            var tm = Object.FindFirstObjectByType<TutorialManager>();
-            tm?.NotifyTravellerPlacedPuzzlePiece();
+            Object.FindFirstObjectByType<TutorialManager>()?.NotifyTravellerPlacedPuzzlePiece();
             GameManager.Instance.activePuzzleDoor?.GetPuzzle()?.PuzzleSolved();
         }
         else
         {
-            rectTransform.anchoredPosition = originalPos;
+            rectTransform.anchoredPosition = originalAnchoredPos;
         }
     }
 

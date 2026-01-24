@@ -13,20 +13,127 @@ public class TravellerHUD : MonoBehaviour
     [Header("Traveller UI")]
     public TMP_Text messageText;
 
-    [Tooltip("Root object of the whole puzzle UI (the parent that contains PuzzleScreen + PuzzleObjects).")]
+    [Tooltip("Root object of the whole puzzle UI (the parent that contains everything).")]
     [SerializeField] private GameObject puzzleRoot;
 
-    [Header("Puzzle Containers (assign in Inspector)")]
+    // ✅ NEW: Single root where we spawn EVERYTHING (BG + hints + tray + pieces)
+    [Header("Puzzle Single Root (NEW)")]
+    [Tooltip("All puzzle runtime UI will be created UNDER this RectTransform only.")]
+    [SerializeField] private RectTransform puzzleSingleRoot;
+
+    // ✅ Defaults for runtime-created spawner (set in Inspector)
+    [System.Serializable]
+    public class PuzzleSpawnerDefaults
+    {
+        [Header("Border")]
+        public Sprite borderSprite;
+        [Range(0f, 1f)] public float borderAlpha = 1f;
+
+        [Header("Scale With Screen Size support")]
+        public bool scaleOffsetsWithCanvas = true;
+
+        [Header("BG Position (runtime)")]
+        public Vector2 bgPosOffset = Vector2.zero;
+
+        [Header("Tray Placement (optional)")]
+        public bool snapTrayUnderBG = true;
+        public float gapBetweenBgAndTray = 100f;
+
+        [Header("Tray Position (runtime)")]
+        public Vector2 trayPosOffset = Vector2.zero;
+
+        [Header("Tray Visual")]
+        [Range(0f, 1f)] public float trayBgAlpha = 0.35f;
+
+        [Header("Tray Sizing")]
+        public float trayHeight = 180f;
+
+        [Header("Tray Layout (single row)")]
+        public float trayPaddingLeft = 24f;
+        public float trayPaddingRight = 24f;
+        public float trayPaddingTop = 0f;
+        public float trayPaddingBottom = 0f;
+        public float traySpacingX = 14f;
+
+        [Header("Tray Border Padding (inside BG)")]
+        public float trayBorderPaddingLeft = 0f;
+        public float trayBorderPaddingRight = 0f;
+        public float trayBorderPaddingTop = 0f;
+        public float trayBorderPaddingBottom = 0f;
+
+        public Vector2 trayBorderOffset = Vector2.zero;
+        public float trayBorderPPU = 1f;
+
+        [Header("BG Border (optional)")]
+        public bool bgBorderWrapRenderedSpriteArea = true;
+        public Vector2 bgBorderPadding = Vector2.zero;
+        public Vector2 bgBorderOffset = Vector2.zero;
+        public float bgBorderPPU = 1f;
+    }
+
+    [Header("Puzzle Spawner Defaults (NEW)")]
+    [SerializeField] private PuzzleSpawnerDefaults puzzleSpawnerDefaults = new PuzzleSpawnerDefaults();
+
+    // ✅ Called by PuzzleDoor right after AddComponent<PuzzlePreviewSpawner>()
+    public void ApplyPuzzleSpawnerDefaults(PuzzlePreviewSpawner s)
+    {
+        if (s == null) return;
+        var d = puzzleSpawnerDefaults;
+        if (d == null) return;
+
+        s.borderSprite = d.borderSprite;
+        s.borderAlpha = d.borderAlpha;
+
+        s.scaleOffsetsWithCanvas = d.scaleOffsetsWithCanvas;
+
+        s.bgPosOffset = d.bgPosOffset;
+
+        s.snapTrayUnderBG = d.snapTrayUnderBG;
+        s.gapBetweenBgAndTray = d.gapBetweenBgAndTray;
+
+        s.trayPosOffset = d.trayPosOffset;
+
+        s.trayBgAlpha = d.trayBgAlpha;
+
+        s.trayHeight = d.trayHeight;
+
+        s.trayPaddingLeft = d.trayPaddingLeft;
+        s.trayPaddingRight = d.trayPaddingRight;
+        s.trayPaddingTop = d.trayPaddingTop;
+        s.trayPaddingBottom = d.trayPaddingBottom;
+        s.traySpacingX = d.traySpacingX;
+
+        s.trayBorderPaddingLeft = d.trayBorderPaddingLeft;
+        s.trayBorderPaddingRight = d.trayBorderPaddingRight;
+        s.trayBorderPaddingTop = d.trayBorderPaddingTop;
+        s.trayBorderPaddingBottom = d.trayBorderPaddingBottom;
+
+        s.trayBorderOffset = d.trayBorderOffset;
+        s.trayBorderPPU = d.trayBorderPPU;
+
+        s.bgBorderWrapRenderedSpriteArea = d.bgBorderWrapRenderedSpriteArea;
+        s.bgBorderPadding = d.bgBorderPadding;
+        s.bgBorderOffset = d.bgBorderOffset;
+        s.bgBorderPPU = d.bgBorderPPU;
+    }
+
+
+    // (legacy fields - keep so nothing else breaks in your scene)
+    [Header("Puzzle Containers (legacy - optional)")]
     [Tooltip("UI/Puzzle/PuzzleScreen/Border/Content")]
     [SerializeField] private RectTransform puzzleScreenContent;
 
+    [Header("Puzzle Objects refs (legacy - optional)")]
+    [SerializeField] private RectTransform puzzleObjectsPanel;   // PuzzleObjects (Panel)
+    [SerializeField] private RectTransform puzzleObjectsBorder;  // PuzzleObjects/Border
+    [SerializeField] private RectTransform puzzleObjectsContent; // PuzzleObjects/Border/Content (optional)
 
-    [Header("Puzzle Objects refs")]
-    [SerializeField] private RectTransform puzzleObjectsPanel; // PuzzleObjects (Panel)
-    [SerializeField] private RectTransform puzzleObjectsBorder; // PuzzleObjects/Border
-    [SerializeField] private RectTransform puzzleObjectsContent; // PuzzleObjects/Border/Content (אופציונלי)
     public GameObject PuzzleSlot => puzzleRoot;
 
+    // ✅ Use this everywhere from now on
+    public RectTransform PuzzleSingleRoot => puzzleSingleRoot != null ? puzzleSingleRoot : puzzleScreenContent;
+
+    // legacy getters (keep)
     public RectTransform PuzzleScreenContent => puzzleScreenContent;
     public RectTransform PuzzleObjectsContent => puzzleObjectsContent;
     public RectTransform PuzzleObjectsPanel => puzzleObjectsPanel;
@@ -34,7 +141,7 @@ public class TravellerHUD : MonoBehaviour
 
     [Header("Life Flash")]
     public Image[] lifeFlashIcons;
-    
+
     [Header("Start Level Message")]
     [Tooltip("Message shown at the start of the level (leave empty to disable)")]
     public string startLevelMessage = "";
@@ -62,19 +169,15 @@ public class TravellerHUD : MonoBehaviour
     private bool flashing = false;
     private Coroutine bombEffectCo;
 
-
     public void SyncPuzzleObjectsPanelToBorder()
     {
         if (!puzzleObjectsPanel || !puzzleObjectsBorder) return;
 
-        // חשוב: לחשב layout עכשיו
         LayoutRebuilder.ForceRebuildLayoutImmediate(puzzleObjectsBorder);
 
-        // כדי לוודא שגם התוכן עודכן (אם יש Content)
         if (puzzleObjectsContent)
             LayoutRebuilder.ForceRebuildLayoutImmediate(puzzleObjectsContent);
 
-        // Panel מקבל בדיוק את הגובה של Border
         puzzleObjectsPanel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, puzzleObjectsBorder.rect.height);
     }
 
@@ -83,6 +186,7 @@ public class TravellerHUD : MonoBehaviour
         if (!sharedBar)
             sharedBar = GetComponentInChildren<HUDShared>(true);
     }
+
     private Coroutine startMessageCo;
     private bool _subscribedToGM = false;
 
@@ -114,15 +218,15 @@ public class TravellerHUD : MonoBehaviour
             }
         }
     }
+
     public void ShowPuzzle()
     {
         if (puzzleRoot != null)
             puzzleRoot.SetActive(true);
 
-        // אופציונלי אבל מומלץ אחרי שבנית UI/הזזת Pieces:
+        // (legacy) optional
         SyncPuzzleObjectsPanelToBorder();
     }
-
 
     private void OnEnable()
     {
@@ -176,10 +280,15 @@ public class TravellerHUD : MonoBehaviour
     }
 
     /// <summary>
-    /// Clears ONLY runtime spawned puzzle content.
-    /// Assumes you created Content objects under both borders:
-    /// UI/Puzzle/PuzzleScreen/Border/Content
-    /// UI/Puzzle/PuzzleObjects/Border/Content
+    /// ✅ NEW: Clears ONLY runtime puzzle content under the SINGLE ROOT.
+    /// </summary>
+    public void ClearPuzzleRuntimeContentSingleRoot()
+    {
+        ClearChildren(PuzzleSingleRoot);
+    }
+
+    /// <summary>
+    /// (legacy) Clears runtime spawned puzzle content under the old split roots (if you still use them).
     /// </summary>
     public void ClearPuzzleRuntimeContent()
     {
@@ -387,4 +496,3 @@ public class TravellerHUD : MonoBehaviour
         flashing = false;
     }
 }
-

@@ -1,11 +1,7 @@
-// Assets/Scripts/Net/GameConfigNet.cs
+﻿// Assets/Scripts/Net/GameConfigNet.cs
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-
-using Unity.Collections; // ����� �� �-using��
-
-
-
 
 public sealed class GameConfigNet : NetworkBehaviour
 {
@@ -24,11 +20,10 @@ public sealed class GameConfigNet : NetworkBehaviour
     public NetworkVariable<bool> ShowHints = new NetworkVariable<bool>(true);
 
     public NetworkVariable<int> HostSkin { get; } = new(
-    0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     public NetworkVariable<int> ClientSkin { get; } = new(
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
-
 
     public NetworkVariable<int> Lives { get; } = new(
         3,
@@ -43,10 +38,10 @@ public sealed class GameConfigNet : NetworkBehaviour
     );
 
     public NetworkVariable<FixedString32Bytes> HostName { get; } = new(
-    new FixedString32Bytes("Host"),
-    NetworkVariableReadPermission.Everyone,
-    NetworkVariableWritePermission.Server
-);
+        new FixedString32Bytes("Host"),
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
 
     public NetworkVariable<FixedString32Bytes> ClientName { get; } = new(
         new FixedString32Bytes("Player"),
@@ -60,6 +55,7 @@ public sealed class GameConfigNet : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
+    // 0=Easy, 1=Medium, 2=Hard (כמו שהיה אצלך)
     public readonly NetworkVariable<int> Difficulty = new(0);
     public readonly NetworkVariable<int> Seed = new(0);
 
@@ -69,12 +65,23 @@ public sealed class GameConfigNet : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-    // NEW: ����/���� ����� ������ ���� ������ �����
+    // NEW: פותח/סוגר תפריט סקינים במסך הפתיחה לכולם
     public NetworkVariable<bool> SkinSelectOpen { get; } = new(
         false,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
+
+    // ✅ מה ש־MazeGenerator3D חיפש:
+    // מחזיר Difficulty enum לפי האינדקס 0..2 (Easy..Hard)
+    public global::Difficulty CurrentDifficulty
+    {
+        get
+        {
+            int idx = Mathf.Clamp(Difficulty.Value, 0, 2);
+            return (global::Difficulty)(idx + 1); // 1=Easy,2=Medium,3=Hard
+        }
+    }
 
     private void Awake()
     {
@@ -99,6 +106,14 @@ public sealed class GameConfigNet : NetworkBehaviour
     public void SetSkinSelectOpenServerRpc(bool open)
     {
         SkinSelectOpen.Value = open;
+    }
+
+    // ✅ אופציונלי/נוח: להגדיר קושי ע"י enum, בלי לשבור כלום
+    [ServerRpc(RequireOwnership = false)]
+    public void SetDifficultyServerRpc(global::Difficulty difficulty)
+    {
+        int idx = Mathf.Clamp(((int)difficulty) - 1, 0, 2);
+        Difficulty.Value = idx;
     }
 
     [ServerRpc(RequireOwnership = false)]

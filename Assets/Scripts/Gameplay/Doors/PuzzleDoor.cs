@@ -1,317 +1,263 @@
 ﻿// File: Assets/Scripts/Gameplay/Doors/PuzzleDoor.cs
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-using UnityEngine.UI;
 
-public class PuzzleDoor : IDoor
+// PuzzleDoor is a logic class (NOT MonoBehaviour).
+// ✅ Builds the traveller UI from Puzzle SO ONLY, under ONE ROOT, using PuzzlePreviewSpawner.
+public sealed class PuzzleDoor : IDoor
 {
-    private bool solved = false;
+    private readonly DoorController controller;
 
-    private DoorController controller;
+    private TravellerHUD travellerHUD;
 
-    private GameObject puzzleInstance; // runtime instance
+    private RectTransform runtimeRoot;
+    private PuzzlePreviewSpawner spawner;
+    private PuzzlePreviewUI previewUI;
 
-    private DraggablePiece[] pieces;
-    private RectTransform[] targetSlots;
+    // pieceId -> draggable
+    private readonly Dictionary<string, DraggablePiece> pieceById = new();
 
-    // תמונות ה-Hints (מתחת ל- Hints)
-    private Image[] hintImages;
+    private bool puzzleOpenLocal;
+    private bool solvedLocal;
 
     public PuzzleDoor(DoorController controller)
     {
         this.controller = controller;
     }
 
-    // ---------------------------------------------------------
-    private void InstantiatePuzzle()
-    {
-        Debug.Log("INSTANTIATE PUZZLE for Traveller!");
+    public bool IsOpen() => solvedLocal;
 
-        if (controller.puzzlePrefab == null)
-        {
-            Debug.LogError("PuzzleDoor: puzzlePrefab is NULL on " + controller.name);
-            return;
-        }
-
-        GameObject slot = HUDManager.Instance.TravellerHUD.PuzzleSlot;
-        Debug.Log("PuzzleSlot = " + slot);
-
-        puzzleInstance = Object.Instantiate(controller.puzzlePrefab);
-
-        // 👈 זה ה־puzzleSlot שלך
-        puzzleInstance.transform.SetParent(slot.transform, false);
-
-        puzzleInstance.SetActive(true);
-        slot.SetActive(true);
-
-        // חובה ל־UI
-        if (puzzleInstance.TryGetComponent<RectTransform>(out var rt))
-        {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = Vector2.zero;
-            rt.localRotation = Quaternion.identity;
-            rt.localScale = Vector3.one;
-        }
-
-
-        // ===== שליפות לפי ההיררכיה שלך =====
-        Transform piecesParent = puzzleInstance.transform.Find("Pieces");
-        Transform targetsParent = puzzleInstance.transform.Find("Targets");
-        Transform hintsParent = puzzleInstance.transform.Find("Hints");
-
-        if (piecesParent == null || targetsParent == null)
-        {
-            Debug.LogError(
-                "PuzzleDoor: Pieces or Targets parent missing on puzzle prefab "
-                    + controller.puzzlePrefab.name
-            );
-            return;
-        }
-
-        // כל החלקים הנגררים
-        pieces = piecesParent.GetComponentsInChildren<DraggablePiece>(true);
-
-        // כל ה-Slots (למעט האבא עצמו)
-        targetSlots = targetsParent
-            .GetComponentsInChildren<RectTransform>(true)
-            .Where(t => t.gameObject != targetsParent.gameObject)
-            .ToArray();
-
-        // מיפוי piece → target (בהנחה שהסדר בהיררכיה תואם)
-        for (int i = 0; i < pieces.Length; i++)
-        {
-            int idx = Mathf.Min(i, targetSlots.Length - 1);
-            pieces[i].target = targetSlots[idx];
-        }
-
-        // ===== HINTS =====
-        if (hintsParent != null)
-        {
-            var allHints = hintsParent
-                .GetComponentsInChildren<Image>(true)
-                .Where(img => img.gameObject != hintsParent.gameObject)
-                .ToArray();
-
-            hintImages = new Image[pieces.Length];
-            for (int i = 0; i < pieces.Length; i++)
-            {
-                if (i < allHints.Length)
-                    hintImages[i] = allHints[i];
-            }
-
-            foreach (var img in hintImages)
-            {
-                if (img != null)
-                    img.enabled = false;
-            }
-        }
-        else
-        {
-            Debug.LogWarning(
-                "PuzzleDoor: no 'Hints' child found under puzzle prefab "
-                    + controller.puzzlePrefab.name
-            );
-            hintImages = new Image[0];
-        }
-
-        Debug.Log("Puzzle instance created: " + puzzleInstance);
-    }
-
-    // ---------------------------------------------------------
-    public bool IsOpen() => solved;
-
+    // Called by DoorController (Traveller owner only)
     public void TryOpen()
     {
-        Debug.Log($"[PUZZLE] TryOpen called on door {controller.name} | solved={solved}");
+        if (puzzleOpenLocal) return;
 
-        if (solved)
+        Puzzle puzzle = controller != null ? controller.PuzzleDef : null;
+        if (puzzle == null)
         {
-            Debug.Log("[PUZZLE] Already solved, ignoring TryOpen");
+            Debug.LogError($"[PuzzleDoor] PuzzleDef is NULL on door '{controller?.name}'. MazeGenerator must assign a Puzzle SO via SetPuzzleDefinitionServer().");
             return;
         }
 
-        if (HUDManager.Instance == null || HUDManager.Instance.TravellerHUD == null)
+        travellerHUD = FindTravellerHUD();
+        if (travellerHUD == null)
         {
-            Debug.LogError(
-                "[PUZZLE] HUDManager.Instance או TravellerHUD הם NULL – אי אפשר להציג את הפאזל"
-            );
+            Debug.LogError("[PuzzleDoor] TravellerHUD not found.");
             return;
         }
 
-        if (controller.puzzlePrefab == null)
+        RectTransform singleRoot = travellerHUD.PuzzleSingleRoot;
+        if (singleRoot == null)
         {
-            Debug.LogError("[PUZZLE] puzzlePrefab is NULL על הדלת – אין מה ליצור");
+            Debug.LogError("[PuzzleDoor] TravellerHUD.PuzzleSingleRoot is NULL (assign it in Inspector).");
             return;
         }
 
-        if (puzzleInstance == null)
-        {
-            Debug.Log("[PUZZLE] puzzleInstance is null → InstantiatePuzzle()");
-            InstantiatePuzzle();
-        }
+        travellerHUD.ShowPuzzle();
+        travellerHUD.ClearPuzzleRuntimeContentSingleRoot();
 
-        if (puzzleInstance == null)
-        {
-            Debug.LogError(
-                "[PUZZLE] puzzleInstance עדיין NULL אחרי InstantiatePuzzle – משהו בהייררכיה של הפריפב לא תקין"
-            );
-            return;
-        }
+        BuildOrRebuildUsingSpawner(singleRoot, puzzle);
 
-        HUDManager.Instance.TravellerHUD.ShowPuzzle();
-        puzzleInstance.SetActive(true);
-
-        // ⭐ הטוטוריאל צריך לדעת שהחידה נפתחה
-        var tm = Object.FindFirstObjectByType<TutorialManager>();
-        tm?.NotifyNavigatorOpenedPuzzleDoor();
-
-        // NOTE:
-        // הצגת התמונה על מסך הנווט נעשית *בשרת* (DoorController.RequestOpenPuzzleDoorServerRpc),
-        // כדי שלא תהיה תלות ב-Client של ה-Traveller ובזמני טעינה/Owner.
-        // לכן לא קוראים פה ל-ShowNavigatorPreviewOnScreen.
-
-        // (אפשר עדיין לשמור preview מקומי לשימושים UI/Debug, אבל לא לסנכרון TV)
-        if (controller.navigatorPreview == null)
-        {
-            Transform original = puzzleInstance.transform.Find("OriginalImage");
-            if (original != null)
-            {
-                var img = original.GetComponentInChildren<Image>();
-                if (img != null && img.sprite != null)
-                    controller.navigatorPreview = img.sprite;
-            }
-        }
-
-        GameManager.Instance.inPuzzle = true;
-        GameManager.Instance.activePuzzleDoor = controller;
-
-        Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
-
-        Debug.Log("[PUZZLE] Puzzle UI should now be visible for Traveller");
-    }
-
-    // ---------------------------------------------------------
-    public void PuzzleSolved()
-    {
-        foreach (var p in pieces)
-            if (!p.IsSnapped())
-                return;
-
-        solved = true;
-
-        HUDManager.Instance.TravellerHUD.HidePuzzle();
-        puzzleInstance.SetActive(false);
-
-        Cursor.visible = false;
-        Cursor.lockState = CursorLockMode.Locked;
-
-        GameManager.Instance.inPuzzle = false;
-        GameManager.Instance.activePuzzleDoor = null;
-
-        // כשנפתרה החידה נחזור ל־noise/ננקה במסך
-        controller.ShowNavigatorPreviewOnScreen(null);
-
-        // ⭐ הטוטוריאל צריך לדעת שהחידה נפתרה
-        var tm = Object.FindFirstObjectByType<TutorialManager>();
-        tm?.NotifyPuzzleSolved();
-
-        // פותחים את הדלת עצמה
-        Vector3 openerPos = controller.transform.position;
+        // mark active door
         var gm = GameManager.Instance;
-        if (gm != null && gm.traveller != null)
-            openerPos = gm.traveller.transform.position;
+        if (gm != null)
+        {
+            gm.activePuzzleDoor = controller;
+            gm.inPuzzle = true;
+        }
 
-        controller.RequestOpenDoorServerRpc(openerPos);
+        puzzleOpenLocal = true;
+        solvedLocal = false;
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 
-    // ---------------------------------------------------------
-    // נדרש על ידי PadTrigger
-    // ---------------------------------------------------------
+    // Called when stepping off pad / cancel
     public void ForceClosePuzzle()
     {
-        if (puzzleInstance != null)
-            puzzleInstance.SetActive(false);
-
-        HUDManager.Instance.TravellerHUD.HidePuzzle();
-
-        GameManager.Instance.inPuzzle = false;
-        GameManager.Instance.activePuzzleDoor = null;
-
-        // גם כאן נחזור ל-noise/ננקה
-        controller.ShowNavigatorPreviewOnScreen(null);
+        controller?.ShowNavigatorPreviewOnScreen(null);
+        CloseLocalUI();
     }
 
-    // ---------------------------------------------------------
-    // LIFEBOUY SUPPORT – בחירת Hint רנדומלי שלא הושלם עדיין
-    // ---------------------------------------------------------
+    // DraggablePiece calls this name (compat)
+    public void PuzzleSolved()
+    {
+        CheckSolvedAndNotify();
+    }
+
+    // Optional: reveal a hint (enables hint Image(s) by targetId)
     public void RevealRandomHint()
     {
-        if (puzzleInstance == null)
-            InstantiatePuzzle();
+        Puzzle puzzle = controller != null ? controller.PuzzleDef : null;
+        if (puzzle == null || previewUI == null) return;
 
-        if (pieces == null || pieces.Length == 0)
-            return;
-
-        if (hintImages == null || hintImages.Length == 0)
-            return;
-
-        List<int> available = new List<int>();
-
-        for (int i = 0; i < pieces.Length; i++)
+        var notSnapped = new List<string>();
+        foreach (var kv in pieceById)
         {
-            if (pieces[i] == null)
-                continue;
-
-            if (pieces[i].IsSnapped())
-                continue;
-
-            if (i >= hintImages.Length)
-                continue;
-
-            var img = hintImages[i];
-            if (img == null)
-                continue;
-
-            if (img.enabled)
-                continue;
-
-            available.Add(i);
+            if (kv.Value == null) continue;
+            if (!kv.Value.IsSnapped())
+                notSnapped.Add(kv.Key);
         }
 
-        if (available.Count == 0)
+        if (notSnapped.Count == 0) return;
+
+        string pieceId = notSnapped[Random.Range(0, notSnapped.Count)];
+
+        // find targetId in SO
+        string targetId = null;
+        if (puzzle.pieces != null)
         {
-            Debug.Log(
-                "PuzzleDoor.RevealRandomHint: no available hints (maybe puzzle almost/fully solved)."
-            );
-            return;
-        }
-
-        int idx = Random.Range(0, available.Count);
-        int chosen = available[idx];
-
-        var chosenImg = hintImages[chosen];
-        if (chosenImg != null)
-        {
-            chosenImg.enabled = true;
-            Debug.Log("PuzzleDoor.RevealRandomHint: enabled hint index " + chosen);
-
-            if (HUDManager.Instance != null)
+            for (int i = 0; i < puzzle.pieces.Length; i++)
             {
-                HUDManager.Instance.StartCoroutine(DisableHintAfterSeconds(chosenImg, 3f));
+                if (puzzle.pieces[i].id == pieceId)
+                {
+                    targetId = puzzle.pieces[i].targetId;
+                    break;
+                }
             }
+        }
+
+        if (!string.IsNullOrEmpty(targetId))
+            previewUI.SetHintsActiveForTarget(targetId, true);
+    }
+
+    // ============================================================
+    // Internals
+    // ============================================================
+
+    private void BuildOrRebuildUsingSpawner(RectTransform singleRoot, Puzzle puzzle)
+    {
+        // Create runtime root under the SINGLE ROOT
+        var go = new GameObject("PuzzleRuntimeRoot", typeof(RectTransform));
+        runtimeRoot = go.GetComponent<RectTransform>();
+        runtimeRoot.SetParent(singleRoot, false);
+        runtimeRoot.anchorMin = Vector2.zero;
+        runtimeRoot.anchorMax = Vector2.one;
+        runtimeRoot.offsetMin = Vector2.zero;
+        runtimeRoot.offsetMax = Vector2.zero;
+
+        // Add spawner (critical)
+        spawner = runtimeRoot.gameObject.AddComponent<PuzzlePreviewSpawner>();
+        spawner.autoRunInStart = false; // we control it manually
+
+        // ✅ feed inspector defaults into the runtime spawner (border sprite + all params)
+        travellerHUD.ApplyPuzzleSpawnerDefaults(spawner);
+
+
+        // Canvas reference (scaleFactor etc)
+        var canvas = singleRoot.GetComponentInParent<Canvas>();
+
+        // Build into THIS root (not under canvas global)
+        spawner.BuildInto(runtimeRoot, puzzle, canvas);
+        spawner.ApplyNow(rebuildAll: true);
+
+        previewUI = spawner.UI;
+        if (previewUI == null)
+        {
+            Debug.LogError("[PuzzleDoor] Spawner built but UI is null.");
+            return;
+        }
+
+        BindPiecesToTargets(puzzle);
+    }
+
+    private void BindPiecesToTargets(Puzzle puzzle)
+    {
+        pieceById.Clear();
+        if (puzzle.pieces == null || previewUI == null || previewUI.trayContentRoot == null) return;
+
+        // ✅ Root משותף לכל ה-UI של הפאזל (גם targets/hints וגם pieces)
+        // אם באמת "הכל תחת Root אחד" אז זה previewUI.root
+        RectTransform commonRoot = previewUI.root != null ? previewUI.root : previewUI.trayContentRoot;
+
+        for (int i = 0; i < puzzle.pieces.Length; i++)
+        {
+            var pd = puzzle.pieces[i];
+            if (string.IsNullOrEmpty(pd.id)) continue;
+
+            RectTransform pieceRt = previewUI.trayContentRoot.Find($"Piece_{pd.id}") as RectTransform;
+            if (pieceRt == null) continue;
+
+            var cg = pieceRt.GetComponent<CanvasGroup>();
+            if (cg == null) cg = pieceRt.gameObject.AddComponent<CanvasGroup>();
+
+            var drag = pieceRt.GetComponent<DraggablePiece>();
+            if (drag == null) drag = pieceRt.gameObject.AddComponent<DraggablePiece>();
+
+            drag.rectTransform = pieceRt;
+            drag.canvasGroup = cg;
+
+            // ✅ הכי חשוב: לעבוד במרחב משותף אחד
+            drag.commonRoot = commonRoot;
+
+            // Target = ה-hint transform שמשמש גם כ-target
+            if (!string.IsNullOrEmpty(pd.targetId) && previewUI.TryGetTargetRect(pd.targetId, out var targetRt))
+                drag.target = targetRt;
+            else
+                drag.target = null;
+
+            // ✅ לשמור "מיקום התחלה" רק אחרי שהכל נבנה/הוזז סופית
+            drag.CaptureOriginalPos();
+
+            pieceById[pd.id] = drag;
         }
     }
 
-    private IEnumerator DisableHintAfterSeconds(Image img, float seconds)
+    private void CheckSolvedAndNotify()
     {
-        yield return new WaitForSeconds(seconds);
+        if (solvedLocal) return;
+        if (previewUI == null) return;
 
-        if (img != null)
-            img.enabled = false;
+        foreach (var kv in pieceById)
+        {
+            if (kv.Value == null) return;
+            if (!kv.Value.IsSnapped()) return;
+        }
+
+        solvedLocal = true;
+
+        controller?.ShowNavigatorPreviewOnScreen(null);
+        CloseLocalUI();
+
+        Object.FindFirstObjectByType<TutorialManager>()?.NotifyPuzzleSolved();
+
+        // open the physical door via server
+        controller?.RequestOpenDoorServerRpc(controller.transform.position);
+    }
+
+    private void CloseLocalUI()
+    {
+        puzzleOpenLocal = false;
+
+        if (travellerHUD != null)
+        {
+            travellerHUD.HidePuzzle();
+            travellerHUD.ClearPuzzleRuntimeContentSingleRoot();
+        }
+
+        previewUI = null;
+        spawner = null;
+        runtimeRoot = null;
+        pieceById.Clear();
+
+        var gm = GameManager.Instance;
+        if (gm != null)
+        {
+            gm.inPuzzle = false;
+            if (gm.activePuzzleDoor == controller) gm.activePuzzleDoor = null;
+        }
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    private static TravellerHUD FindTravellerHUD()
+    {
+        var hm = HUDManager.Instance;
+        if (hm != null && hm.Traveller != null)
+            return hm.Traveller;
+
+        return Object.FindFirstObjectByType<TravellerHUD>(FindObjectsInactive.Include);
     }
 }
