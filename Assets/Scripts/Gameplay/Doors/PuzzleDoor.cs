@@ -8,16 +8,23 @@ using UnityEngine.UI;
 public class PuzzleDoor : IDoor
 {
     private bool solved = false;
+    private readonly DoorController controller;
 
-    private DoorController controller;
+    // We no longer keep a root under PuzzleSlot.
+    // Instead, we move specific puzzle UI groups into fixed HUD containers.
+    private Transform movedOriginal;
+    private Transform movedTargets;
+    private Transform movedHints;
 
-    private GameObject puzzleInstance; // runtime instance
+    // Runtime moved piece objects (direct children under ObjectsContent)
+    private readonly List<GameObject> movedPieceObjects = new();
 
     private DraggablePiece[] pieces;
     private RectTransform[] targetSlots;
 
-    // תמונות ה-Hints (מתחת ל- Hints)
     private Image[] hintImages;
+
+    private bool uiBuilt;
 
     public PuzzleDoor(DoorController controller)
     {
@@ -25,9 +32,15 @@ public class PuzzleDoor : IDoor
     }
 
     // ---------------------------------------------------------
-    private void InstantiatePuzzle()
+    private void InstantiatePuzzleIntoHUD()
     {
         Debug.Log("INSTANTIATE PUZZLE for Traveller!");
+
+        if (controller == null)
+        {
+            Debug.LogError("PuzzleDoor: controller is NULL");
+            return;
+        }
 
         if (controller.puzzlePrefab == null)
         {
@@ -35,65 +48,110 @@ public class PuzzleDoor : IDoor
             return;
         }
 
-        GameObject slot = HUDManager.Instance.TravellerHUD.PuzzleSlot;
-        Debug.Log("PuzzleSlot = " + slot);
-
-        puzzleInstance = Object.Instantiate(controller.puzzlePrefab);
-
-        // 👈 זה ה־puzzleSlot שלך
-        puzzleInstance.transform.SetParent(slot.transform, false);
-
-        puzzleInstance.SetActive(true);
-        slot.SetActive(true);
-
-        // חובה ל־UI
-        if (puzzleInstance.TryGetComponent<RectTransform>(out var rt))
+        if (HUDManager.Instance == null || HUDManager.Instance.TravellerHUD == null)
         {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = Vector2.zero;
-            rt.localRotation = Quaternion.identity;
-            rt.localScale = Vector3.one;
-        }
-
-
-        // ===== שליפות לפי ההיררכיה שלך =====
-        Transform piecesParent = puzzleInstance.transform.Find("Pieces");
-        Transform targetsParent = puzzleInstance.transform.Find("Targets");
-        Transform hintsParent = puzzleInstance.transform.Find("Hints");
-
-        if (piecesParent == null || targetsParent == null)
-        {
-            Debug.LogError(
-                "PuzzleDoor: Pieces or Targets parent missing on puzzle prefab "
-                    + controller.puzzlePrefab.name
-            );
+            Debug.LogError("PuzzleDoor: HUDManager.Instance or TravellerHUD is NULL");
             return;
         }
 
-        // כל החלקים הנגררים
-        pieces = piecesParent.GetComponentsInChildren<DraggablePiece>(true);
+        var hud = HUDManager.Instance.TravellerHUD;
 
-        // כל ה-Slots (למעט האבא עצמו)
+        RectTransform screenContent = hud.PuzzleScreenContent;
+        RectTransform objectsContent = hud.PuzzleObjectsContent;
+
+        if (screenContent == null || objectsContent == null)
+        {
+            Debug.LogError("PuzzleDoor: PuzzleScreenContent / PuzzleObjectsContent not assigned on TravellerHUD");
+            return;
+        }
+
+        // Clear ONLY runtime content (not the borders/background)
+        hud.ClearPuzzleRuntimeContent();
+        movedPieceObjects.Clear();
+
+        // Create a TEMP instance just to grab its children, then destroy it
+        GameObject tempRoot = Object.Instantiate(controller.puzzlePrefab);
+        tempRoot.name = controller.puzzlePrefab.name + "(TEMP)";
+
+        // Find expected children on the puzzle prefab instance
+        Transform original = tempRoot.transform.Find("OriginalImage");
+        Transform piecesParent = tempRoot.transform.Find("Pieces");
+        Transform targetsParent = tempRoot.transform.Find("Targets");
+        Transform hintsParent = tempRoot.transform.Find("Hints");
+
+        if (piecesParent == null || targetsParent == null)
+        {
+            Debug.LogError($"PuzzleDoor: Pieces or Targets parent missing on puzzle prefab {controller.puzzlePrefab.name}");
+            Object.Destroy(tempRoot);
+            return;
+        }
+
+        // Detach from temp root first (so destroying root won't delete them)
+        if (original != null) original.SetParent(null, false);
+        piecesParent.SetParent(null, false);
+        targetsParent.SetParent(null, false);
+        if (hintsParent != null) hintsParent.SetParent(null, false);
+
+        // Now we can destroy the temp root safely
+        Object.Destroy(tempRoot);
+
+        // Re-parent into the fixed Traveller UI hierarchy
+        // Original image + Targets + Hints -> Screen Content
+        if (original != null)
+        {
+            original.SetParent(screenContent, false);
+            NormalizeRectTransformFillParent(original as RectTransform);
+            movedOriginal = original;
+        }
+        else
+        {
+            Debug.LogWarning($"PuzzleDoor: no 'OriginalImage' found on puzzle prefab {controller.puzzlePrefab.name}");
+            movedOriginal = null;
+        }
+
+        targetsParent.SetParent(screenContent, false);
+        NormalizeRectTransformFillParent(targetsParent as RectTransform);
+        movedTargets = targetsParent;
+
+        if (hintsParent != null)
+        {
+            hintsParent.SetParent(screenContent, false);
+            NormalizeRectTransformFillParent(hintsParent as RectTransform);
+            movedHints = hintsParent;
+        }
+        else
+        {
+            movedHints = null;
+        }
+
+        // ✅ Pieces CHILDREN -> Objects Content (so layout sees each piece directly)
+        MoveChildrenTo(objectsContent, piecesParent, movedPieceObjects);
+
+        // Destroy the empty wrapper
+        Object.Destroy(piecesParent.gameObject);
+        piecesParent = null;
+
+        // Collect pieces after moving (now they are direct children of objectsContent)
+        pieces = objectsContent.GetComponentsInChildren<DraggablePiece>(true);
+
+        // Targets
         targetSlots = targetsParent
             .GetComponentsInChildren<RectTransform>(true)
             .Where(t => t.gameObject != targetsParent.gameObject)
             .ToArray();
 
-        // מיפוי piece → target (בהנחה שהסדר בהיררכיה תואם)
         for (int i = 0; i < pieces.Length; i++)
         {
-            int idx = Mathf.Min(i, targetSlots.Length - 1);
-            pieces[i].target = targetSlots[idx];
+            int idx = Mathf.Clamp(i, 0, targetSlots.Length - 1);
+            pieces[i].target = (targetSlots.Length > 0) ? targetSlots[idx] : null;
         }
 
-        // ===== HINTS =====
-        if (hintsParent != null)
+        // HINTS
+        if (movedHints != null)
         {
-            var allHints = hintsParent
+            var allHints = movedHints
                 .GetComponentsInChildren<Image>(true)
-                .Where(img => img.gameObject != hintsParent.gameObject)
+                .Where(img => img != null && img.transform != movedHints)
                 .ToArray();
 
             hintImages = new Image[pieces.Length];
@@ -104,21 +162,56 @@ public class PuzzleDoor : IDoor
             }
 
             foreach (var img in hintImages)
-            {
-                if (img != null)
-                    img.enabled = false;
-            }
+                if (img != null) img.enabled = false;
         }
         else
         {
-            Debug.LogWarning(
-                "PuzzleDoor: no 'Hints' child found under puzzle prefab "
-                    + controller.puzzlePrefab.name
-            );
             hintImages = new Image[0];
         }
+        hud.SyncPuzzleObjectsPanelToBorder();
+        uiBuilt = true;
+        Debug.Log("Puzzle UI moved into Traveller HUD containers.");
+    }
 
-        Debug.Log("Puzzle instance created: " + puzzleInstance);
+    /// <summary>
+    /// Moves all children of oldParent into newParent, WITHOUT stretching/resizing them.
+    /// Adds moved objects to movedList for tracking.
+    /// </summary>
+    private static void MoveChildrenTo(RectTransform newParent, Transform oldParent, List<GameObject> movedList)
+    {
+        if (newParent == null || oldParent == null) return;
+
+        // iterate backwards because we're changing parent while iterating
+        for (int i = oldParent.childCount - 1; i >= 0; i--)
+        {
+            Transform ch = oldParent.GetChild(i);
+            ch.SetParent(newParent, false);
+
+            if (movedList != null)
+                movedList.Add(ch.gameObject);
+
+            // Make it behave like a layout item (position controlled by your WrapLayoutGroup2Rows)
+            if (ch is RectTransform rt)
+            {
+                // Don't stretch! keep its sizeDelta.
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(0f, 1f);
+                // Keep pivot as authored; Wrap script may override pivot if you coded it that way.
+            }
+        }
+    }
+
+    private static void NormalizeRectTransformFillParent(RectTransform rt)
+    {
+        if (rt == null) return;
+
+        // Fill parent (for Original/Targets/Hints containers)
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.anchoredPosition = Vector2.zero;
+        rt.sizeDelta = Vector2.zero;
+        rt.localRotation = Quaternion.identity;
+        rt.localScale = Vector3.one;
     }
 
     // ---------------------------------------------------------
@@ -129,16 +222,11 @@ public class PuzzleDoor : IDoor
         Debug.Log($"[PUZZLE] TryOpen called on door {controller.name} | solved={solved}");
 
         if (solved)
-        {
-            Debug.Log("[PUZZLE] Already solved, ignoring TryOpen");
             return;
-        }
 
         if (HUDManager.Instance == null || HUDManager.Instance.TravellerHUD == null)
         {
-            Debug.LogError(
-                "[PUZZLE] HUDManager.Instance או TravellerHUD הם NULL – אי אפשר להציג את הפאזל"
-            );
+            Debug.LogError("[PUZZLE] HUDManager.Instance או TravellerHUD הם NULL – אי אפשר להציג את הפאזל");
             return;
         }
 
@@ -148,42 +236,34 @@ public class PuzzleDoor : IDoor
             return;
         }
 
-        if (puzzleInstance == null)
-        {
-            Debug.Log("[PUZZLE] puzzleInstance is null → InstantiatePuzzle()");
-            InstantiatePuzzle();
-        }
+        if (!uiBuilt)
+            InstantiatePuzzleIntoHUD();
 
-        if (puzzleInstance == null)
+        if (!uiBuilt)
         {
-            Debug.LogError(
-                "[PUZZLE] puzzleInstance עדיין NULL אחרי InstantiatePuzzle – משהו בהייררכיה של הפריפב לא תקין"
-            );
+            Debug.LogError("[PUZZLE] uiBuilt=false אחרי InstantiatePuzzleIntoHUD – בדוק היררכיה בפריפאב");
             return;
         }
 
         HUDManager.Instance.TravellerHUD.ShowPuzzle();
-        puzzleInstance.SetActive(true);
 
-        // ⭐ הטוטוריאל צריך לדעת שהחידה נפתחה
+        // Tutorial notify
         var tm = Object.FindFirstObjectByType<TutorialManager>();
         tm?.NotifyNavigatorOpenedPuzzleDoor();
 
-        // NOTE:
-        // הצגת התמונה על מסך הנווט נעשית *בשרת* (DoorController.RequestOpenPuzzleDoorServerRpc),
-        // כדי שלא תהיה תלות ב-Client של ה-Traveller ובזמני טעינה/Owner.
-        // לכן לא קוראים פה ל-ShowNavigatorPreviewOnScreen.
-
-        // (אפשר עדיין לשמור preview מקומי לשימושים UI/Debug, אבל לא לסנכרון TV)
+        // Cache preview locally if missing
         if (controller.navigatorPreview == null)
         {
-            Transform original = puzzleInstance.transform.Find("OriginalImage");
-            if (original != null)
-            {
-                var img = original.GetComponentInChildren<Image>();
-                if (img != null && img.sprite != null)
-                    controller.navigatorPreview = img.sprite;
-            }
+            Image img = null;
+
+            if (movedOriginal != null)
+                img = movedOriginal.GetComponentInChildren<Image>(true);
+
+            if (img == null && HUDManager.Instance.TravellerHUD.PuzzleScreenContent != null)
+                img = HUDManager.Instance.TravellerHUD.PuzzleScreenContent.GetComponentInChildren<Image>(true);
+
+            if (img != null && img.sprite != null)
+                controller.navigatorPreview = img.sprite;
         }
 
         GameManager.Instance.inPuzzle = true;
@@ -191,21 +271,21 @@ public class PuzzleDoor : IDoor
 
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
-
-        Debug.Log("[PUZZLE] Puzzle UI should now be visible for Traveller");
     }
 
     // ---------------------------------------------------------
     public void PuzzleSolved()
     {
+        if (pieces == null || pieces.Length == 0)
+            return;
+
         foreach (var p in pieces)
-            if (!p.IsSnapped())
+            if (p != null && !p.IsSnapped())
                 return;
 
         solved = true;
 
         HUDManager.Instance.TravellerHUD.HidePuzzle();
-        puzzleInstance.SetActive(false);
 
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
@@ -213,14 +293,11 @@ public class PuzzleDoor : IDoor
         GameManager.Instance.inPuzzle = false;
         GameManager.Instance.activePuzzleDoor = null;
 
-        // כשנפתרה החידה נחזור ל־noise/ננקה במסך
         controller.ShowNavigatorPreviewOnScreen(null);
 
-        // ⭐ הטוטוריאל צריך לדעת שהחידה נפתרה
         var tm = Object.FindFirstObjectByType<TutorialManager>();
         tm?.NotifyPuzzleSolved();
 
-        // פותחים את הדלת עצמה
         Vector3 openerPos = controller.transform.position;
         var gm = GameManager.Instance;
         if (gm != null && gm.traveller != null)
@@ -230,29 +307,24 @@ public class PuzzleDoor : IDoor
     }
 
     // ---------------------------------------------------------
-    // נדרש על ידי PadTrigger
+    // Required by PadTrigger
     // ---------------------------------------------------------
     public void ForceClosePuzzle()
     {
-        if (puzzleInstance != null)
-            puzzleInstance.SetActive(false);
-
-        HUDManager.Instance.TravellerHUD.HidePuzzle();
+        if (HUDManager.Instance != null && HUDManager.Instance.TravellerHUD != null)
+            HUDManager.Instance.TravellerHUD.HidePuzzle();
 
         GameManager.Instance.inPuzzle = false;
         GameManager.Instance.activePuzzleDoor = null;
 
-        // גם כאן נחזור ל-noise/ננקה
         controller.ShowNavigatorPreviewOnScreen(null);
     }
 
     // ---------------------------------------------------------
-    // LIFEBOUY SUPPORT – בחירת Hint רנדומלי שלא הושלם עדיין
-    // ---------------------------------------------------------
     public void RevealRandomHint()
     {
-        if (puzzleInstance == null)
-            InstantiatePuzzle();
+        if (!uiBuilt)
+            InstantiatePuzzleIntoHUD();
 
         if (pieces == null || pieces.Length == 0)
             return;
@@ -264,54 +336,35 @@ public class PuzzleDoor : IDoor
 
         for (int i = 0; i < pieces.Length; i++)
         {
-            if (pieces[i] == null)
-                continue;
-
-            if (pieces[i].IsSnapped())
-                continue;
-
-            if (i >= hintImages.Length)
-                continue;
+            if (pieces[i] == null) continue;
+            if (pieces[i].IsSnapped()) continue;
+            if (i >= hintImages.Length) continue;
 
             var img = hintImages[i];
-            if (img == null)
-                continue;
-
-            if (img.enabled)
-                continue;
+            if (img == null) continue;
+            if (img.enabled) continue;
 
             available.Add(i);
         }
 
         if (available.Count == 0)
-        {
-            Debug.Log(
-                "PuzzleDoor.RevealRandomHint: no available hints (maybe puzzle almost/fully solved)."
-            );
             return;
-        }
 
-        int idx = Random.Range(0, available.Count);
-        int chosen = available[idx];
-
+        int chosen = available[Random.Range(0, available.Count)];
         var chosenImg = hintImages[chosen];
+
         if (chosenImg != null)
         {
             chosenImg.enabled = true;
-            Debug.Log("PuzzleDoor.RevealRandomHint: enabled hint index " + chosen);
 
             if (HUDManager.Instance != null)
-            {
                 HUDManager.Instance.StartCoroutine(DisableHintAfterSeconds(chosenImg, 3f));
-            }
         }
     }
 
     private IEnumerator DisableHintAfterSeconds(Image img, float seconds)
     {
         yield return new WaitForSeconds(seconds);
-
-        if (img != null)
-            img.enabled = false;
+        if (img != null) img.enabled = false;
     }
 }

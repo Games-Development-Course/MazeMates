@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿// File: Assets/Scripts/UI/HUD/TravellerHUD.cs
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,7 +12,26 @@ public class TravellerHUD : MonoBehaviour
 
     [Header("Traveller UI")]
     public TMP_Text messageText;
-    public GameObject PuzzleSlot;
+
+    [Tooltip("Root object of the whole puzzle UI (the parent that contains PuzzleScreen + PuzzleObjects).")]
+    [SerializeField] private GameObject puzzleRoot;
+
+    [Header("Puzzle Containers (assign in Inspector)")]
+    [Tooltip("UI/Puzzle/PuzzleScreen/Border/Content")]
+    [SerializeField] private RectTransform puzzleScreenContent;
+
+
+    [Header("Puzzle Objects refs")]
+    [SerializeField] private RectTransform puzzleObjectsPanel; // PuzzleObjects (Panel)
+    [SerializeField] private RectTransform puzzleObjectsBorder; // PuzzleObjects/Border
+    [SerializeField] private RectTransform puzzleObjectsContent; // PuzzleObjects/Border/Content (אופציונלי)
+
+    public RectTransform PuzzleScreenContent => puzzleScreenContent;
+    public RectTransform PuzzleObjectsContent => puzzleObjectsContent;
+    public RectTransform PuzzleObjectsPanel => puzzleObjectsPanel;
+    public RectTransform PuzzleObjectsBorder => puzzleObjectsBorder;
+
+    [Header("Life Flash")]
     public Image[] lifeFlashIcons;
     
     [Header("Start Level Message")]
@@ -40,6 +60,23 @@ public class TravellerHUD : MonoBehaviour
 
     private bool flashing = false;
     private Coroutine bombEffectCo;
+
+
+    public void SyncPuzzleObjectsPanelToBorder()
+    {
+        if (!puzzleObjectsPanel || !puzzleObjectsBorder) return;
+
+        // חשוב: לחשב layout עכשיו
+        LayoutRebuilder.ForceRebuildLayoutImmediate(puzzleObjectsBorder);
+
+        // כדי לוודא שגם התוכן עודכן (אם יש Content)
+        if (puzzleObjectsContent)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(puzzleObjectsContent);
+
+        // Panel מקבל בדיוק את הגובה של Border
+        puzzleObjectsPanel.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, puzzleObjectsBorder.rect.height);
+    }
+
     private void Awake()
     {
         if (!sharedBar)
@@ -59,7 +96,12 @@ public class TravellerHUD : MonoBehaviour
         if (fadeGroup != null)
             fadeGroup.alpha = 0f;
 
+        // Puzzle hidden by default
+        if (puzzleRoot != null)
+            puzzleRoot.SetActive(false);
+
         HUDManager.Instance?.UpdateHUD();
+    }
 
         if (!useGameManagerEvent)
         {
@@ -118,6 +160,63 @@ public class TravellerHUD : MonoBehaviour
         startMessageCo = null;
     }
 
+    public void HidePuzzle()
+    {
+        if (puzzleRoot != null)
+            puzzleRoot.SetActive(false);
+    }
+
+    /// <summary>
+    /// Clears ONLY runtime spawned puzzle content.
+    /// Assumes you created Content objects under both borders:
+    /// UI/Puzzle/PuzzleScreen/Border/Content
+    /// UI/Puzzle/PuzzleObjects/Border/Content
+    /// </summary>
+    public void ClearPuzzleRuntimeContent()
+    {
+        ClearChildren(puzzleScreenContent);
+        ClearChildren(puzzleObjectsContent);
+    }
+
+    private static void ClearChildren(RectTransform parent)
+    {
+        if (parent == null) return;
+
+        for (int i = parent.childCount - 1; i >= 0; i--)
+        {
+            var ch = parent.GetChild(i);
+            if (ch != null)
+                Destroy(ch.gameObject);
+        }
+    }
+
+    // ---------------- Shared HUD ----------------
+
+    public void UpdateShared(GameManager gm)
+    {
+        sharedBar?.UpdateValues(gm);
+    }
+
+    public void ShowMessage(string msg)
+    {
+        if (messageText == null) return;
+        messageText.gameObject.SetActive(true);
+        messageText.text = msg;
+    }
+
+    public void SetMessageColor(Color c)
+    {
+        if (messageText) messageText.color = c;
+    }
+
+    public void Clear()
+    {
+        if (messageText == null) return;
+        messageText.text = string.Empty;
+    }
+
+    // ---------------- Bomb Overlay ----------------
+
     private void EnsureOverlayImage()
     {
         if (damageOverlayImage != null)
@@ -127,7 +226,6 @@ public class TravellerHUD : MonoBehaviour
             return;
         }
 
-        // אם לא שייכת Image — ניצור אחד אוטומטית מעל הכל בתוך TravellerHUD
         var go = new GameObject(
             "DamageOverlay_Auto",
             typeof(RectTransform),
@@ -149,7 +247,6 @@ public class TravellerHUD : MonoBehaviour
         if (damageOverlaySprite != null)
             damageOverlayImage.sprite = damageOverlaySprite;
 
-        // שיהיה מעל כל מה שנמצא תחת TravellerHUD
         go.transform.SetAsLastSibling();
     }
 
@@ -158,17 +255,11 @@ public class TravellerHUD : MonoBehaviour
         if (damageOverlayImage == null)
             return;
 
-        // גם אם הקובץ “אדום עם alpha 255”, אנחנו מאפסים ל-0 בתחילת המשחק
         var c = damageOverlayImage.color;
         c.a = 0f;
         damageOverlayImage.color = c;
 
-        damageOverlayImage.enabled = true; // נשאיר פעיל ונשחק רק עם alpha
-    }
-
-    public void UpdateShared(GameManager gm)
-    {
-        sharedBar?.UpdateValues(gm);
+        damageOverlayImage.enabled = true;
     }
 
     public void PlayBombResetEffect(float redHoldSeconds, float fadeOut, float fadeIn)
@@ -184,20 +275,16 @@ public class TravellerHUD : MonoBehaviour
 
     private IEnumerator BombResetEffectRoutine(float redHoldSeconds, float fadeOut, float fadeIn)
     {
-        // אדום עולה מהר
         yield return FadeOverlayAlpha(damageOverlayTargetAlpha, overlayFadeIn);
 
-        // פייד אאוט למסך (אם יש)
         if (fadeGroup != null)
             yield return FadeCanvas(fadeGroup, 0f, 1f, fadeOut);
 
         if (redHoldSeconds > 0f)
             yield return new WaitForSeconds(redHoldSeconds);
 
-        // אדום יורד
         yield return FadeOverlayAlpha(0f, overlayFadeOut);
 
-        // פייד אין
         if (fadeGroup != null)
             yield return FadeCanvas(fadeGroup, 1f, 0f, fadeIn);
 
@@ -257,41 +344,11 @@ public class TravellerHUD : MonoBehaviour
             cg.alpha = Mathf.Lerp(from, to, time / t);
             yield return null;
         }
+
         cg.alpha = to;
     }
 
-    public void ShowMessage(string msg)
-    {
-        if (messageText == null)
-            return;
-
-        messageText.gameObject.SetActive(true);
-        messageText.text = msg;
-    }
-
-    public void SetMessageColor(Color c)
-    {
-        if (messageText)
-            messageText.color = c;
-    }
-
-    public void ShowPuzzle()
-    {
-        if (!PuzzleSlot)
-            return;
-
-        foreach (Transform child in PuzzleSlot.transform)
-            child.gameObject.SetActive(true);
-    }
-
-    public void HidePuzzle()
-    {
-        if (!PuzzleSlot)
-            return;
-
-        foreach (Transform child in PuzzleSlot.transform)
-            child.gameObject.SetActive(false);
-    }
+    // ---------------- Lives Flash ----------------
 
     public void FlashLives()
     {
@@ -319,13 +376,5 @@ public class TravellerHUD : MonoBehaviour
                 icon.enabled = true;
 
         flashing = false;
-    }
-
-    public void Clear()
-    {
-        if (messageText == null)
-            return;
-
-        messageText.text = string.Empty;
     }
 }
