@@ -34,3 +34,6 @@
 # OS crap
 .DS_Store
 Thumbs.db
+
+# merge tool backups
+*.orig
