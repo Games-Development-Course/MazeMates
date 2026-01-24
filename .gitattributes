@@ -94,3 +94,9 @@ Packages/*.yml         text eol=lf
 *.navmesh        binary
 *.mask           binary
 *.physicMaterial binary
+
+# Unity Smart Merge (YAMLMerge) for scene/prefab-like YAML files
+*.unity                 merge=unityyamlmerge eol=lf
+*.prefab                merge=unityyamlmerge eol=lf
+*.asset                 merge=unityyamlmerge eol=lf
+
