@@ -1,3 +1,21 @@
+[33mcommit 40097422259af22d9ff5089043346d3df2e8c0f7[m
+Author: anksi <anksilae@gmail.com>
+Date:   Fri Jan 23 09:43:52 2026 +0200
+
+    hint shuffle fixed
+
+[1mdiff --git a/Assets/Scripts/Gameplay/Player/Navigator/ResourceManager.cs b/Assets/Scripts/Gameplay/Player/Navigator/ResourceManager.cs[m
+[1mindex 1767083..a1add9a 100644[m
+[1m--- a/Assets/Scripts/Gameplay/Player/Navigator/ResourceManager.cs[m
+[1m+++ b/Assets/Scripts/Gameplay/Player/Navigator/ResourceManager.cs[m
+[36m@@ -542,7 +542,6 @@[m [mpublic class ResourceManager : NetworkBehaviour[m
+         if (tm != null)[m
+             tm.NotifyNavigatorGaveLifebuoy();[m
+ [m
+[31m-        gm.activePuzzleDoor?.GetPuzzle()?.RevealRandomHint();[m
+         RevealHintClientRpc();[m
+ [m
+         if (gm != null && gm.activePuzzleDoor != null)[m
 ﻿// File: Assets/Scripts/UI/HUD/TravellerHUD.cs
 using System.Collections;
 using TMPro;
@@ -25,7 +43,6 @@ public class TravellerHUD : MonoBehaviour
     [SerializeField] private RectTransform puzzleObjectsPanel; // PuzzleObjects (Panel)
     [SerializeField] private RectTransform puzzleObjectsBorder; // PuzzleObjects/Border
     [SerializeField] private RectTransform puzzleObjectsContent; // PuzzleObjects/Border/Content (אופציונלי)
-    public GameObject PuzzleSlot => puzzleRoot;
 
     public RectTransform PuzzleScreenContent => puzzleScreenContent;
     public RectTransform PuzzleObjectsContent => puzzleObjectsContent;
