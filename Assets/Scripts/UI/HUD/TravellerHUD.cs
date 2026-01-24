@@ -1,8 +1,12 @@
 ﻿// File: Assets/Scripts/UI/HUD/TravellerHUD.cs
+using System;
 using System.Collections;
+using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+
+
 
 public class TravellerHUD : MonoBehaviour
 {
@@ -69,6 +73,14 @@ public class TravellerHUD : MonoBehaviour
         public Vector2 bgBorderPadding = Vector2.zero;
         public Vector2 bgBorderOffset = Vector2.zero;
         public float bgBorderPPU = 1f;
+
+        [Header("Puzzle Spawner Defaults - Close Button")]
+        public Sprite puzzleCloseBtnSprite;
+        public Vector2 puzzleCloseBtnSize = new Vector2(48f, 48f);
+        public Vector2 puzzleCloseBtnOffset = new Vector2(-12f, -12f);
+        [Range(0f, 1f)] public float puzzleCloseBtnAlpha = 1f;
+        public bool puzzleCloseBtnPreserveAspect = true;
+        public bool puzzleCloseBtnSetNativeSize = false;
     }
 
     [Header("Puzzle Spawner Defaults (NEW)")]
@@ -115,6 +127,56 @@ public class TravellerHUD : MonoBehaviour
         s.bgBorderPadding = d.bgBorderPadding;
         s.bgBorderOffset = d.bgBorderOffset;
         s.bgBorderPPU = d.bgBorderPPU;
+        // ----------------------------
+        // ✅ Close Button defaults (safe via reflection)
+        // ----------------------------
+        TrySetMember(s, "addCloseButton", true);
+
+        TrySetMember(s, "closeBtnSprite", d.puzzleCloseBtnSprite);
+        TrySetMember(s, "closeBtnSize", d.puzzleCloseBtnSize);
+        TrySetMember(s, "closeBtnOffset", d.puzzleCloseBtnOffset);
+        TrySetMember(s, "closeBtnAlpha", d.puzzleCloseBtnAlpha);
+        TrySetMember(s, "closeBtnPreserveAspect", d.puzzleCloseBtnPreserveAspect);
+        TrySetMember(s, "closeBtnSetNativeSize", d.puzzleCloseBtnSetNativeSize);
+
+
+
+    }
+    private static void TrySetMember(object obj, string name, object value)
+    {
+        if (obj == null) return;
+
+        var t = obj.GetType();
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+        // field
+        var f = t.GetField(name, flags);
+        if (f != null)
+        {
+            try
+            {
+                if (value == null || f.FieldType.IsInstanceOfType(value))
+                    f.SetValue(obj, value);
+                else
+                    f.SetValue(obj, Convert.ChangeType(value, f.FieldType));
+            }
+            catch { }
+            return;
+        }
+
+        // property
+        var p = t.GetProperty(name, flags);
+        if (p != null && p.CanWrite)
+        {
+            try
+            {
+                if (value == null || p.PropertyType.IsInstanceOfType(value))
+                    p.SetValue(obj, value);
+                else
+                    p.SetValue(obj, Convert.ChangeType(value, p.PropertyType));
+            }
+            catch { }
+        }
     }
 
 

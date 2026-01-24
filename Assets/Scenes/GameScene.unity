@@ -3550,6 +3550,12 @@ MonoBehaviour:
     bgBorderPadding: {x: -46.8, y: 22}
     bgBorderOffset: {x: 0, y: 0}
     bgBorderPPU: 1.77
+    puzzleCloseBtnSprite: {fileID: 21300000, guid: cc1270e043b8cb44dbe4b530a78e332c, type: 3}
+    puzzleCloseBtnSize: {x: 120, y: 120}
+    puzzleCloseBtnOffset: {x: 68.3, y: 83.5}
+    puzzleCloseBtnAlpha: 1
+    puzzleCloseBtnPreserveAspect: 1
+    puzzleCloseBtnSetNativeSize: 0
   puzzleScreenContent: {fileID: 1715577414}
   puzzleObjectsPanel: {fileID: 0}
   puzzleObjectsBorder: {fileID: 0}

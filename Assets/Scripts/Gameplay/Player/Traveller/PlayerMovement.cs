@@ -265,6 +265,29 @@ public class PlayerMovement : NetworkBehaviour
             return;
         }
 
+        // ✅ ESC closes puzzle for Traveller (even while movement is locked)
+        var gm = GameManager.Instance;
+        if (gm != null && role == PlayerRole.Traveller && gm.inPuzzle)
+        {
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                gm.activePuzzleDoor?.GetPuzzle()?.ForceClosePuzzle();
+                return; // important: don't process movement this frame
+            }
+        }
+
+        // ✅ Lock movement while traveller is in puzzle UI
+        var gm2 = GameManager.Instance;
+        if (gm2 != null && gm2.inPuzzle && role == PlayerRole.Traveller)
+        {
+            // reset motion so we don't "slide"
+            speed = 0f;
+            verticalVel = 0f;
+            cc.Move(Vector3.zero);
+            return;
+        }
+
+
         // =========================
         // INPUT (ARROWS + WASD)
         // =========================

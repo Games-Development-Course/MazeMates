@@ -1,4 +1,5 @@
 ﻿// File: Assets/Scripts/UI/Puzzle/PuzzlePreviewSpawner.cs
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -60,6 +61,18 @@ public class PuzzlePreviewSpawner : MonoBehaviour
     public Vector2 bgBorderOffset = Vector2.zero;
     public float bgBorderPPU = 1f;
 
+    [Header("Close Button (Sprite)")]
+    public bool addCloseButton = true;
+
+    public Sprite closeBtnSprite;               // ✅ הספרייט של ה-X שלך
+    [Range(0f, 1f)] public float closeBtnAlpha = 1f;
+
+    public Vector2 closeBtnOffset = new Vector2(-12f, -12f);
+    public Vector2 closeBtnSize = new Vector2(48f, 48f);
+
+    public bool closeBtnPreserveAspect = true;
+    public bool closeBtnSetNativeSize = false;  // אם true -> יתעלם מ-sizeDelta וייקח מהספרייט
+
     // ✅ expose UI
     public PuzzlePreviewUI UI => _ui;
 
@@ -79,6 +92,68 @@ public class PuzzlePreviewSpawner : MonoBehaviour
     // =========================================================
 
     // Build everything INTO the provided root (no global canvas root creation)
+    private void EnsureCloseButtonOnBorderBG()
+    {
+        if (_ui == null || _ui.root == null) return;
+
+        var borderBG = _ui.root.Find("Border_BG") as RectTransform;
+        if (borderBG == null) return;
+
+        // ליצור/למצוא כפתור
+        Transform t = borderBG.Find("Btn_ClosePuzzle");
+        RectTransform btnRT;
+        Image img;
+        Button btn;
+
+        if (t == null)
+        {
+            var go = new GameObject("Btn_ClosePuzzle", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            go.transform.SetParent(borderBG, false);
+
+            btnRT = go.GetComponent<RectTransform>();
+            img = go.GetComponent<Image>();
+            btn = go.GetComponent<Button>();
+
+            btn.onClick.AddListener(() =>
+            {
+                var gm = GameManager.Instance;
+                gm?.activePuzzleDoor?.GetPuzzle()?.ForceClosePuzzle();
+            });
+        }
+        else
+        {
+            btnRT = t as RectTransform;
+            img = t.GetComponent<Image>();
+            btn = t.GetComponent<Button>();
+            if (img == null) img = t.gameObject.AddComponent<Image>();
+            if (btn == null) btn = t.gameObject.AddComponent<Button>();
+        }
+
+        // ✅ עיגון לימין-עליון של ה-Border_BG
+        btnRT.anchorMin = new Vector2(1f, 1f);
+        btnRT.anchorMax = new Vector2(1f, 1f);
+        btnRT.pivot = new Vector2(1f, 1f);
+
+        // גודל/מיקום
+        btnRT.sizeDelta = closeBtnSize;
+        btnRT.anchoredPosition = closeBtnOffset;
+
+        // ✅ ספרייט
+        img.sprite = closeBtnSprite;
+        img.preserveAspect = closeBtnPreserveAspect;
+        img.raycastTarget = true;
+
+        var c = Color.white;
+        c.a = Mathf.Clamp01(closeBtnAlpha);
+        img.color = c;
+
+        // אם רוצים native size של הספרייט
+        if (closeBtnSetNativeSize && closeBtnSprite != null)
+            img.SetNativeSize();
+
+        btnRT.SetAsLastSibling(); // מעל הכל
+    }
+
     public void BuildInto(RectTransform root, Puzzle puzzle, Canvas canvasOverride = null)
     {
         this.puzzle = puzzle;
@@ -294,6 +369,11 @@ public class PuzzlePreviewSpawner : MonoBehaviour
         }
 
         _trayOuter.anchoredPosition = pos;
+
+        CreateOrUpdateBorder_BG("Border_BG", _ui.backgroundRect, bgBorderPadding, bgBorderOffset, bgBorderPPU);
+
+        if (addCloseButton)
+            EnsureCloseButtonOnBorderBG();
 
         Canvas.ForceUpdateCanvases();
     }

@@ -128,6 +128,11 @@ public sealed class PuzzleDoor : IDoor
 
     private void BuildOrRebuildUsingSpawner(RectTransform singleRoot, Puzzle puzzle)
     {
+        // Safety: if runtime root already exists from previous open, destroy it
+        var existing = singleRoot.Find("PuzzleRuntimeRoot");
+        if (existing != null)
+            Object.Destroy(existing.gameObject);
+
         // Create runtime root under the SINGLE ROOT
         var go = new GameObject("PuzzleRuntimeRoot", typeof(RectTransform));
         runtimeRoot = go.GetComponent<RectTransform>();
@@ -137,22 +142,32 @@ public sealed class PuzzleDoor : IDoor
         runtimeRoot.offsetMin = Vector2.zero;
         runtimeRoot.offsetMax = Vector2.zero;
 
-        // Add spawner (critical)
-        spawner = runtimeRoot.gameObject.AddComponent<PuzzlePreviewSpawner>();
-        spawner.autoRunInStart = false; // we control it manually
+        // ✅ Ensure spawner exists
+        spawner = runtimeRoot.GetComponent<PuzzlePreviewSpawner>();
+        if (spawner == null) spawner = runtimeRoot.gameObject.AddComponent<PuzzlePreviewSpawner>();
 
-        // ✅ feed inspector defaults into the runtime spawner (border sprite + all params)
+        // we control it manually (don’t rely on Start)
+        spawner.autoRunInStart = false;
+
+        spawner.puzzle = puzzle;
+
+        // ✅ Push ALL defaults (including Close Button sprite/size/offset/etc) from TravellerHUD into spawner
+        // IMPORTANT: Implement/keep these fields INSIDE ApplyPuzzleSpawnerDefaults, not in PuzzleDoor.
         travellerHUD.ApplyPuzzleSpawnerDefaults(spawner);
 
-
         // Canvas reference (scaleFactor etc)
-        var canvas = singleRoot.GetComponentInParent<Canvas>();
+        if (spawner.canvas == null)
+            spawner.canvas = runtimeRoot.GetComponentInParent<Canvas>();
 
-        // Build into THIS root (not under canvas global)
+        // Build into THIS root
+        var canvas = singleRoot.GetComponentInParent<Canvas>();
         spawner.BuildInto(runtimeRoot, puzzle, canvas);
+
+        // Apply (instead of relying on Start)
         spawner.ApplyNow(rebuildAll: true);
 
         previewUI = spawner.UI;
+
         if (previewUI == null)
         {
             Debug.LogError("[PuzzleDoor] Spawner built but UI is null.");
@@ -167,8 +182,7 @@ public sealed class PuzzleDoor : IDoor
         pieceById.Clear();
         if (puzzle.pieces == null || previewUI == null || previewUI.trayContentRoot == null) return;
 
-        // ✅ Root משותף לכל ה-UI של הפאזל (גם targets/hints וגם pieces)
-        // אם באמת "הכל תחת Root אחד" אז זה previewUI.root
+        // ✅ common root for targets/hints & pieces
         RectTransform commonRoot = previewUI.root != null ? previewUI.root : previewUI.trayContentRoot;
 
         for (int i = 0; i < puzzle.pieces.Length; i++)
@@ -188,16 +202,16 @@ public sealed class PuzzleDoor : IDoor
             drag.rectTransform = pieceRt;
             drag.canvasGroup = cg;
 
-            // ✅ הכי חשוב: לעבוד במרחב משותף אחד
+            // ✅ critical: work in one shared UI space
             drag.commonRoot = commonRoot;
 
-            // Target = ה-hint transform שמשמש גם כ-target
+            // Target = hint transform used as target
             if (!string.IsNullOrEmpty(pd.targetId) && previewUI.TryGetTargetRect(pd.targetId, out var targetRt))
                 drag.target = targetRt;
             else
                 drag.target = null;
 
-            // ✅ לשמור "מיקום התחלה" רק אחרי שהכל נבנה/הוזז סופית
+            // capture original after final layout
             drag.CaptureOriginalPos();
 
             pieceById[pd.id] = drag;
