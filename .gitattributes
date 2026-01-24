@@ -94,3 +94,6 @@ Packages/*.yml         text eol=lf
 *.navmesh        binary
 *.mask           binary
 *.physicMaterial binary
+*.unity  merge=unityyamlmerge
+*.prefab merge=unityyamlmerge
+*.asset  merge=unityyamlmerge
