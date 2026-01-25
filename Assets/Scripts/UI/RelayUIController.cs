@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿// File: Assets/Scripts/UI/RelayUIController.cs
+using System.Collections;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
@@ -7,15 +8,22 @@ public sealed class RelayUIController : MonoBehaviour
 {
     [Header("UI References")]
     [SerializeField] private GameObject connectionPanel;
+
+    [Tooltip("TMP label that shows the join code (your RoomCode TMP)")]
     [SerializeField] private TMP_Text codeLabel;
+
     [SerializeField] private TMP_InputField codeInput;
+
+    [Header("Optional: RoomCode Root (recommended)")]
+    [Tooltip("Drag Canvas/LobbyRoot/RoomCode here. If this parent is disabled, the TMP won't show even if we set the text.")]
+    [SerializeField] private GameObject roomCodeRoot;
 
     [Header("Optional UI Groups (recommended)")]
     [SerializeField] private GameObject hostJoinButtonsRoot;
     [SerializeField] private GameObject joinAreaRoot;
 
     [Header("Host UI (Difficulty Menu)")]
-    [Tooltip("גרור לכאן את HostButtonsPanel (תפריט רמות קושי/StartGame)")]
+    [Tooltip("Drag HostButtonsPanel (difficulty menu / StartGame) here")]
     [SerializeField] private GameObject hostButtonsPanel;
 
     [Header("Behavior")]
@@ -23,15 +31,22 @@ public sealed class RelayUIController : MonoBehaviour
     [SerializeField] private bool hideConnectionPanelOnHostWhenReady = true;
     [SerializeField] private bool hideConnectionPanelOnClientWhenReady = true;
 
+    [Header("Debug")]
+    [Tooltip("Print join code to Console when created")]
+    [SerializeField] private bool logJoinCodeToConsole = true;
+
     private LobbyState lobbyState;
 
     private bool hostInProgress;
     private int hostRequestVersion;
 
-    // כדי שלא נכבה תפריט אחרי שפתחנו
+    // so we don't close the menu after opening it once
     private bool difficultyMenuOpened;
+
     public System.Action<string> OnJoinCodeReady;
 
+    // expose current join code for same-scene consumers (optional)
+    public string CurrentJoinCode { get; private set; } = "";
 
     private void OnEnable()
     {
@@ -69,7 +84,6 @@ public sealed class RelayUIController : MonoBehaviour
 
     private IEnumerator BindNetworkManagerCallbacksWhenReady()
     {
-        // מחכים שה-NetworkManager באמת קיים (בפרויקט שלך הוא ב-opening/persistent)
         while (NetworkManager.Singleton == null)
             yield return null;
 
@@ -86,7 +100,7 @@ public sealed class RelayUIController : MonoBehaviour
 
         if (!nm.IsHost) return;
 
-        // השרת עצמו (בדרך כלל 0)
+        // server itself (usually 0)
         if (clientId == NetworkManager.ServerClientId) return;
 
         Debug.Log($"[RelayUI] Real client joined! clientId={clientId}");
@@ -103,6 +117,7 @@ public sealed class RelayUIController : MonoBehaviour
 
         ShowLobbyButtons(false);
 
+        // IMPORTANT: this can hide your code visually. Code will still be logged if enabled.
         if (hideCodeLabelOnHostWhenReady && codeLabel != null)
             codeLabel.gameObject.SetActive(false);
 
@@ -121,19 +136,23 @@ public sealed class RelayUIController : MonoBehaviour
         bool isHost = nm != null && nm.IsHost;
         bool isClientOnly = nm != null && nm.IsClient && !nm.IsHost;
 
-        // Fallback חזק: אם אנחנו Host ורואים יותר מלקוח אחד – סימן שמישהו הצטרף.
+        // strong fallback: Host + more than 1 client id means a real client joined
         bool hasRealClient =
             isHost && nm != null && nm.ConnectedClientsIds != null && nm.ConnectedClientsIds.Count > 1;
 
         Debug.Log($"[RelayUI] ApplyUiState | listening={isListening} host={isHost} clientOnly={isClientOnly} hasRealClient={hasRealClient} opened={difficultyMenuOpened}");
 
-        // ברירת מחדל: התפריט סגור עד שמישהו באמת הצטרף
         if (hostButtonsPanel != null && !difficultyMenuOpened)
             hostButtonsPanel.SetActive(false);
 
         if (!isListening)
         {
             difficultyMenuOpened = false;
+
+            CurrentJoinCode = "";
+
+            if (RoomCodeStore.Instance != null)
+                RoomCodeStore.Instance.Clear();
 
             if (connectionPanel != null) connectionPanel.SetActive(true);
             ShowLobbyButtons(true);
@@ -144,33 +163,37 @@ public sealed class RelayUIController : MonoBehaviour
                 codeInput.interactable = true;
             }
 
+            // bring back code label when not listening
+            if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
             if (codeLabel != null) codeLabel.gameObject.SetActive(true);
+
             return;
         }
 
-        // אם כבר יש לקוח אמיתי – נפתח (גם אם פספסנו callback)
         if (!difficultyMenuOpened && hasRealClient)
         {
             OpenDifficultyMenuOnHost();
             return;
         }
 
-        // מצב ביניים: Host מחכה ללקוח => רק קוד
+        // Host waiting for client => show code
         if (isHost && !difficultyMenuOpened)
         {
             if (connectionPanel != null) connectionPanel.SetActive(true);
             ShowLobbyButtons(false);
 
             if (codeInput != null) codeInput.gameObject.SetActive(false);
+
+            // Ensure RoomCode UI is actually visible (parent can be disabled)
+            if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
             if (codeLabel != null) codeLabel.gameObject.SetActive(true);
+
             return;
         }
 
-        // לקוח: אחרי join אפשר להסתיר את הפאנל
+        // Client: after join you can hide the panel
         if (isClientOnly && hideConnectionPanelOnClientWhenReady && connectionPanel != null)
         {
-            // אם כבר התחבר – לרוב רוצים להסתיר
-            // (אם תרצה להשאיר עד סצנה הבאה, תגיד)
             connectionPanel.SetActive(false);
         }
     }
@@ -186,11 +209,13 @@ public sealed class RelayUIController : MonoBehaviour
         difficultyMenuOpened = false;
         if (hostButtonsPanel != null) hostButtonsPanel.SetActive(false);
 
-        // UI: רק קוד
         if (connectionPanel != null) connectionPanel.SetActive(true);
         ShowLobbyButtons(false);
+
         if (codeInput != null) codeInput.gameObject.SetActive(false);
 
+        // Make sure the code UI is visible while creating
+        if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
         if (codeLabel != null)
         {
             codeLabel.gameObject.SetActive(true);
@@ -204,19 +229,33 @@ public sealed class RelayUIController : MonoBehaviour
 
         if (!string.IsNullOrEmpty(joinCode))
         {
-            if (codeLabel != null) {
+            CurrentJoinCode = joinCode;
+
+            if (logJoinCodeToConsole)
+                Debug.Log($"[RelayUI] JOIN CODE = {joinCode}");
+
+            // cross-scene store (game scene)
+            if (RoomCodeStore.Instance != null)
+                RoomCodeStore.Instance.SetJoinCode(joinCode);
+
+            // same-scene broadcast
+            OnJoinCodeReady?.Invoke(joinCode);
+
+            // show in StartScene UI
+            if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
+
+            if (codeLabel != null)
+            {
+                codeLabel.gameObject.SetActive(true);
                 codeLabel.text = joinCode;
-                OnJoinCodeReady?.Invoke(joinCode);
             }
 
-            // אופציונלי: לשים את הקוד גם בשדה כדי שיהיה קל להעתיק
             if (codeInput != null)
             {
                 codeInput.text = joinCode;
                 codeInput.interactable = false;
             }
 
-            // תן ApplyUiState לוודא שאנחנו במצב "מחכה ללקוח"
             ApplyUiState();
         }
         else
