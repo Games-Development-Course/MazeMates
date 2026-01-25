@@ -148,6 +148,7 @@ GameObject:
   - component: {fileID: 5666559954992517732}
   - component: {fileID: 9149439205559208746}
   - component: {fileID: 909592112345739759}
+  - component: {fileID: 8275155893416625700}
   m_Layer: 0
   m_Name: Key(Clone)
   m_TagString: Untagged
@@ -247,6 +248,21 @@ CapsuleCollider:
   m_Height: 1
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &8275155893416625700
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4654885429082179475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6563b1322b5384740a61c52ba8d1d6f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Collectible
+  pickupClip: {fileID: 8300000, guid: 2a71d8e8ea428e0409d3df636b9f0192, type: 3}
+  volume: 1
+  destroyOnPickup: 1
 --- !u!1 &8038593885767566491
 GameObject:
   m_ObjectHideFlags: 0
