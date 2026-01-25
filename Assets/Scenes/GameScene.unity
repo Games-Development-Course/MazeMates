@@ -1719,6 +1719,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3267523816118319134, guid: c6e9b8ffc3e8d49a7b8807c778df610c, type: 3}
+      propertyPath: m_Resource
+      value: 
+      objectReference: {fileID: 8300000, guid: cad0efc1b928d46d9ab7ff30484125c9, type: 3}
     - target: {fileID: 5295429843411164601, guid: c6e9b8ffc3e8d49a7b8807c778df610c, type: 3}
       propertyPath: m_Name
       value: gmaeSceneM
