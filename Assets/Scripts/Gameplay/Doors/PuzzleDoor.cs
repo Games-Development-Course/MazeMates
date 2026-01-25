@@ -230,6 +230,9 @@ public sealed class PuzzleDoor : IDoor
         }
 
         solvedLocal = true;
+        controller?.GetComponent<PuzzleDoorCompleteSfx>()?.PlayServer();
+
+
 
         controller?.ShowNavigatorPreviewOnScreen(null);
         CloseLocalUI();

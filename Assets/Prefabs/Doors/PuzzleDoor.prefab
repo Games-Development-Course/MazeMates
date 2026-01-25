@@ -225,6 +225,7 @@ GameObject:
   - component: {fileID: 3846938023290933308}
   - component: {fileID: 4782822612512144757}
   - component: {fileID: 949368202313197280}
+  - component: {fileID: -476615726921888987}
   m_Layer: 14
   m_Name: PuzzleDoor
   m_TagString: Door
@@ -320,3 +321,18 @@ MonoBehaviour:
   volume: 0.792
   startAngleThreshold: 0.25
   pivot: {fileID: 0}
+--- !u!114 &-476615726921888987
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8556355650215004237}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bcdc108274d184efb80e2cef7bf743d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PuzzleDoorCompleteSfx
+  ShowTopMostFoldoutHeaderGroup: 1
+  puzzleCompleteClip: {fileID: 8300000, guid: 627e0f741408b472792312dbe335a2fc, type: 3}
+  volume: 0.962
