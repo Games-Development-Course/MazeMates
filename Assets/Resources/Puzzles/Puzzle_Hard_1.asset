@@ -12,26 +12,44 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1511ab680635d034499890a7c6a757ee, type: 3}
   m_Name: Puzzle_Hard_1
   m_EditorClassIdentifier: Assembly-CSharp::Puzzle
-  originalImage: {fileID: 21300000, guid: 96002f3e144c69e4aac720e6dfa14f34, type: 3}
-  backgroundImage: {fileID: 21300000, guid: 8da2a871ef0d647449a5a02418e760dd, type: 3}
+  originalImage: {fileID: 21300000, guid: e94f0d37724ff4d21a6f616d86a96fe0, type: 3}
+  backgroundImage: {fileID: 21300000, guid: e974d52611b474bd68eb592226f0c70c, type: 3}
   targets: []
   hints:
-  - id: Bird
-    targetId: Bird
-    sprite: {fileID: 21300000, guid: c6eafb839d3ebf94fb30ec5664cb4632, type: 3}
-    normalizedPos: {x: 0.14431679, y: 0.8877843}
-    normalizedSize: {x: 0.12848228, y: 0.26811895}
-  - id: Car
-    targetId: Car
-    sprite: {fileID: 21300000, guid: 7f112e84744cfba4db3480be46db52a9, type: 3}
-    normalizedPos: {x: 0.41700223, y: 0.23355627}
-    normalizedSize: {x: 0.43579355, y: 0.46494946}
+  - id: Dog
+    targetId: Dog
+    sprite: {fileID: 21300000, guid: 86b5c57bbad4e4a38b378b68aa105203, type: 3}
+    normalizedPos: {x: 0.6097744, y: 0.4364545}
+    normalizedSize: {x: 0.06313192, y: 0.19439366}
+  - id: Cubes
+    targetId: Cubes
+    sprite: {fileID: 21300000, guid: 860d59e8bb329432c89d365bdadf027e, type: 3}
+    normalizedPos: {x: 0.1887218, y: 0.13169259}
+    normalizedSize: {x: 0.14921233, y: 0.2242625}
+  - id: Vase
+    targetId: Vase
+    sprite: {fileID: 21300000, guid: 5b4e176e695d045319c910d2ac3c608b, type: 3}
+    normalizedPos: {x: 0.9210276, y: 0.426593}
+    normalizedSize: {x: 0.12697405, y: 0.23863871}
+  - id: Picture
+    targetId: Picture
+    sprite: {fileID: 21300000, guid: 8577ecebb708c475fb4e1790a7627c13, type: 3}
+    normalizedPos: {x: 0.5798054, y: 0.70979065}
+    normalizedSize: {x: 0.29679304, y: 0.30333158}
   pieces:
-  - id: Bird
-    sprite: {fileID: 21300000, guid: bec04175e4b5f0d479855398961bc55e, type: 3}
-    normalizedSize: {x: 0.15171976, y: 0.23826201}
-    targetId: Bird
-  - id: Car
-    sprite: {fileID: 21300000, guid: ebd22e8aa0d2d1f42a313479fc56d173, type: 3}
-    normalizedSize: {x: 0.21851054, y: 0.26352337}
-    targetId: Car
+  - id: Dog
+    sprite: {fileID: 21300000, guid: 9118ca0f7f5f446f99029257030455dc, type: 3}
+    normalizedSize: {x: 0.081702575, y: 0.18126258}
+    targetId: Dog
+  - id: Vase
+    sprite: {fileID: 21300000, guid: d5bd664c159c3403fa4c9da9cdc3864a, type: 3}
+    normalizedSize: {x: 0.15118775, y: 0.27699766}
+    targetId: Vase
+  - id: Cubes
+    sprite: {fileID: 21300000, guid: 9f0f9a5cdd22245c5a28e7777b7aa7a6, type: 3}
+    normalizedSize: {x: 0.16120753, y: 0.24354699}
+    targetId: Cubes
+  - id: Picture
+    sprite: {fileID: 21300000, guid: 84fce8cc0815a48eda306a464f672d86, type: 3}
+    normalizedSize: {x: 0.30567715, y: 0.3157817}
+    targetId: Picture
