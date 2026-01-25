@@ -12,7 +12,7 @@ public class CornerUIButtons : MonoBehaviour
     }
 
     [Header("Layout")]
-    [SerializeField] private RectTransform boardRect; // the "мез" / panel you want to place buttons inside
+    [SerializeField] private RectTransform boardRect;
     [SerializeField] private LayoutDirection direction = LayoutDirection.VerticalUp;
 
     [Tooltip("Order matters: first = closest to bottom-right, then stacked by direction")]
@@ -24,7 +24,7 @@ public class CornerUIButtons : MonoBehaviour
 
     [Header("Help Button")]
     [SerializeField] private Button helpButton;
-    [SerializeField] private Transform instructionsPopup; // will be SetActive(true)
+    [SerializeField] private Transform instructionsPopup;
 
     [Header("Mute Button (toggle)")]
     [SerializeField] private Button muteToggleButton;
@@ -37,6 +37,30 @@ public class CornerUIButtons : MonoBehaviour
     [Header("Initial State")]
     [SerializeField] private bool startMuted = false;
 
+    [Header("Help Screens")]
+    [SerializeField] private GameObject helpScreen1;
+    [SerializeField] private GameObject helpScreen2;
+    [SerializeField] private GameObject helpScreen3;
+    [SerializeField] private GameObject helpScreen4;
+
+
+    public void ToggleHelp()
+    {
+        if (instructionsPopup == null) return;
+
+        bool nextState = !instructionsPopup.gameObject.activeSelf;
+        instructionsPopup.gameObject.SetActive(nextState);
+
+        if (!nextState) return; // closing
+
+        if (helpScreen1) helpScreen1.SetActive(true);
+        if (helpScreen2) helpScreen2.SetActive(false);
+        if (helpScreen3) helpScreen3.SetActive(false);
+        if (helpScreen4) helpScreen4.SetActive(false);
+    }
+
+
+
     private bool isMuted;
     private Image muteButtonImage;
 
@@ -46,8 +70,10 @@ public class CornerUIButtons : MonoBehaviour
             muteButtonImage = muteToggleButton.GetComponent<Image>();
 
         WireButtons();
+
         isMuted = startMuted;
         ApplyMuteState();
+
         LayoutButtons();
     }
 
@@ -61,7 +87,6 @@ public class CornerUIButtons : MonoBehaviour
         UnwireButtons();
     }
 
-    // If the board changes size (different resolutions), keep it positioned.
     private void OnRectTransformDimensionsChange()
     {
         LayoutButtons();
@@ -70,7 +95,7 @@ public class CornerUIButtons : MonoBehaviour
     private void WireButtons()
     {
         if (helpButton != null)
-            helpButton.onClick.AddListener(OpenHelp);
+            helpButton.onClick.AddListener(ToggleHelp);
 
         if (muteToggleButton != null)
             muteToggleButton.onClick.AddListener(ToggleMute);
@@ -79,7 +104,7 @@ public class CornerUIButtons : MonoBehaviour
     private void UnwireButtons()
     {
         if (helpButton != null)
-            helpButton.onClick.RemoveListener(OpenHelp);
+            helpButton.onClick.RemoveListener(ToggleHelp);
 
         if (muteToggleButton != null)
             muteToggleButton.onClick.RemoveListener(ToggleMute);
@@ -99,22 +124,19 @@ public class CornerUIButtons : MonoBehaviour
             RectTransform rt = buttonsToLayout[i];
             if (rt == null) continue;
 
-            // Ensure it lives under the board
             if (rt.parent != boardRect)
                 rt.SetParent(boardRect, false);
 
-            // Anchor to bottom-right of the board
             rt.anchorMin = new Vector2(1f, 0f);
             rt.anchorMax = new Vector2(1f, 0f);
             rt.pivot = new Vector2(1f, 0f);
 
-            // Place it
             if (direction == LayoutDirection.VerticalUp)
             {
                 rt.anchoredPosition = new Vector2(-paddingRight, y);
                 y += rt.rect.height + spacing;
             }
-            else // HorizontalLeft
+            else
             {
                 rt.anchoredPosition = new Vector2(-x, paddingBottom);
                 x += rt.rect.width + spacing;
@@ -122,12 +144,7 @@ public class CornerUIButtons : MonoBehaviour
         }
     }
 
-    // -------------------- Help --------------------
-    public void OpenHelp()
-    {
-        if (instructionsPopup != null)
-            instructionsPopup.gameObject.SetActive(true);
-    }
+ 
 
     // -------------------- Mute --------------------
     public void ToggleMute()
@@ -136,7 +153,6 @@ public class CornerUIButtons : MonoBehaviour
         ApplyMuteState();
     }
 
-    // Exposed if you ever want separate UI hooks:
     public void MuteOn()
     {
         isMuted = true;
@@ -151,19 +167,20 @@ public class CornerUIButtons : MonoBehaviour
 
     private void ApplyMuteState()
     {
-        // Enable/disable all provided audio roots
         bool shouldBeActive = !isMuted;
+
         for (int i = 0; i < audioObjects.Count; i++)
         {
             if (audioObjects[i] != null)
                 audioObjects[i].SetActive(shouldBeActive);
         }
 
-        // Swap sprite
         if (muteButtonImage != null)
         {
-            if (isMuted && muteSprite != null) muteButtonImage.sprite = muteSprite;
-            else if (!isMuted && volumeOnSprite != null) muteButtonImage.sprite = volumeOnSprite;
+            if (isMuted && muteSprite != null)
+                muteButtonImage.sprite = muteSprite;
+            else if (!isMuted && volumeOnSprite != null)
+                muteButtonImage.sprite = volumeOnSprite;
         }
     }
 }

@@ -14,7 +14,7 @@ public class CopyToClipboardButton : MonoBehaviour
 
         if (feedbackText != null)
         {
-            feedbackText.text = "הועתק ללוח ?";
+            feedbackText.text = "הועתק ללוח!";
             CancelInvoke(nameof(ClearFeedback));
             Invoke(nameof(ClearFeedback), 1.5f);
         }
