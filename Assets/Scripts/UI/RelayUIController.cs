@@ -1,4 +1,5 @@
 ﻿// File: Assets/Scripts/UI/RelayUIController.cs
+using MazeMates.Authentication;
 using System.Collections;
 using TMPro;
 using Unity.Netcode;
@@ -6,7 +7,14 @@ using UnityEngine;
 
 public sealed class RelayUIController : MonoBehaviour
 {
-    [Header("UI References")]
+    [Header("Roots (Logout navigation)")]
+    [Tooltip("Canvas/LobbyRoot")]
+    [SerializeField] private GameObject lobbyRoot;
+
+    [Tooltip("Canvas/AuthRoot")]
+    [SerializeField] private GameObject authRoot;
+
+    [Header("UI References (Lobby)")]
     [SerializeField] private GameObject connectionPanel;
 
     [Header("Code UI (separate)")]
@@ -23,8 +31,8 @@ public sealed class RelayUIController : MonoBehaviour
     [Header("Client Status Texts")]
     [SerializeField] private string waitingForDifficultyText = "מחכה לבחירת רמת קושי...";
 
-    [Header("Optional: RoomCode Root (recommended)")]
-    [Tooltip("Drag Canvas/LobbyRoot/RoomCode here. If this parent is disabled, the TMP won't show even if we set the text.")]
+    [Header("RoomCode Root (ONLY after Host clicked)")]
+    [Tooltip("Drag Canvas/LobbyRoot/RoomCode here")]
     [SerializeField] private GameObject roomCodeRoot;
 
     [Header("Optional UI Groups (recommended)")]
@@ -49,12 +57,12 @@ public sealed class RelayUIController : MonoBehaviour
     private int hostRequestVersion;
 
     private bool difficultyMenuOpened;
-
-    // ✅ Client-only flag: keep showing "waiting for difficulty" until cleared
     private bool clientWaitingForDifficulty;
 
-    public System.Action<string> OnJoinCodeReady;
+    // ✅ RoomCode is shown ONLY after pressing HostGame
+    private bool showRoomCode;
 
+    public System.Action<string> OnJoinCodeReady;
     public string CurrentJoinCode { get; private set; } = "";
 
     private void OnEnable()
@@ -111,6 +119,11 @@ public sealed class RelayUIController : MonoBehaviour
         if (clientId == NetworkManager.ServerClientId) return;
 
         Debug.Log($"[RelayUI] Real client joined! clientId={clientId}");
+
+        // hide room code after a real client joined (host side)
+        showRoomCode = false;
+        if (roomCodeRoot != null) roomCodeRoot.SetActive(false);
+
         OpenDifficultyMenuOnHost();
     }
 
@@ -146,23 +159,18 @@ public sealed class RelayUIController : MonoBehaviour
         bool hasRealClient =
             isHost && nm != null && nm.ConnectedClientsIds != null && nm.ConnectedClientsIds.Count > 1;
 
-        Debug.Log($"[RelayUI] ApplyUiState | listening={isListening} host={isHost} clientOnly={isClientOnly} hasRealClient={hasRealClient} opened={difficultyMenuOpened} waitingDiff={clientWaitingForDifficulty}");
+        Debug.Log($"[RelayUI] ApplyUiState | listening={isListening} host={isHost} clientOnly={isClientOnly} hasRealClient={hasRealClient} opened={difficultyMenuOpened} waitingDiff={clientWaitingForDifficulty} showRoomCode={showRoomCode}");
 
         if (hostButtonsPanel != null && !difficultyMenuOpened)
             hostButtonsPanel.SetActive(false);
 
+        // ✅ RoomCode driven ONLY by showRoomCode
+        if (roomCodeRoot != null)
+            roomCodeRoot.SetActive(showRoomCode);
+
         if (!isListening)
         {
             difficultyMenuOpened = false;
-
-            // ✅ נקה JoinCode רק אצל HOST (Client לא נוגע בזה)
-            if (nm != null && nm.IsHost)
-            {
-                CurrentJoinCode = "";
-                RoomCodeStore.Instance?.Clear();
-            }
-
-            // ✅ reset waiting flag when leaving session
             clientWaitingForDifficulty = false;
 
             if (connectionPanel != null) connectionPanel.SetActive(true);
@@ -174,14 +182,12 @@ public sealed class RelayUIController : MonoBehaviour
                 codeInput.interactable = true;
             }
 
-            if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
-            if (codeLabel != null)
+            if (!showRoomCode)
             {
-                codeLabel.gameObject.SetActive(true);
-                codeLabel.text = "";
+                if (codeLabel != null) codeLabel.text = "";
+                SetStatus("");
             }
 
-            SetStatus("");
             return;
         }
 
@@ -197,14 +203,9 @@ public sealed class RelayUIController : MonoBehaviour
             ShowLobbyButtons(false);
 
             if (codeInput != null) codeInput.gameObject.SetActive(false);
-
-            if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
-            if (codeLabel != null) codeLabel.gameObject.SetActive(true);
-
             return;
         }
 
-        // ✅ Client: if we're waiting for difficulty, keep panel visible so the status text stays on screen
         if (isClientOnly && clientWaitingForDifficulty)
         {
             if (connectionPanel != null) connectionPanel.SetActive(true);
@@ -213,16 +214,57 @@ public sealed class RelayUIController : MonoBehaviour
             if (codeInput != null) codeInput.gameObject.SetActive(false);
             if (codeLabel != null) codeLabel.gameObject.SetActive(false);
 
+            // client never sees room code
+            showRoomCode = false;
+            if (roomCodeRoot != null) roomCodeRoot.SetActive(false);
+
             SetStatus(waitingForDifficultyText);
             return;
         }
 
-        // Client: after join you can hide the panel
         if (isClientOnly && hideConnectionPanelOnClientWhenReady && connectionPanel != null)
         {
             if (!connectionPanel.name.Contains("HUD"))
                 connectionPanel.SetActive(false);
         }
+    }
+
+    // ✅ This is the method your LoginPanelUI was calling
+    public void ResetLobbyUiToIdle()
+    {
+        hostInProgress = false;
+        hostRequestVersion++;
+        difficultyMenuOpened = false;
+        clientWaitingForDifficulty = false;
+
+        CurrentJoinCode = "";
+        RoomCodeStore.Instance?.Clear();
+
+        SetStatus("");
+        SetCode("");
+
+        showRoomCode = false;
+        if (roomCodeRoot != null) roomCodeRoot.SetActive(false);
+
+        if (codeInput != null)
+        {
+            codeInput.text = "";
+            codeInput.interactable = true;
+            codeInput.gameObject.SetActive(true);
+        }
+
+        if (codeLabel != null)
+        {
+            codeLabel.gameObject.SetActive(true);
+            codeLabel.text = "";
+        }
+
+        if (hostButtonsPanel != null) hostButtonsPanel.SetActive(false);
+
+        if (connectionPanel != null) connectionPanel.SetActive(true);
+        ShowLobbyButtons(true);
+
+        ApplyUiState();
     }
 
     public async void OnHostClicked()
@@ -241,6 +283,8 @@ public sealed class RelayUIController : MonoBehaviour
 
         if (codeInput != null) codeInput.gameObject.SetActive(false);
 
+        // ✅ Only now show room code
+        showRoomCode = true;
         if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
 
         SetStatus("יוצר חדר...");
@@ -261,8 +305,6 @@ public sealed class RelayUIController : MonoBehaviour
             RoomCodeStore.Instance?.SetJoinCode(joinCode);
             OnJoinCodeReady?.Invoke(joinCode);
 
-            if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
-
             SetCode(joinCode);
             SetStatus("");
 
@@ -278,6 +320,8 @@ public sealed class RelayUIController : MonoBehaviour
         {
             Debug.LogError("[RelayUI] Failed to create host");
             SetStatus("נכשל ליצור חדר");
+            showRoomCode = false;
+            if (roomCodeRoot != null) roomCodeRoot.SetActive(false);
             ShowLobbyButtons(true);
         }
     }
@@ -289,6 +333,10 @@ public sealed class RelayUIController : MonoBehaviour
         string joinCode = codeInput.text.Trim().ToUpper();
         if (string.IsNullOrEmpty(joinCode)) return;
 
+        // client never shows room code
+        showRoomCode = false;
+        if (roomCodeRoot != null) roomCodeRoot.SetActive(false);
+
         SetStatus("מצטרף...");
 
         bool ok = await RelayManager.Instance.StartClientWithRelayAsync(joinCode);
@@ -298,14 +346,11 @@ public sealed class RelayUIController : MonoBehaviour
         {
             RoomCodeStore.Instance?.SetJoinCode(joinCode);
 
-            // hide code label on client
             if (codeLabel != null) codeLabel.gameObject.SetActive(false);
 
-            // ✅ show waiting message until difficulty is chosen
             clientWaitingForDifficulty = true;
             SetStatus(waitingForDifficultyText);
 
-            // keep connection panel visible while waiting (so status is visible)
             if (connectionPanel != null) connectionPanel.SetActive(true);
             ShowLobbyButtons(false);
 
@@ -320,9 +365,6 @@ public sealed class RelayUIController : MonoBehaviour
         }
     }
 
-    // ✅ CALL THIS when difficulty is chosen (from your difficulty screen / button)
-    // On HOST you probably call it directly.
-    // To clear it on CLIENT too, have the host send a ClientRpc somewhere that calls this on each client.
     public void NotifyDifficultyChosen()
     {
         clientWaitingForDifficulty = false;
@@ -331,12 +373,34 @@ public sealed class RelayUIController : MonoBehaviour
         var nm = NetworkManager.Singleton;
         bool isClientOnly = nm != null && nm.IsClient && !nm.IsHost;
 
-        // now we may hide the panel like before
         if (isClientOnly && hideConnectionPanelOnClientWhenReady && connectionPanel != null)
         {
             if (!connectionPanel.name.Contains("HUD"))
                 connectionPanel.SetActive(false);
         }
+    }
+
+    public void OnLogoutClicked()
+    {
+        Debug.Log("[RelayUI] Logout clicked");
+
+        var nm = NetworkManager.Singleton;
+        if (nm != null && nm.IsListening)
+            nm.Shutdown();
+
+        if (UgsAuthManager.Instance != null && UgsAuthManager.Instance.IsSignedIn)
+            UgsAuthManager.Instance.SignOut(clearSession: true);
+
+        // reset lobby UI to a clean idle state
+        ResetLobbyUiToIdle();
+
+        // switch roots
+        if (lobbyRoot != null) lobbyRoot.SetActive(false);
+        if (authRoot != null) authRoot.SetActive(true);
+
+        var loginUI = FindFirstObjectByType<MazeMates.Authentication.LoginPanelUI>();
+        if (loginUI != null)
+            loginUI.ResetForLogoutUI();
     }
 
     private void ShowLobbyButtons(bool show)

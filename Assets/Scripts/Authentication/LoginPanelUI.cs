@@ -20,39 +20,91 @@ namespace MazeMates.Authentication
         [Header("Player Status UI")]
         [SerializeField] private TMP_Text playerStatusText;
 
+        [Header("Roots (Auth/Lobby switch)")]
+        [SerializeField] private GameObject authRoot;
+        [SerializeField] private GameObject lobbyRoot;
+
+
+        private bool _wired;
+
+        private void Awake()
+        {
+            WireOnce();
+        }
+
         private void Start()
         {
+            // UI initial state
             if (messageText != null) messageText.text = "";
-
-            // Default: guest
             SetPlayerStatus(null, isGuest: true);
+        }
 
-            loginButton.onClick.AddListener(OnLoginClicked);
-            registerButton.onClick.AddListener(OnRegisterClicked);
+        private void OnEnable()
+        {
+            // טוב שיש, אבל לא מסתמכים רק על זה (כי לפעמים AuthRoot לא נכבה)
+            ResetForLogoutUI();
+            HookAuthEvents(true);
+        }
 
-            // ✅ Dynamic LTR/RTL for username input (typing behavior)
+        private void OnDisable()
+        {
+            HookAuthEvents(false);
+        }
+
+        private void WireOnce()
+        {
+            if (_wired) return;
+            _wired = true;
+
+            if (loginButton != null) loginButton.onClick.AddListener(OnLoginClicked);
+            if (registerButton != null) registerButton.onClick.AddListener(OnRegisterClicked);
+
             if (usernameInput != null)
             {
                 usernameInput.onValueChanged.AddListener(OnUsernameChanged);
                 usernameInput.onSelect.AddListener(OnUsernameSelected);
-
                 ApplyUsernameInputDirection(usernameInput.text);
             }
-
-            if (UgsAuthManager.Instance != null)
-                UgsAuthManager.Instance.AuthError += ShowMessage;
         }
 
-        private void OnDestroy()
+        private void HookAuthEvents(bool enable)
         {
+            if (UgsAuthManager.Instance == null) return;
+
+            if (enable)
+            {
+                UgsAuthManager.Instance.AuthError -= ShowMessage;
+                UgsAuthManager.Instance.AuthError += ShowMessage;
+
+                UgsAuthManager.Instance.SignedOut -= HandleSignedOut;
+                UgsAuthManager.Instance.SignedOut += HandleSignedOut;
+            }
+            else
+            {
+                UgsAuthManager.Instance.AuthError -= ShowMessage;
+                UgsAuthManager.Instance.SignedOut -= HandleSignedOut;
+            }
+        }
+
+        private void HandleSignedOut()
+        {
+            ResetForLogoutUI();
+        }
+
+        // ✅ תקרא לזה תמיד אחרי Logout (גם אם OnEnable לא רץ)
+        public void ResetForLogoutUI()
+        {
+            SetInteractable(true);
+            ShowMessage("");
+
             if (usernameInput != null)
             {
-                usernameInput.onValueChanged.RemoveListener(OnUsernameChanged);
-                usernameInput.onSelect.RemoveListener(OnUsernameSelected);
+                usernameInput.text = "";
+                ApplyUsernameInputDirection(usernameInput.text);
+                FixCaretForCurrentDirection();
             }
 
-            if (UgsAuthManager.Instance != null)
-                UgsAuthManager.Instance.AuthError -= ShowMessage;
+            SetPlayerStatus(null, isGuest: true);
         }
 
         private async void OnLoginClicked()
@@ -69,7 +121,16 @@ namespace MazeMates.Authentication
             {
                 ShowMessage("");
                 SetPlayerStatus(u, isGuest: false);
+                // לא מחזירים interactable כאן בכוונה (כי עוברים ללובי)
+                if (lobbyRoot != null) lobbyRoot.SetActive(true);
+                if (authRoot != null) authRoot.SetActive(false);
+
+                var relay = FindFirstObjectByType<RelayUIController>();
+                if (relay != null)
+                    relay.ResetLobbyUiToIdle();
+
             }
+
             else
             {
                 SetInteractable(true);
@@ -91,17 +152,19 @@ namespace MazeMates.Authentication
             {
                 ShowMessage("");
                 SetPlayerStatus(u, isGuest: false);
+                if (lobbyRoot != null) lobbyRoot.SetActive(true);
+                if (authRoot != null) authRoot.SetActive(false);
+
+                var relay = FindFirstObjectByType<RelayUIController>();
+                if (relay != null)
+                    relay.ResetLobbyUiToIdle();
+
             }
             else
             {
                 SetInteractable(true);
                 SetPlayerStatus(null, isGuest: true);
             }
-        }
-
-        public void SetGuestConnected()
-        {
-            SetPlayerStatus(null, isGuest: true);
         }
 
         private void SetInteractable(bool value)
@@ -116,7 +179,7 @@ namespace MazeMates.Authentication
             if (messageText != null) messageText.text = msg;
         }
 
-        // -------------------- Username Input: keep normal typing --------------------
+        // -------------------- Username Input --------------------
 
         private void OnUsernameChanged(string value)
         {
@@ -135,8 +198,6 @@ namespace MazeMates.Authentication
 
             bool rtl = ContainsRTL(text);
 
-            // Hebrew -> RTL + right align
-            // English -> LTR + left align
             usernameInput.textComponent.isRightToLeftText = rtl;
             usernameInput.textComponent.alignment = rtl
                 ? TextAlignmentOptions.MidlineRight
@@ -156,30 +217,25 @@ namespace MazeMates.Authentication
             bool rtl = usernameInput.textComponent != null && usernameInput.textComponent.isRightToLeftText;
 
             int pos = rtl
-                ? (usernameInput.text != null ? usernameInput.text.Length : 0) // Hebrew: caret at end
-                : 0; // English: caret far left
+                ? (usernameInput.text != null ? usernameInput.text.Length : 0)
+                : 0;
 
             usernameInput.caretPosition = pos;
             usernameInput.selectionAnchorPosition = pos;
             usernameInput.selectionFocusPosition = pos;
-
             usernameInput.ForceLabelUpdate();
         }
 
-        // -------------------- Player Status: DO NOT change alignment --------------------
+        // -------------------- Player Status --------------------
 
         private void SetPlayerStatus(string username, bool isGuest)
         {
             if (playerStatusText == null) return;
 
             string name = isGuest ? "אורח" : (string.IsNullOrWhiteSpace(username) ? "אורח" : username.Trim());
-
-            // לא נוגעים ב-alignment בכלל. הוא נשאר Center כמו שהגדרת באינספקטור.
-            // לא נוגעים גם ב-isRightToLeftText של ה-playerStatusText.
-
             string shownName = ContainsRTL(name) ? name : ReverseSimple(name);
 
-            playerStatusText.text = $"שחקן {shownName} מחובר";
+            playerStatusText.text = $"{shownName} מחובר";
         }
 
         private static string ReverseSimple(string s)
@@ -196,10 +252,10 @@ namespace MazeMates.Authentication
 
             foreach (char c in s)
             {
-                if ((c >= '\u0590' && c <= '\u05FF') || // Hebrew
-                    (c >= '\u0600' && c <= '\u06FF') || // Arabic
-                    (c >= '\u0750' && c <= '\u077F') || // Arabic Supplement
-                    (c >= '\u08A0' && c <= '\u08FF'))   // Arabic Extended-A
+                if ((c >= '\u0590' && c <= '\u05FF') ||
+                    (c >= '\u0600' && c <= '\u06FF') ||
+                    (c >= '\u0750' && c <= '\u077F') ||
+                    (c >= '\u08A0' && c <= '\u08FF'))
                 {
                     return true;
                 }
