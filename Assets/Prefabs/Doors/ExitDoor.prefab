@@ -1370,8 +1370,6 @@ GameObject:
   - component: {fileID: 2977382227461565810}
   - component: {fileID: 5308921012164081481}
   - component: {fileID: -4360342995708607037}
-  - component: {fileID: -1232175911959358423}
-  - component: {fileID: 1045483179106145841}
   m_Layer: 14
   m_Name: ExitDoor
   m_TagString: Untagged
@@ -1409,7 +1407,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 401991486
+  GlobalObjectIdHash: 2383890221
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1487,41 +1485,3 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 0.043310285}
   m_Center: {x: 0, y: 0.5, z: -0.12}
---- !u!114 &-1232175911959358423
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8559443613435696601}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 54c81acbca62a445dabc8a07ff436a60, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
-  ShowTopMostFoldoutHeaderGroup: 1
-  openClip: {fileID: 8300000, guid: 40e0437ef50064f15a21f9a777d9a44c, type: 3}
-  volume: 0.918
-  startAngleThreshold: 0.25
-  pivot: {fileID: 0}
---- !u!114 &1045483179106145841
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8559443613435696601}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4f30683734df4a7499ae1790973f0e5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ExitDoorBgmSwitchOnOpen
-  ShowTopMostFoldoutHeaderGroup: 1
-  pivot: {fileID: 0}
-  openedAngleThreshold: 1
-  stableSecondsToConfirmOpen: 0.2
-  stableDeltaAnglePerFrame: 0.03
-  musicSource: {fileID: 0}
-  newBgm: {fileID: 8300000, guid: 4c589826a6c5e4bf19e9e8393a37c09e, type: 3}
-  fadeSeconds: 0.75
-  forceRestart: 0

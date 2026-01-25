@@ -2282,7 +2282,7 @@ MonoBehaviour:
   muteSprite: {fileID: -1078546783, guid: 27cf5c3e0572f2949b4c5e1d6ccda00e, type: 3}
   audioObjects:
   - {fileID: 1098686997}
-  startMuted: 0
+  startMuted: 1
   helpScreen1: {fileID: 0}
   helpScreen2: {fileID: 0}
   helpScreen3: {fileID: 0}

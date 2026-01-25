@@ -1,5 +1,7 @@
-// File: Assets/Scripts/Utilities/CornerUIButtons.cs
+ן»¿// File: Assets/Scripts/Utilities/CornerUIButtons.cs
+using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -10,10 +12,7 @@ public class CornerUIButtons : MonoBehaviour
     public enum LayoutDirection { VerticalUp, HorizontalLeft }
 
     [Header("Scene Rules")]
-    [Tooltip("When this scene loads, any CornerUIButtons instance NOT belonging to it will disable itself.")]
     [SerializeField] private string targetScene = "GameScene";
-
-    [Tooltip("If true and this object survived via DontDestroyOnLoad, destroy it when GameScene loads.")]
     [SerializeField] private bool destroyPersistentOnTargetSceneLoad = false;
 
     [Header("Layout")]
@@ -56,11 +55,16 @@ public class CornerUIButtons : MonoBehaviour
     private bool isMuted;
     private Image muteButtonImage;
 
+    // Debug/probe
+    private Coroutine _probeCo;
+
+    // join code binding
+    private bool _boundToStore;
+
     private void Awake()
     {
         Debug.Log($"[CornerUIButtons][Awake] scene={gameObject.scene.name} this={transform.name} id={GetInstanceID()}");
 
-        // חשוב: נרשמים כאן כדי לתפוס את המעבר מ-StartScene ל-GameScene
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneLoaded += OnSceneLoaded;
 
@@ -72,7 +76,7 @@ public class CornerUIButtons : MonoBehaviour
         isMuted = startMuted;
         ApplyMuteState();
 
-        TryResolveRoomCodeRefs();
+        TryResolveRoomCodeRefs(force: true);
         if (roomCodeWindow != null) roomCodeWindow.SetActive(false);
 
         LayoutButtons();
@@ -82,70 +86,180 @@ public class CornerUIButtons : MonoBehaviour
     {
         Debug.Log($"[CornerUIButtons][OnEnable] scene={gameObject.scene.name} this={transform.name} id={GetInstanceID()}");
 
-        // להבטיח שלא נרשם פעמיים
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneLoaded += OnSceneLoaded;
 
-        TryResolveRoomCodeRefs();
+        TryResolveRoomCodeRefs(force: false);
+        BindToRoomCodeStore();
         LayoutButtons();
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnbindFromRoomCodeStore();
+
+        if (_probeCo != null)
+        {
+            StopCoroutine(_probeCo);
+            _probeCo = null;
+        }
     }
 
     private void OnDestroy()
     {
         UnwireButtons();
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnbindFromRoomCodeStore();
+
+        if (_probeCo != null)
+        {
+            StopCoroutine(_probeCo);
+            _probeCo = null;
+        }
     }
 
     private void OnSceneLoaded(Scene loadedScene, LoadSceneMode mode)
     {
-        // ברגע ש-GameScene נטענת:
         if (loadedScene.name != targetScene) return;
 
-        // אם האינסטנס הנוכחי *לא* יושב בתוך GameScene => זה ה-UI מה-StartScene (או DontDestroy) שמפריע.
         if (gameObject.scene.name != targetScene)
         {
             Debug.LogWarning(
                 $"[CornerUIButtons] Target scene '{targetScene}' loaded, disabling old instance from scene '{gameObject.scene.name}'. this={transform.name} id={GetInstanceID()}"
             );
 
-            // קודם ננתק listeners כדי שלא ישארו “קליקים” תלויים
             UnwireButtons();
 
-            // אם הוא הגיע דרך DontDestroyOnLoad ורוצים למחוק לגמרי:
             if (destroyPersistentOnTargetSceneLoad)
             {
                 Destroy(gameObject);
                 return;
             }
 
-            // אחרת רק לכבות את הקומפוננטה
             enabled = false;
         }
     }
 
-    private void TryResolveRoomCodeRefs()
+    // -------------------- Room Code resolution --------------------
+    private void TryResolveRoomCodeRefs(bool force)
     {
-        // אם שכחת לשייך, ננסה למצוא אוטומטית בתוך ההיררכיה המקומית
-        if (roomCodeWindow == null)
+        Canvas myCanvas = GetComponentInParent<Canvas>(true);
+        Transform canvasRoot = myCanvas ? myCanvas.transform : transform.root;
+
+        // ׳׳ ׳—׳™׳•׳•׳˜ ׳™׳“׳ ׳™ ׳׳¦׳‘׳™׳¢ ׳׳§׳ ׳‘׳¡ ׳׳—׳¨ -> ׳ ׳ ׳§׳” ׳•׳ ׳׳×׳¨ ׳׳—׳“׳©
+        if (roomCodeWindow != null && myCanvas != null)
         {
-            var t = transform.Find("RoomCodeScreen");
+            Canvas winCanvas = roomCodeWindow.GetComponentInParent<Canvas>(true);
+            if (winCanvas != myCanvas)
+            {
+                Debug.LogWarning(
+                    $"[CornerUIButtons] roomCodeWindow points to DIFFERENT Canvas! " +
+                    $"myCanvas='{myCanvas.name}' winCanvas='{(winCanvas ? winCanvas.name : "NULL")}'. Clearing ref and re-finding."
+                );
+                roomCodeWindow = null;
+                roomCodeText = null;
+            }
+        }
+
+        // Deep Find ׳‘׳×׳•׳ ׳׳•׳×׳• ׳§׳ ׳‘׳¡
+        if (force || roomCodeWindow == null)
+        {
+            Transform t = FindDeepChild(canvasRoot, "RoomCodeScreen");
             if (t != null) roomCodeWindow = t.gameObject;
         }
 
-        if (roomCodeText == null && roomCodeWindow != null)
+        if ((force || roomCodeText == null) && roomCodeWindow != null)
         {
-            var t = roomCodeWindow.transform.Find("Code");
+            Transform t = roomCodeWindow.transform.Find("Code");
+            if (t == null) t = FindDeepChild(roomCodeWindow.transform, "Code");
             if (t != null) roomCodeText = t.GetComponent<TMP_Text>();
         }
 
-        Debug.Log($"[CornerUIButtons] Refs | roomCodeWindow={(roomCodeWindow ? roomCodeWindow.name : "<NULL>")} roomCodeText={(roomCodeText ? roomCodeText.name : "<NULL>")} scene={gameObject.scene.name}");
+        Debug.Log(
+            $"[CornerUIButtons] Refs | myCanvas={(myCanvas ? myCanvas.name : "<NULL>")} " +
+            $"roomCodeWindow={(roomCodeWindow ? GetFullPath(roomCodeWindow.transform) : "<NULL>")} " +
+            $"roomCodeText={(roomCodeText ? GetFullPath(roomCodeText.transform) : "<NULL>")} " +
+            $"scene={gameObject.scene.name}"
+        );
     }
 
+    private static Transform FindDeepChild(Transform root, string childName)
+    {
+        if (root == null) return null;
+        var q = new Queue<Transform>();
+        q.Enqueue(root);
+
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+            if (cur.name == childName) return cur;
+
+            for (int i = 0; i < cur.childCount; i++)
+                q.Enqueue(cur.GetChild(i));
+        }
+        return null;
+    }
+
+    private static string GetFullPath(Transform t)
+    {
+        if (!t) return "<NULL>";
+        var sb = new StringBuilder(t.name);
+        while (t.parent != null)
+        {
+            t = t.parent;
+            sb.Insert(0, t.name + "/");
+        }
+        return sb.ToString();
+    }
+
+    // -------------------- RoomCode Store binding --------------------
+    private void BindToRoomCodeStore()
+    {
+        if (_boundToStore) return;
+        _boundToStore = true;
+
+        // ׳™׳™׳×׳›׳ ׳©׳”-Store ׳ ׳•׳¦׳¨ ׳¨׳’׳¢ ׳׳—׳¨׳™ -> ׳ ׳ ׳¡׳” ׳›׳׳” ׳₪׳¨׳™׳™׳׳™׳
+        StartCoroutine(BindStoreWhenReady());
+    }
+
+    private IEnumerator BindStoreWhenReady()
+    {
+        // ׳¢׳“ 2 ׳©׳ ׳™׳•׳×
+        float t = 0f;
+        while (RoomCodeStore.Instance == null && t < 2f)
+        {
+            t += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        if (RoomCodeStore.Instance != null)
+        {
+            RoomCodeStore.Instance.OnJoinCodeChanged -= OnJoinCodeChanged;
+            RoomCodeStore.Instance.OnJoinCodeChanged += OnJoinCodeChanged;
+
+            // ג… ׳ ׳¡׳” ׳’׳ ׳˜׳¢׳™׳ ׳” ׳׳”׳§׳•׳‘׳¥ ׳‘׳׳§׳¨׳” ׳©׳”׳§׳•׳“ ׳”׳’׳™׳¢ ׳׳×׳”׳׳™׳ ׳׳—׳¨
+            RoomCodeStore.Instance.TryLoadFromFile();
+        }
+
+        RefreshRoomCodeText();
+    }
+
+    private void UnbindFromRoomCodeStore()
+    {
+        if (!_boundToStore) return;
+        _boundToStore = false;
+
+        if (RoomCodeStore.Instance != null)
+            RoomCodeStore.Instance.OnJoinCodeChanged -= OnJoinCodeChanged;
+    }
+
+    private void OnJoinCodeChanged(string _)
+    {
+        RefreshRoomCodeText();
+    }
+
+    // -------------------- Buttons wiring --------------------
     private void WireButtons()
     {
         if (helpButton != null) helpButton.onClick.AddListener(ToggleHelp);
@@ -178,7 +292,7 @@ public class CornerUIButtons : MonoBehaviour
     // -------------------- Room Code --------------------
     public void ToggleRoomCode()
     {
-        TryResolveRoomCodeRefs();
+        TryResolveRoomCodeRefs(force: false);
 
         if (roomCodeWindow == null)
         {
@@ -187,20 +301,80 @@ public class CornerUIButtons : MonoBehaviour
         }
 
         bool nextState = !roomCodeWindow.activeSelf;
-        Debug.Log($"[CornerUIButtons] ToggleRoomCode clicked (this={transform.name}) -> nextState={nextState} window={roomCodeWindow.name}");
+        Debug.Log($"[CornerUIButtons] ToggleRoomCode clicked (this={transform.name}) -> nextState={nextState} window={GetFullPath(roomCodeWindow.transform)}");
 
         roomCodeWindow.SetActive(nextState);
 
-        // לוג כדי לזהות אם משהו מכבה אותו מיד אחרי
-        Debug.Log($"[CornerUIButtons] After SetActive({nextState}): activeSelf={roomCodeWindow.activeSelf} activeInHierarchy={roomCodeWindow.activeInHierarchy}");
+        // ג… make sure it is visually visible (CanvasGroup can hide even when active)
+        ForceVisible(roomCodeWindow);
+
+        // ג… bring to top of UI
+        roomCodeWindow.transform.SetAsLastSibling();
+
+        // PROBE
+        if (_probeCo != null) StopCoroutine(_probeCo);
+        _probeCo = StartCoroutine(PostToggleProbe(roomCodeWindow, nextState));
+
+        Debug.Log(
+            $"[CornerUIButtons] After SetActive({nextState}): " +
+            $"activeSelf={roomCodeWindow.activeSelf} activeInHierarchy={roomCodeWindow.activeInHierarchy} " +
+            $"parentActive={(roomCodeWindow.transform.parent ? roomCodeWindow.transform.parent.gameObject.activeInHierarchy : true)}"
+        );
 
         if (nextState)
             RefreshRoomCodeText();
     }
 
+    private static void ForceVisible(GameObject go)
+    {
+        if (!go) return;
+
+        var cg = go.GetComponent<CanvasGroup>();
+        if (cg != null)
+        {
+            cg.alpha = 1f;
+            cg.interactable = true;
+            cg.blocksRaycasts = true;
+        }
+
+        var canvas = go.GetComponent<Canvas>();
+        if (canvas != null) canvas.enabled = true;
+
+        var rt = go.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            if (rt.localScale == Vector3.zero) rt.localScale = Vector3.one;
+        }
+    }
+
+    private IEnumerator PostToggleProbe(GameObject go, bool intended)
+    {
+        int id = go ? go.GetInstanceID() : -1;
+
+        yield return new WaitForEndOfFrame();
+        if (go == null)
+        {
+            Debug.LogWarning($"[RoomCode PROBE][EndOfFrame] intended={intended} go=NULL (was id={id})");
+            yield break;
+        }
+        Debug.Log($"[RoomCode PROBE][EndOfFrame] intended={intended} go={GetFullPath(go.transform)} id={go.GetInstanceID()} activeSelf={go.activeSelf} activeInHierarchy={go.activeInHierarchy}");
+
+        yield return new WaitForSeconds(0.15f);
+        if (go == null)
+        {
+            Debug.LogWarning($"[RoomCode PROBE][+0.15s] intended={intended} go=NULL (was id={id})");
+            yield break;
+        }
+        Debug.Log($"[RoomCode PROBE][+0.15s] intended={intended} go={GetFullPath(go.transform)} id={go.GetInstanceID()} activeSelf={go.activeSelf} activeInHierarchy={go.activeInHierarchy}");
+    }
+
     private void RefreshRoomCodeText()
     {
         if (roomCodeText == null) return;
+
+        // ג… if store exists, try load file once (client process)
+        if (RoomCodeStore.Instance != null)
+            RoomCodeStore.Instance.TryLoadFromFile();
 
         string code = (RoomCodeStore.Instance != null) ? RoomCodeStore.Instance.JoinCode : "";
         roomCodeText.text = string.IsNullOrWhiteSpace(code) ? emptyPlaceholder : code;

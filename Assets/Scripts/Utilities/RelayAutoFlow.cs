@@ -331,7 +331,12 @@ public sealed class RelayAutoFlow : MonoBehaviour
 #if UNITY_EDITOR
             s_editorJoinCode = joinCode;
 #endif
+
             PublishJoinCode(joinCode);
+
+            // ✅ ensure store exists and set code (so UI in this process gets it)
+            EnsureRoomCodeStoreExists();
+            RoomCodeStore.Instance?.SetJoinCode(joinCode);
 
             Debug.Log($"[RelayAutoFlow] HOST join code: {joinCode}");
 
@@ -371,6 +376,10 @@ public sealed class RelayAutoFlow : MonoBehaviour
             {
                 JoinAllocation joinAlloc = await RelayService.Instance.JoinAllocationAsync(code);
 
+                // ✅ ensure store exists and set code (critical for client UI)
+                EnsureRoomCodeStoreExists();
+                RoomCodeStore.Instance?.SetJoinCode(code);
+
                 var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
                 utp.SetRelayServerData(new RelayServerData(joinAlloc, "wss"));
                 utp.UseWebSockets = true;
@@ -408,8 +417,6 @@ public sealed class RelayAutoFlow : MonoBehaviour
                 PlayersReadyOnHost?.Invoke();
                 return;
             }
-
-          
         }
     }
 
@@ -484,5 +491,20 @@ public sealed class RelayAutoFlow : MonoBehaviour
                 await Task.Delay(400 * attempt);
             }
         }
+    }
+
+    // ---------------------------
+    // Store guarantee (important in MPE client process)
+    // ---------------------------
+
+    private static void EnsureRoomCodeStoreExists()
+    {
+        if (RoomCodeStore.Instance != null) return;
+
+        var existing = FindFirstObjectByType<RoomCodeStore>();
+        if (existing != null) return;
+
+        var go = new GameObject("RoomCodeStore");
+        go.AddComponent<RoomCodeStore>();
     }
 }

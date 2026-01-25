@@ -32,7 +32,6 @@ public sealed class RelayUIController : MonoBehaviour
     [SerializeField] private bool hideConnectionPanelOnClientWhenReady = true;
 
     [Header("Debug")]
-    [Tooltip("Print join code to Console when created")]
     [SerializeField] private bool logJoinCodeToConsole = true;
 
     private LobbyState lobbyState;
@@ -40,12 +39,10 @@ public sealed class RelayUIController : MonoBehaviour
     private bool hostInProgress;
     private int hostRequestVersion;
 
-    // so we don't close the menu after opening it once
     private bool difficultyMenuOpened;
 
     public System.Action<string> OnJoinCodeReady;
 
-    // expose current join code for same-scene consumers (optional)
     public string CurrentJoinCode { get; private set; } = "";
 
     private void OnEnable()
@@ -99,12 +96,9 @@ public sealed class RelayUIController : MonoBehaviour
         if (nm == null) return;
 
         if (!nm.IsHost) return;
-
-        // server itself (usually 0)
         if (clientId == NetworkManager.ServerClientId) return;
 
         Debug.Log($"[RelayUI] Real client joined! clientId={clientId}");
-
         OpenDifficultyMenuOnHost();
     }
 
@@ -117,7 +111,6 @@ public sealed class RelayUIController : MonoBehaviour
 
         ShowLobbyButtons(false);
 
-        // IMPORTANT: this can hide your code visually. Code will still be logged if enabled.
         if (hideCodeLabelOnHostWhenReady && codeLabel != null)
             codeLabel.gameObject.SetActive(false);
 
@@ -136,7 +129,6 @@ public sealed class RelayUIController : MonoBehaviour
         bool isHost = nm != null && nm.IsHost;
         bool isClientOnly = nm != null && nm.IsClient && !nm.IsHost;
 
-        // strong fallback: Host + more than 1 client id means a real client joined
         bool hasRealClient =
             isHost && nm != null && nm.ConnectedClientsIds != null && nm.ConnectedClientsIds.Count > 1;
 
@@ -149,10 +141,12 @@ public sealed class RelayUIController : MonoBehaviour
         {
             difficultyMenuOpened = false;
 
-            CurrentJoinCode = "";
-
-            if (RoomCodeStore.Instance != null)
-                RoomCodeStore.Instance.Clear();
+            // ✅ נקה JoinCode רק אצל HOST (Client לא נוגע בזה)
+            if (nm != null && nm.IsHost)
+            {
+                CurrentJoinCode = "";
+                RoomCodeStore.Instance?.Clear();
+            }
 
             if (connectionPanel != null) connectionPanel.SetActive(true);
             ShowLobbyButtons(true);
@@ -163,7 +157,6 @@ public sealed class RelayUIController : MonoBehaviour
                 codeInput.interactable = true;
             }
 
-            // bring back code label when not listening
             if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
             if (codeLabel != null) codeLabel.gameObject.SetActive(true);
 
@@ -176,7 +169,6 @@ public sealed class RelayUIController : MonoBehaviour
             return;
         }
 
-        // Host waiting for client => show code
         if (isHost && !difficultyMenuOpened)
         {
             if (connectionPanel != null) connectionPanel.SetActive(true);
@@ -184,7 +176,6 @@ public sealed class RelayUIController : MonoBehaviour
 
             if (codeInput != null) codeInput.gameObject.SetActive(false);
 
-            // Ensure RoomCode UI is actually visible (parent can be disabled)
             if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
             if (codeLabel != null) codeLabel.gameObject.SetActive(true);
 
@@ -194,7 +185,9 @@ public sealed class RelayUIController : MonoBehaviour
         // Client: after join you can hide the panel
         if (isClientOnly && hideConnectionPanelOnClientWhenReady && connectionPanel != null)
         {
-            connectionPanel.SetActive(false);
+            // ❗ אל תכבה דברים שעלולים להכיל HUD/CornerUI
+            if (!connectionPanel.name.Contains("HUD"))
+                connectionPanel.SetActive(false);
         }
     }
 
@@ -214,7 +207,6 @@ public sealed class RelayUIController : MonoBehaviour
 
         if (codeInput != null) codeInput.gameObject.SetActive(false);
 
-        // Make sure the code UI is visible while creating
         if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
         if (codeLabel != null)
         {
@@ -234,14 +226,9 @@ public sealed class RelayUIController : MonoBehaviour
             if (logJoinCodeToConsole)
                 Debug.Log($"[RelayUI] JOIN CODE = {joinCode}");
 
-            // cross-scene store (game scene)
-            if (RoomCodeStore.Instance != null)
-                RoomCodeStore.Instance.SetJoinCode(joinCode);
-
-            // same-scene broadcast
+            RoomCodeStore.Instance?.SetJoinCode(joinCode);
             OnJoinCodeReady?.Invoke(joinCode);
 
-            // show in StartScene UI
             if (roomCodeRoot != null) roomCodeRoot.SetActive(true);
 
             if (codeLabel != null)
@@ -277,8 +264,15 @@ public sealed class RelayUIController : MonoBehaviour
 
         if (ok)
         {
+            RoomCodeStore.Instance?.SetJoinCode(joinCode);
+
             if (codeLabel != null) codeLabel.gameObject.SetActive(false);
-            if (hideConnectionPanelOnClientWhenReady && connectionPanel != null) connectionPanel.SetActive(false);
+
+            if (hideConnectionPanelOnClientWhenReady && connectionPanel != null)
+            {
+                if (!connectionPanel.name.Contains("HUD"))
+                    connectionPanel.SetActive(false);
+            }
         }
     }
 
