@@ -98,7 +98,21 @@ public sealed class LobbyState : NetworkBehaviour
         ConnectedPlayers.Value = connectedTotal;
         SessionFull.Value = connectedTotal >= MaxPlayers.Value;
     }
+    // קוראים לזה רק מהשרת/הוסט ברגע שנבחרה רמת קושי
+    public void NotifyDifficultyChosen_Server()
+    {
+        if (!IsServer) return;
+        DifficultyChosenClientRpc();
+    }
 
+    [ClientRpc]
+    private void DifficultyChosenClientRpc()
+    {
+        // ירוץ על כל ה-Clients (וגם על ה-Host)
+        var ui = FindFirstObjectByType<RelayUIController>();
+        if (ui != null)
+            ui.NotifyDifficultyChosen();
+    }
     private bool IsHostClient(ulong clientId) => clientId == NetworkManager.ServerClientId;
 
     [ServerRpc(RequireOwnership = false)]
