@@ -251,6 +251,7 @@ GameObject:
   - component: {fileID: 7762746773706025485}
   - component: {fileID: 239259283704700495}
   - component: {fileID: 6611569066103347738}
+  - component: {fileID: 5625506204233617034}
   m_Layer: 8
   m_Name: Heart(Clone) Variant
   m_TagString: Heart
@@ -350,3 +351,18 @@ CapsuleCollider:
   m_Height: 23.37
   m_Direction: 1
   m_Center: {x: 0, y: 11.55, z: 0}
+--- !u!114 &5625506204233617034
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8215813411732749290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6563b1322b5384740a61c52ba8d1d6f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Collectible
+  pickupClip: {fileID: 8300000, guid: 1be2fcc16ab0da84f99ba7c633037620, type: 3}
+  volume: 0.806
+  destroyOnPickup: 1
