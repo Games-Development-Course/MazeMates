@@ -68,9 +68,14 @@ public class MazeGenerator3D : MonoBehaviour
 
     [Header("Puzzles (ScriptableObjects)")]
     [SerializeField] private Puzzle puzzleEasySO;
+    [SerializeField] private Puzzle puzzleEasySO2;      // EASY #2 (optional)
+
     [SerializeField] private Puzzle puzzleMediumSO;
-    [SerializeField] private Puzzle puzzleHardSO;     // HARD #1
-    [SerializeField] private Puzzle puzzleHardSO2;    // HARD #2 (optional)
+    [SerializeField] private Puzzle puzzleMediumSO2;    // MEDIUM #2 (optional)
+
+    [SerializeField] private Puzzle puzzleHardSO;       // HARD #1
+    [SerializeField] private Puzzle puzzleHardSO2;      // HARD #2 (optional)
+
 
 
     [Header("Resources (Prefabs)")]
@@ -135,8 +140,7 @@ public class MazeGenerator3D : MonoBehaviour
         // תמיד למשוך קונפיג (גם בקליינט)
         PullConfigIfExists();
 
-        puzzleDoorsAmount = (difficulty == Difficulty.Hard) ? 2 : 1;
-
+        puzzleDoorsAmount = 2;
         Random.InitState(seed);
 
         CreateHierarchyFolders();
@@ -734,7 +738,7 @@ public class MazeGenerator3D : MonoBehaviour
     {
         if (puzzleDoors == null || puzzleDoors.Count == 0) return;
 
-        int desired = (difficulty == Difficulty.Hard) ? 2 : 1;
+        int desired = 2; // always 2 puzzle doors
         int count = Mathf.Min(desired, puzzleDoors.Count);
 
         for (int i = 0; i < count; i++)
@@ -745,11 +749,20 @@ public class MazeGenerator3D : MonoBehaviour
             Puzzle chosen = null;
 
             if (difficulty == Difficulty.Easy)
-                chosen = puzzleEasySO;
+            {
+                chosen = (i == 0) ? puzzleEasySO
+                                  : (puzzleEasySO2 != null ? puzzleEasySO2 : puzzleEasySO);
+            }
             else if (difficulty == Difficulty.Medium)
-                chosen = puzzleMediumSO;
-            else
-                chosen = (i == 0) ? puzzleHardSO : (puzzleHardSO2 != null ? puzzleHardSO2 : puzzleHardSO);
+            {
+                chosen = (i == 0) ? puzzleMediumSO
+                                  : (puzzleMediumSO2 != null ? puzzleMediumSO2 : puzzleMediumSO);
+            }
+            else // Hard
+            {
+                chosen = (i == 0) ? puzzleHardSO
+                                  : (puzzleHardSO2 != null ? puzzleHardSO2 : puzzleHardSO);
+            }
 
             if (chosen == null)
             {

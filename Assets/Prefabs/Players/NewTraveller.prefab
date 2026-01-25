@@ -6115,6 +6115,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: PlayerFootstepsAudio
       objectReference: {fileID: 0}
+    - target: {fileID: 7205976639263942332, guid: 9cbff986b4bd5450880d3777d60b7055, type: 3}
+      propertyPath: m_Volume
+      value: 0.416
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

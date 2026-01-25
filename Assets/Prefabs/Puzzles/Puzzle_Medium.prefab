@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1791305497250717143}
+  - component: {fileID: 7250363938915443258}
   m_Layer: 9
   m_Name: Puzzle_Medium
   m_TagString: Untagged
@@ -40,6 +41,29 @@ RectTransform:
   m_AnchoredPosition: {x: 519.5, y: 73.5}
   m_SizeDelta: {x: 0.000007629395, y: 0.00001525879}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!223 &7250363938915443258
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1754336668361465975}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 2
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 0
+  m_OverridePixelPerfect: 1
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 0
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 0
+  m_TargetDisplay: 0
 --- !u!1 &1811418922529261767
 GameObject:
   m_ObjectHideFlags: 0
@@ -339,7 +363,7 @@ GameObject:
   - component: {fileID: 6672645174897149367}
   - component: {fileID: 5416386770450423634}
   m_Layer: 9
-  m_Name: Puzzle_Placement_Area
+  m_Name: ff
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
