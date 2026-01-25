@@ -9931,6 +9931,7 @@ GameObject:
   - component: {fileID: 292035602383349331}
   - component: {fileID: 2129685663221492048}
   - component: {fileID: 4530065451951943076}
+  - component: {fileID: 6962300602328726546}
   m_Layer: 0
   m_Name: MazeBomb
   m_TagString: Bomb
@@ -9988,7 +9989,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 511266342
+  GlobalObjectIdHash: 4207436274
   InScenePlacedSourceGlobalObjectIdHash: 766745082
   DeferredDespawnTick: 0
   Ownership: 1
@@ -10054,6 +10055,21 @@ MonoBehaviour:
   tickSource: {fileID: 0}
   tickMinInterval: 0.15
   tickMaxInterval: 0.35
+--- !u!114 &6962300602328726546
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7454851548193310993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6563b1322b5384740a61c52ba8d1d6f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Collectible
+  pickupClip: {fileID: 8300000, guid: 146d4b19f95fe6d40832414952b4ea39, type: 3}
+  volume: 0.65
+  destroyOnPickup: 1
 --- !u!1 &7540040679316195036
 GameObject:
   m_ObjectHideFlags: 0
