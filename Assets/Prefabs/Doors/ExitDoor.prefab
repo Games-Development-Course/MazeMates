@@ -1371,6 +1371,7 @@ GameObject:
   - component: {fileID: 5308921012164081481}
   - component: {fileID: -4360342995708607037}
   - component: {fileID: -1232175911959358423}
+  - component: {fileID: 1045483179106145841}
   m_Layer: 14
   m_Name: ExitDoor
   m_TagString: Untagged
@@ -1503,3 +1504,24 @@ MonoBehaviour:
   volume: 0.918
   startAngleThreshold: 0.25
   pivot: {fileID: 0}
+--- !u!114 &1045483179106145841
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8559443613435696601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4f30683734df4a7499ae1790973f0e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ExitDoorBgmSwitchOnOpen
+  ShowTopMostFoldoutHeaderGroup: 1
+  pivot: {fileID: 0}
+  openedAngleThreshold: 1
+  stableSecondsToConfirmOpen: 0.2
+  stableDeltaAnglePerFrame: 0.03
+  musicSource: {fileID: 0}
+  newBgm: {fileID: 8300000, guid: 4c589826a6c5e4bf19e9e8393a37c09e, type: 3}
+  fadeSeconds: 0.75
+  forceRestart: 0
