@@ -1079,7 +1079,7 @@ MonoBehaviour:
   hardBombs: 7
   hardKeys: 7
   hardNormalDoors: 5
-  hardPuzzleDoors: 2
+  hardPuzzleDoors: 1
   easyLives: 2
   medLives: 2
   hardLives: 1

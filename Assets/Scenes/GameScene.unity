@@ -11477,7 +11477,7 @@ MonoBehaviour:
   puzzleEasySO: {fileID: 11400000, guid: 591bf86baa27c8d42bd5582054e0e4ab, type: 2}
   puzzleMediumSO: {fileID: 11400000, guid: 93c7dfadc754e6b48843c212df21cd8c, type: 2}
   puzzleHardSO: {fileID: 11400000, guid: 2f5314cbf1b81764a9fa00fcb8662c6a, type: 2}
-  puzzleHardSO2: {fileID: 11400000, guid: fb181b14cfada8f42aa0b87bd98c4781, type: 2}
+  puzzleHardSO2: {fileID: 0}
   heartPrefab: {fileID: 8215813411732749290, guid: e7fb81e82f61efe4bb309a587c88abb8, type: 3}
   bombPrefab: {fileID: 7454851548193310993, guid: 32d89168a3f06594e8798f23895ee145, type: 3}
   keyPrefab: {fileID: 4654885429082179475, guid: 4efafe24cea6ddb45bb7641632e01a87, type: 3}
