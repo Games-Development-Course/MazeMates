@@ -167,6 +167,7 @@ GameObject:
   - component: {fileID: 2606675135162896149}
   - component: {fileID: -7310201693615798424}
   - component: {fileID: 812666467661358761}
+  - component: {fileID: -3749713177943513436}
   m_Layer: 14
   m_Name: NormalDoor
   m_TagString: Door
@@ -241,10 +242,27 @@ MonoBehaviour:
   exitSpinDuration: 1.25
   puzzlePrefab: {fileID: 0}
   navigatorPreview: {fileID: 0}
-  puzzleResourcesFolder: Puzzles
+  puzzleDefResourcesFolder: Puzzles
   spawnedHints: []
   tvApplyRetries: 90
   tvApplyRetryDelaySeconds: 0
+--- !u!114 &-3749713177943513436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7787760578137105844}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54c81acbca62a445dabc8a07ff436a60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
+  ShowTopMostFoldoutHeaderGroup: 1
+  openClip: {fileID: 8300000, guid: 5ad1232b83c354d939ecc3f14e79a2a3, type: 3}
+  volume: 0.824
+  startAngleThreshold: 0.25
+  pivot: {fileID: 0}
 --- !u!1 &8179707427145693495
 GameObject:
   m_ObjectHideFlags: 0

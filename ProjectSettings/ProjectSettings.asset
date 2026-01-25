@@ -948,11 +948,11 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 2
   windowsGamepadBackendHint: 0
-  cloudProjectId: 20aa2c27-fae8-4036-a0e8-130d258f8ea9
+  cloudProjectId: 936f35e4-48ed-433c-89f8-ef094f1ffbce
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
   projectName: MazeMates
-  organizationId: aviv15616
+  organizationId: sagitmalka10
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}

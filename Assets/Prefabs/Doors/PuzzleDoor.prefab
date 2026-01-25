@@ -224,6 +224,7 @@ GameObject:
   - component: {fileID: 5040203631960545382}
   - component: {fileID: 3846938023290933308}
   - component: {fileID: 4782822612512144757}
+  - component: {fileID: 949368202313197280}
   m_Layer: 14
   m_Name: PuzzleDoor
   m_TagString: Door
@@ -298,7 +299,24 @@ MonoBehaviour:
   exitSpinDuration: 1.25
   puzzlePrefab: {fileID: 0}
   navigatorPreview: {fileID: 0}
-  puzzleResourcesFolder: Puzzles
+  puzzleDefResourcesFolder: Puzzles
   spawnedHints: []
   tvApplyRetries: 90
   tvApplyRetryDelaySeconds: 0
+--- !u!114 &949368202313197280
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8556355650215004237}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54c81acbca62a445dabc8a07ff436a60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
+  ShowTopMostFoldoutHeaderGroup: 1
+  openClip: {fileID: 8300000, guid: 5ad1232b83c354d939ecc3f14e79a2a3, type: 3}
+  volume: 0.792
+  startAngleThreshold: 0.25
+  pivot: {fileID: 0}
