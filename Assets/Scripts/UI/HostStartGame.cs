@@ -105,6 +105,69 @@ public sealed class HostStartGame : MonoBehaviour
     public void StartGameEasy() => StartGameWithDifficulty(0);
     public void StartGameMedium() => StartGameWithDifficulty(1);
     public void StartGameHard() => StartGameWithDifficulty(2);
+    public void StartGameWithDifficultyAndSeed(int diff, int seed)
+    {
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer) return;
+
+        if (nm.ConnectedClientsList.Count < 2)
+        {
+            Debug.LogWarning("No clients connected yet!");
+            return;
+        }
+
+        var cfg = GameConfigNet.Instance;
+        if (cfg == null)
+        {
+            Debug.LogError("GameConfigNet is missing in the Start/Menu scene (NetworkManager scene).");
+            return;
+        }
+
+        // same configs as StartGameWithDifficulty, but seed is forced
+        if (diff == 0)
+        {
+            cfg.SetConfigServerRpc(
+                easyMazeW, easyMazeH,
+                easyHearts, easyBombs, easyKeys,
+                easyNormalDoors, easyPuzzleDoors,
+                0, seed,
+                easyLives,
+                easyBombs,
+                EASY_HINTS
+            );
+        }
+        else if (diff == 1)
+        {
+            cfg.SetConfigServerRpc(
+                medMazeW, medMazeH,
+                medHearts, medBombs, medKeys,
+                medNormalDoors, medPuzzleDoors,
+                1, seed,
+                medLives,
+                0,
+                MED_HINTS
+            );
+        }
+        else
+        {
+            cfg.SetConfigServerRpc(
+                hardMazeW, hardMazeH,
+                hardHearts, hardBombs, hardKeys,
+                hardNormalDoors, hardPuzzleDoors,
+                2, seed,
+                hardLives,
+                0,
+                HARD_HINTS
+            );
+        }
+
+        // same flow (skins menu) – no manual scene boot
+        hostButtonsPanel?.SetActive(false);
+        cfg.SetSkinSelectOpenServerRpc(true);
+
+        if (lobbySkinUI != null)
+            lobbySkinUI.OpenSkinMenu();
+    }
 
     private void StartGameWithDifficulty(int diff)
     {

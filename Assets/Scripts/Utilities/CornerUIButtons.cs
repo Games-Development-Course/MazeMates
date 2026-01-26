@@ -15,7 +15,7 @@ public class CornerUIButtons : MonoBehaviour
     [SerializeField] private string targetScene = "GameScene";
     [SerializeField] private bool destroyPersistentOnTargetSceneLoad = false;
 
-    [Header("Layout")]
+    [Header("Layout (optional)")]
     [SerializeField] private RectTransform boardRect;
     [SerializeField] private LayoutDirection direction = LayoutDirection.VerticalUp;
     [SerializeField] private List<RectTransform> buttonsToLayout = new List<RectTransform>();
@@ -25,7 +25,7 @@ public class CornerUIButtons : MonoBehaviour
 
     [Header("Help Button")]
     [SerializeField] private Button helpButton;
-    [SerializeField] private Transform instructionsPopup;
+    [SerializeField] private Transform instructionsPopup; // PopupWindows/HelpWindow
 
     [Header("Mute Button (toggle)")]
     [SerializeField] private Button muteToggleButton;
@@ -44,9 +44,9 @@ public class CornerUIButtons : MonoBehaviour
 
     // ==================== Room Code ====================
     [Header("Room Code (toggle)")]
-    [SerializeField] private Button toggleRoomCodeButton;
-    [SerializeField] private GameObject roomCodeWindow;
-    [SerializeField] private TMP_Text roomCodeText;
+    [SerializeField] private Button toggleRoomCodeButton; // CornerUI/RoomCode
+    [SerializeField] private GameObject roomCodeWindow;   // HUD/RoomCodeScreen
+    [SerializeField] private TMP_Text roomCodeText;       // RoomCodeScreen/Code
 
     [Tooltip("Optional: show ___ when empty")]
     [SerializeField] private string emptyPlaceholder = "___";
@@ -54,23 +54,23 @@ public class CornerUIButtons : MonoBehaviour
 
     // ==================== Pause ====================
     [Header("Pause Menu (Game only)")]
-    [SerializeField] private Button pauseButton;
-    [SerializeField] private GameObject pauseWindow;
-    [SerializeField] private Button pauseContinueButton; // "המשך"
-    [SerializeField] private Button pauseReplayButton;   // "שחק מחדש"
-    [SerializeField] private Button pauseLevelsButton;   // "מסך השלבים"
+    [SerializeField] private Button pauseButton;          // CornerUI/Pause
+    [SerializeField] private GameObject pauseWindow;      // PopupWindows/PauseWindow
+    [SerializeField] private Button pauseContinueButton;  // PauseWindow/ExitButton (אצלך)
+    [SerializeField] private Button pauseReplayButton;    // PauseWindow/PlayAgain
+    [SerializeField] private Button pauseLevelsButton;    // PauseWindow/ReturnToLevels
 
     [Header("Confirm Window (Local)")]
-    [SerializeField] private GameObject confirmWindow;
-    [SerializeField] private TMP_Text confirmText;
-    [SerializeField] private Button confirmYesButton;
-    [SerializeField] private Button confirmNoButton;
+    [SerializeField] private GameObject confirmWindow;    // PopupWindows/ConfirmWindow
+    [SerializeField] private TMP_Text confirmText;        // ConfirmWindow/Text (TMP)
+    [SerializeField] private Button confirmYesButton;     // ConfirmWindow/Yes
+    [SerializeField] private Button confirmNoButton;      // ConfirmWindow/No
 
     [Header("Peer Request Window (Other player)")]
-    [SerializeField] private GameObject peerRequestWindow;
-    [SerializeField] private TMP_Text peerRequestText;
-    [SerializeField] private Button peerYesButton;
-    [SerializeField] private Button peerNoButton;
+    [SerializeField] private GameObject peerRequestWindow; // PopupWindows/PeerRequestWindow
+    [SerializeField] private TMP_Text peerRequestText;     // PeerRequestWindow/Text (TMP)
+    [SerializeField] private Button peerYesButton;         // PeerRequestWindow/Yes
+    [SerializeField] private Button peerNoButton;          // PeerRequestWindow/No
 
     [Header("Toast / Message")]
     [SerializeField] private TMP_Text toastText;
@@ -78,16 +78,25 @@ public class CornerUIButtons : MonoBehaviour
 
     private PauseConsensus.PauseAction _pendingLocalAction;
     private Coroutine _toastCo;
+
+    // --- Confirm flow state (NEW) ---
+    private bool _waitingPeerDecision;
+    private Coroutine _closeConfirmCo;
+
     // ===================================================
 
     private bool isMuted;
     private Image muteButtonImage;
 
-    // Debug/probe
     private Coroutine _probeCo;
-
-    // join code binding
     private bool _boundToStore;
+
+    // Roots יחסית ל-CornerUI
+    private Transform _cornerRoot; // CornerUI
+    private Transform _hudRoot;    // TravellerHUD / NavigatorHUD
+    private Transform _popupRoot;  // HUD/PopupWindows
+
+    // --------------------------------------------------
 
     private void Awake()
     {
@@ -96,21 +105,21 @@ public class CornerUIButtons : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneLoaded += OnSceneLoaded;
 
+        ResolveAllRefs(force: true);
+
         if (muteToggleButton != null)
             muteButtonImage = muteToggleButton.GetComponent<Image>();
 
+        UnwireButtons();
         WireButtons();
 
         isMuted = startMuted;
         ApplyMuteState();
 
-        TryResolveRoomCodeRefs(force: true);
         if (roomCodeWindow != null) roomCodeWindow.SetActive(false);
 
         SafeHidePauseUI();
         ApplyPauseVisibility();
-
-        LayoutButtons();
     }
 
     private void OnEnable()
@@ -120,11 +129,14 @@ public class CornerUIButtons : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneLoaded += OnSceneLoaded;
 
-        TryResolveRoomCodeRefs(force: false);
+        ResolveAllRefs(force: false);
+
+        UnwireButtons();
+        WireButtons();
+
         BindToRoomCodeStore();
 
         ApplyPauseVisibility();
-        LayoutButtons();
     }
 
     private void OnDisable()
@@ -132,11 +144,8 @@ public class CornerUIButtons : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
         UnbindFromRoomCodeStore();
 
-        if (_probeCo != null)
-        {
-            StopCoroutine(_probeCo);
-            _probeCo = null;
-        }
+        if (_probeCo != null) { StopCoroutine(_probeCo); _probeCo = null; }
+        if (_closeConfirmCo != null) { StopCoroutine(_closeConfirmCo); _closeConfirmCo = null; }
     }
 
     private void OnDestroy()
@@ -145,17 +154,9 @@ public class CornerUIButtons : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
         UnbindFromRoomCodeStore();
 
-        if (_probeCo != null)
-        {
-            StopCoroutine(_probeCo);
-            _probeCo = null;
-        }
-
-        if (_toastCo != null)
-        {
-            StopCoroutine(_toastCo);
-            _toastCo = null;
-        }
+        if (_probeCo != null) { StopCoroutine(_probeCo); _probeCo = null; }
+        if (_toastCo != null) { StopCoroutine(_toastCo); _toastCo = null; }
+        if (_closeConfirmCo != null) { StopCoroutine(_closeConfirmCo); _closeConfirmCo = null; }
     }
 
     private void OnSceneLoaded(Scene loadedScene, LoadSceneMode mode)
@@ -164,9 +165,7 @@ public class CornerUIButtons : MonoBehaviour
 
         if (gameObject.scene.name != targetScene)
         {
-            Debug.LogWarning(
-                $"[CornerUIButtons] Target scene '{targetScene}' loaded, disabling old instance from scene '{gameObject.scene.name}'. this={transform.name} id={GetInstanceID()}"
-            );
+            Debug.LogWarning($"[CornerUIButtons] Target scene '{targetScene}' loaded, disabling old instance from scene '{gameObject.scene.name}'. this={transform.name} id={GetInstanceID()}");
 
             UnwireButtons();
 
@@ -180,82 +179,140 @@ public class CornerUIButtons : MonoBehaviour
         }
     }
 
-    // -------------------- Room Code resolution --------------------
-    private void TryResolveRoomCodeRefs(bool force)
-    {
-        Canvas myCanvas = GetComponentInParent<Canvas>(true);
-        Transform canvasRoot = myCanvas ? myCanvas.transform : transform.root;
+    // ============================================================
+    // ✅ AUTO RESOLVE - יחסית ל-CornerUI בהיררכיה שלך
+    // ============================================================
 
-        if (roomCodeWindow != null && myCanvas != null)
+    [ContextMenu("Resolve UI References (FORCE)")]
+    private void ResolveRefsForceMenu() => ResolveAllRefs(force: true);
+
+    private void ResolveAllRefs(bool force)
+    {
+        CacheRoots();
+
+        if (_cornerRoot == null)
         {
-            Canvas winCanvas = roomCodeWindow.GetComponentInParent<Canvas>(true);
-            if (winCanvas != myCanvas)
+            Debug.LogWarning($"[CornerUIButtons] ResolveAllRefs: CornerUI root not found. this={GetFullPath(transform)}");
+            return;
+        }
+
+        // Layout base (לא חובה לשימוש)
+        if (force || boardRect == null)
+            boardRect = _cornerRoot.GetComponent<RectTransform>();
+
+        // Corner buttons
+        if (force || helpButton == null) helpButton = FindButton(_cornerRoot, "Help");
+        if (force || muteToggleButton == null) muteToggleButton = FindButton(_cornerRoot, "Mute");
+        if (force || pauseButton == null) pauseButton = FindButton(_cornerRoot, "Pause");
+        if (force || toggleRoomCodeButton == null) toggleRoomCodeButton = FindButton(_cornerRoot, "RoomCode");
+
+        // Auto buttons list for layout (לא מזיזים בפועל אם אתה לא קורא LayoutButtons)
+        if (force || buttonsToLayout == null || buttonsToLayout.Count == 0)
+        {
+            buttonsToLayout ??= new List<RectTransform>();
+            buttonsToLayout.Clear();
+
+            AddButtonRect(helpButton);
+            AddButtonRect(muteToggleButton);
+            AddButtonRect(pauseButton);
+            AddButtonRect(toggleRoomCodeButton);
+        }
+
+        // PopupWindows root
+        if (_popupRoot != null)
+        {
+            if (force || instructionsPopup == null)
+                instructionsPopup = FindChild(_popupRoot, "HelpWindow");
+
+            if (instructionsPopup != null)
             {
-                Debug.LogWarning(
-                    $"[CornerUIButtons] roomCodeWindow points to DIFFERENT Canvas! " +
-                    $"myCanvas='{myCanvas.name}' winCanvas='{(winCanvas ? winCanvas.name : "NULL")}'. Clearing ref and re-finding."
-                );
-                roomCodeWindow = null;
-                roomCodeText = null;
+                if (force || helpScreen1 == null) helpScreen1 = FindChildGO(instructionsPopup, "HelpScreen1");
+                if (force || helpScreen2 == null) helpScreen2 = FindChildGO(instructionsPopup, "HelpScreen2");
+                if (force || helpScreen3 == null) helpScreen3 = FindChildGO(instructionsPopup, "HelpScreen3");
+                if (force || helpScreen4 == null) helpScreen4 = FindChildGO(instructionsPopup, "HelpScreen4");
+            }
+
+            if (force || pauseWindow == null) pauseWindow = FindChildGO(_popupRoot, "PauseWindow");
+            if (pauseWindow != null)
+            {
+                // אצלך: PauseWindow/PlayAgain + ReturnToLevels + ExitButton
+                if (force || pauseReplayButton == null) pauseReplayButton = FindButton(pauseWindow.transform, "PlayAgain");
+                if (force || pauseLevelsButton == null) pauseLevelsButton = FindButton(pauseWindow.transform, "ReturnToLevels");
+                if (force || pauseContinueButton == null) pauseContinueButton = FindButton(pauseWindow.transform, "ExitButton"); // ה"המשך" אצלך
+            }
+
+            if (force || confirmWindow == null) confirmWindow = FindChildGO(_popupRoot, "ConfirmWindow");
+            if (confirmWindow != null)
+            {
+                if (force || confirmYesButton == null) confirmYesButton = FindButton(confirmWindow.transform, "Yes");
+                if (force || confirmNoButton == null) confirmNoButton = FindButton(confirmWindow.transform, "No");
+                if (force || confirmText == null) confirmText = FindTMPByContains(confirmWindow.transform, "Text");
+            }
+
+            if (force || peerRequestWindow == null) peerRequestWindow = FindChildGO(_popupRoot, "PeerRequestWindow");
+            if (peerRequestWindow != null)
+            {
+                if (force || peerYesButton == null) peerYesButton = FindButton(peerRequestWindow.transform, "Yes");
+                if (force || peerNoButton == null) peerNoButton = FindButton(peerRequestWindow.transform, "No");
+                if (force || peerRequestText == null) peerRequestText = FindTMPByContains(peerRequestWindow.transform, "Text");
             }
         }
 
+        // RoomCodeScreen (לפי ההיררכיה שלך הוא תחת ה-HUD, לא תחת PopupWindows)
         if (force || roomCodeWindow == null)
-        {
-            Transform t = FindDeepChild(canvasRoot, "RoomCodeScreen");
-            if (t != null) roomCodeWindow = t.gameObject;
-        }
+            roomCodeWindow = (_hudRoot != null) ? FindChildGO(_hudRoot, "RoomCodeScreen") : null;
 
         if ((force || roomCodeText == null) && roomCodeWindow != null)
-        {
-            Transform t = roomCodeWindow.transform.Find("Code");
-            if (t == null) t = FindDeepChild(roomCodeWindow.transform, "Code");
-            if (t != null) roomCodeText = t.GetComponent<TMP_Text>();
-        }
+            roomCodeText = FindTMP(roomCodeWindow.transform, "Code");
+
+        if (muteToggleButton != null)
+            muteButtonImage = muteToggleButton.GetComponent<Image>();
 
         Debug.Log(
-            $"[CornerUIButtons] Refs | myCanvas={(myCanvas ? myCanvas.name : "<NULL>")} " +
-            $"roomCodeWindow={(roomCodeWindow ? GetFullPath(roomCodeWindow.transform) : "<NULL>")} " +
-            $"roomCodeText={(roomCodeText ? GetFullPath(roomCodeText.transform) : "<NULL>")} " +
-            $"scene={gameObject.scene.name}"
+            $"[CornerUIButtons][Resolve] hud={(_hudRoot ? _hudRoot.name : "NULL")} " +
+            $"corner={GetFullPath(_cornerRoot)} popup={(_popupRoot ? GetFullPath(_popupRoot) : "NULL")} " +
+            $"pauseBtn={(pauseButton ? "OK" : "NULL")} pauseWin={(pauseWindow ? "OK" : "NULL")} roomCodeWin={(roomCodeWindow ? "OK" : "NULL")}"
         );
-    }
 
-    private static Transform FindDeepChild(Transform root, string childName)
-    {
-        if (root == null) return null;
-        var q = new Queue<Transform>();
-        q.Enqueue(root);
-
-        while (q.Count > 0)
+        void AddButtonRect(Button b)
         {
-            var cur = q.Dequeue();
-            if (cur.name == childName) return cur;
-
-            for (int i = 0; i < cur.childCount; i++)
-                q.Enqueue(cur.GetChild(i));
+            if (!b) return;
+            var rt = b.GetComponent<RectTransform>();
+            if (rt) buttonsToLayout.Add(rt);
         }
-        return null;
     }
 
-    private static string GetFullPath(Transform t)
+    private void CacheRoots()
     {
-        if (!t) return "<NULL>";
-        var sb = new StringBuilder(t.name);
-        while (t.parent != null)
-        {
+        // CornerUI root
+        _cornerRoot = transform;
+        var t = transform;
+        while (t != null && t.name != "CornerUI")
             t = t.parent;
-            sb.Insert(0, t.name + "/");
+        if (t != null) _cornerRoot = t;
+
+        // HUD root: TravellerHUD / NavigatorHUD
+        _hudRoot = _cornerRoot;
+        while (_hudRoot != null && _hudRoot.name != "TravellerHUD" && _hudRoot.name != "NavigatorHUD")
+            _hudRoot = _hudRoot.parent;
+
+        // PopupWindows
+        _popupRoot = null;
+        if (_hudRoot != null)
+        {
+            _popupRoot = _hudRoot.Find("PopupWindows");
+            if (_popupRoot == null)
+                _popupRoot = FindDeepChild(_hudRoot, "PopupWindows");
         }
-        return sb.ToString();
     }
 
-    // -------------------- RoomCode Store binding --------------------
+    // ============================================================
+    // RoomCode Store binding
+    // ============================================================
     private void BindToRoomCodeStore()
     {
         if (_boundToStore) return;
         _boundToStore = true;
-
         StartCoroutine(BindStoreWhenReady());
     }
 
@@ -289,14 +346,26 @@ public class CornerUIButtons : MonoBehaviour
 
     private void OnJoinCodeChanged(string _) => RefreshRoomCodeText();
 
-    // -------------------- Buttons wiring --------------------
+    private void RefreshRoomCodeText()
+    {
+        if (roomCodeText == null) return;
+
+        if (RoomCodeStore.Instance != null)
+            RoomCodeStore.Instance.TryLoadFromFile();
+
+        string code = (RoomCodeStore.Instance != null) ? RoomCodeStore.Instance.JoinCode : "";
+        roomCodeText.text = string.IsNullOrWhiteSpace(code) ? emptyPlaceholder : code;
+    }
+
+    // ============================================================
+    // Wiring
+    // ============================================================
     private void WireButtons()
     {
         if (helpButton != null) helpButton.onClick.AddListener(ToggleHelp);
         if (muteToggleButton != null) muteToggleButton.onClick.AddListener(ToggleMute);
         if (toggleRoomCodeButton != null) toggleRoomCodeButton.onClick.AddListener(ToggleRoomCode);
 
-        // Pause
         if (pauseButton != null) pauseButton.onClick.AddListener(OpenPause);
         if (pauseContinueButton != null) pauseContinueButton.onClick.AddListener(ClosePause);
         if (pauseReplayButton != null) pauseReplayButton.onClick.AddListener(OnPauseReplayClicked);
@@ -307,12 +376,6 @@ public class CornerUIButtons : MonoBehaviour
 
         if (peerYesButton != null) peerYesButton.onClick.AddListener(OnPeerYesClicked);
         if (peerNoButton != null) peerNoButton.onClick.AddListener(OnPeerNoClicked);
-        Debug.Log(
-    $"[PauseUI] refs: confirmWindow={(confirmWindow ? "OK" : "NULL")} " +
-    $"confirmYes={(confirmYesButton ? "OK" : "NULL")} confirmNo={(confirmNoButton ? "OK" : "NULL")} " +
-    $"peerWin={(peerRequestWindow ? "OK" : "NULL")} peerYes={(peerYesButton ? "OK" : "NULL")} peerNo={(peerNoButton ? "OK" : "NULL")}"
-);
-
     }
 
     private void UnwireButtons()
@@ -321,7 +384,6 @@ public class CornerUIButtons : MonoBehaviour
         if (muteToggleButton != null) muteToggleButton.onClick.RemoveListener(ToggleMute);
         if (toggleRoomCodeButton != null) toggleRoomCodeButton.onClick.RemoveListener(ToggleRoomCode);
 
-        // Pause
         if (pauseButton != null) pauseButton.onClick.RemoveListener(OpenPause);
         if (pauseContinueButton != null) pauseContinueButton.onClick.RemoveListener(ClosePause);
         if (pauseReplayButton != null) pauseReplayButton.onClick.RemoveListener(OnPauseReplayClicked);
@@ -334,9 +396,13 @@ public class CornerUIButtons : MonoBehaviour
         if (peerNoButton != null) peerNoButton.onClick.RemoveListener(OnPeerNoClicked);
     }
 
-    // -------------------- Help --------------------
+    // ============================================================
+    // Help
+    // ============================================================
     public void ToggleHelp()
     {
+        ResolveAllRefs(force: false);
+
         if (instructionsPopup == null) return;
 
         bool nextState = !instructionsPopup.gameObject.activeSelf;
@@ -349,10 +415,12 @@ public class CornerUIButtons : MonoBehaviour
         if (helpScreen4) helpScreen4.SetActive(false);
     }
 
-    // -------------------- Room Code --------------------
+    // ============================================================
+    // Room Code
+    // ============================================================
     public void ToggleRoomCode()
     {
-        TryResolveRoomCodeRefs(force: false);
+        ResolveAllRefs(force: false);
 
         if (roomCodeWindow == null)
         {
@@ -363,8 +431,7 @@ public class CornerUIButtons : MonoBehaviour
         bool nextState = !roomCodeWindow.activeSelf;
         roomCodeWindow.SetActive(nextState);
 
-        ForceVisible(roomCodeWindow);
-        roomCodeWindow.transform.SetAsLastSibling();
+        ForceUIInteractive(roomCodeWindow);
 
         if (_probeCo != null) StopCoroutine(_probeCo);
         _probeCo = StartCoroutine(PostToggleProbe(roomCodeWindow, nextState));
@@ -373,46 +440,16 @@ public class CornerUIButtons : MonoBehaviour
             RefreshRoomCodeText();
     }
 
-    private static void ForceVisible(GameObject go)
-    {
-        if (!go) return;
-
-        var cg = go.GetComponent<CanvasGroup>();
-        if (cg != null)
-        {
-            cg.alpha = 1f;
-            cg.interactable = true;
-            cg.blocksRaycasts = true;
-        }
-
-        var canvas = go.GetComponent<Canvas>();
-        if (canvas != null) canvas.enabled = true;
-
-        var rt = go.GetComponent<RectTransform>();
-        if (rt != null && rt.localScale == Vector3.zero)
-            rt.localScale = Vector3.one;
-    }
-
     private IEnumerator PostToggleProbe(GameObject go, bool intended)
     {
         yield return new WaitForEndOfFrame();
         if (go == null) yield break;
-
         yield return new WaitForSeconds(0.15f);
     }
 
-    private void RefreshRoomCodeText()
-    {
-        if (roomCodeText == null) return;
-
-        if (RoomCodeStore.Instance != null)
-            RoomCodeStore.Instance.TryLoadFromFile();
-
-        string code = (RoomCodeStore.Instance != null) ? RoomCodeStore.Instance.JoinCode : "";
-        roomCodeText.text = string.IsNullOrWhiteSpace(code) ? emptyPlaceholder : code;
-    }
-
-    // -------------------- Layout --------------------
+    // ============================================================
+    // Layout (optional - אתה לא חייב להשתמש)
+    // ============================================================
     public void LayoutButtons()
     {
         if (boardRect == null || buttonsToLayout == null || buttonsToLayout.Count == 0)
@@ -446,7 +483,9 @@ public class CornerUIButtons : MonoBehaviour
         }
     }
 
-    // -------------------- Mute --------------------
+    // ============================================================
+    // Mute
+    // ============================================================
     public void ToggleMute()
     {
         isMuted = !isMuted;
@@ -468,8 +507,9 @@ public class CornerUIButtons : MonoBehaviour
         }
     }
 
-    // ==================== Pause Flow ====================
-    // ==================== Pause Flow ====================
+    // ============================================================
+    // Pause Flow
+    // ============================================================
     private bool IsInGameScene() => gameObject.scene.name == targetScene;
 
     private void ApplyPauseVisibility()
@@ -485,51 +525,60 @@ public class CornerUIButtons : MonoBehaviour
         if (confirmWindow) confirmWindow.SetActive(false);
         if (peerRequestWindow) peerRequestWindow.SetActive(false);
         if (toastText) toastText.gameObject.SetActive(false);
+
+        _waitingPeerDecision = false;
+        SetConfirmButtonsInteractable(true);
+
+        if (_closeConfirmCo != null) { StopCoroutine(_closeConfirmCo); _closeConfirmCo = null; }
     }
 
     private void OpenPause()
     {
-        Debug.Log("[PauseUI] OpenPause()");
+        ResolveAllRefs(force: false);
+
         if (!IsInGameScene()) return;
-        if (pauseWindow) pauseWindow.SetActive(true);
+        if (!pauseWindow) return;
+
+        bool next = !pauseWindow.activeSelf;
+        pauseWindow.SetActive(next);
+
+        if (next)
+            ForceUIInteractive(pauseWindow);
     }
+
 
     private void ClosePause()
     {
-        Debug.Log("[PauseUI] ClosePause()");
         if (pauseWindow) pauseWindow.SetActive(false);
     }
 
-    private void OnPauseReplayClicked()
-    {
-        Debug.Log("[PauseUI] Replay clicked");
-        AskLocalConfirm(PauseConsensus.PauseAction.ReplayLevel);
-    }
-
-    private void OnPauseLevelsClicked()
-    {
-        Debug.Log("[PauseUI] Levels clicked");
-        AskLocalConfirm(PauseConsensus.PauseAction.GoToLevels);
-    }
+    private void OnPauseReplayClicked() => AskLocalConfirm(PauseConsensus.PauseAction.ReplayLevel);
+    private void OnPauseLevelsClicked() => AskLocalConfirm(PauseConsensus.PauseAction.GoToLevels);
 
     private void AskLocalConfirm(PauseConsensus.PauseAction action)
     {
-        Debug.Log($"[PauseUI] AskLocalConfirm({action})");
-
+        _waitingPeerDecision = false;
+        if (_closeConfirmCo != null) { StopCoroutine(_closeConfirmCo); _closeConfirmCo = null; }
+        if (confirmYesButton) confirmYesButton.interactable = true;
+        if (confirmNoButton) confirmNoButton.interactable = true;
         if (!IsInGameScene()) return;
+
+        // RESET confirm state בכל פתיחה
+        _waitingPeerDecision = false;
+        SetConfirmButtonsInteractable(true);
+
+        if (_closeConfirmCo != null)
+        {
+            StopCoroutine(_closeConfirmCo);
+            _closeConfirmCo = null;
+        }
 
         _pendingLocalAction = action;
 
         if (confirmText)
         {
-            string what = (action == PauseConsensus.PauseAction.ReplayLevel)
-                ? "שחק מחדש"
-                : "לחזור למסך בחירת הרמות";
+            string what = (action == PauseConsensus.PauseAction.ReplayLevel) ? "שחק מחדש" : "לחזור למסך בחירת הרמות";
             confirmText.text = $"האם אתה בטוח שאתה רוצה {what}?";
-        }
-        else
-        {
-            Debug.LogWarning("[PauseUI] confirmText is NULL");
         }
 
         if (confirmWindow)
@@ -539,48 +588,81 @@ public class CornerUIButtons : MonoBehaviour
         }
         else
         {
-            Debug.LogError("[PauseUI] confirmWindow is NULL (not assigned in Inspector)");
+            Debug.LogError("[PauseUI] confirmWindow is NULL");
         }
     }
 
     private void OnConfirmNo()
     {
-        Debug.Log("[PauseUI] Confirm NO");
+        _waitingPeerDecision = false;
+        SetConfirmButtonsInteractable(true);
+
+        if (_closeConfirmCo != null)
+        {
+            StopCoroutine(_closeConfirmCo);
+            _closeConfirmCo = null;
+        }
+
         if (confirmWindow) confirmWindow.SetActive(false);
     }
 
-    private void OnConfirmYes()
+    // ✅ שינוי: לא סוגרים - כותבים "מחכה..." ונועלים כפתורים
+  private void OnConfirmYes()
+{
+    if (_waitingPeerDecision) return;
+
+    _waitingPeerDecision = true;
+
+    if (confirmText)
+        confirmText.text = "מחכה לאישור מהשחקן השני...";
+
+    if (confirmYesButton) confirmYesButton.interactable = false;
+    if (confirmNoButton) confirmNoButton.interactable = false;
+
+    if (PauseConsensus.Instance != null)
+        PauseConsensus.Instance.RequestAction(_pendingLocalAction);
+    else
+        Debug.LogError("[PauseUI] PauseConsensus.Instance is NULL.");
+}
+    public void OnLocalRequestDenied(PauseConsensus.PauseAction action)
     {
-        Debug.Log("[PauseUI] Confirm YES");
+        if (confirmWindow == null) return;
+
+        // show the message in confirm window
+        confirmWindow.SetActive(true);
+        ForceUIInteractive(confirmWindow);
+
+        _waitingPeerDecision = false;
+
+        if (confirmText)
+            confirmText.text = "חברך לא מאשר";
+
+        if (_closeConfirmCo != null) StopCoroutine(_closeConfirmCo);
+        _closeConfirmCo = StartCoroutine(CloseConfirmAfterSeconds(3f));
+    }
+
+    private IEnumerator CloseConfirmAfterSeconds(float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+
         if (confirmWindow) confirmWindow.SetActive(false);
 
-        if (PauseConsensus.Instance != null)
-        {
-            Debug.Log($"[PauseUI] Sending request: {_pendingLocalAction}");
-            PauseConsensus.Instance.RequestAction(_pendingLocalAction);
-        }
-        else
-        {
-            Debug.LogError("[PauseUI] PauseConsensus.Instance is NULL. (Did you add it on a NetworkObject, e.g. GameConfigNet?)");
-        }
+        if (confirmYesButton) confirmYesButton.interactable = true;
+        if (confirmNoButton) confirmNoButton.interactable = true;
+
+        _closeConfirmCo = null;
     }
+
 
     // נקרא ע"י PauseConsensus אצל השחקן השני
     public void ShowPeerRequest(PauseConsensus.PauseAction action)
     {
-        Debug.Log($"[PauseUI] ShowPeerRequest({action})");
         _pendingLocalAction = action;
 
         if (peerRequestText)
         {
-            string what = (action == PauseConsensus.PauseAction.ReplayLevel)
-                ? "שחק מחדש"
-                : "לחזור למסך בחירת הרמות";
+            string what = (action == PauseConsensus.PauseAction.ReplayLevel) ? "שחק מחדש" : "לחזור למסך בחירת הרמות";
             peerRequestText.text = $"חברך רוצה {what}. האם אתה מסכים?";
-        }
-        else
-        {
-            Debug.LogWarning("[PauseUI] peerRequestText is NULL");
         }
 
         if (peerRequestWindow)
@@ -590,25 +672,15 @@ public class CornerUIButtons : MonoBehaviour
         }
         else
         {
-            Debug.LogError("[PauseUI] peerRequestWindow is NULL (not assigned in Inspector)");
+            Debug.LogError("[PauseUI] peerRequestWindow is NULL");
         }
     }
 
-    private void OnPeerYesClicked()
-    {
-        Debug.Log("[PauseUI] Peer YES");
-        OnPeerAnswer(true);
-    }
-
-    private void OnPeerNoClicked()
-    {
-        Debug.Log("[PauseUI] Peer NO");
-        OnPeerAnswer(false);
-    }
+    private void OnPeerYesClicked() => OnPeerAnswer(true);
+    private void OnPeerNoClicked() => OnPeerAnswer(false);
 
     private void OnPeerAnswer(bool accept)
     {
-        Debug.Log($"[PauseUI] Peer answer: {accept}");
         if (peerRequestWindow) peerRequestWindow.SetActive(false);
 
         if (PauseConsensus.Instance != null)
@@ -617,16 +689,29 @@ public class CornerUIButtons : MonoBehaviour
             Debug.LogError("[PauseUI] PauseConsensus.Instance is NULL while responding.");
     }
 
+    // ✅ שינוי: אם אנחנו מחכים ב-ConfirmWindow -> להראות שם "חברך לא מאשר" ולסגור אחרי 3 שניות
     public void ShowDeniedMessage(PauseConsensus.PauseAction action)
     {
-        Debug.Log($"[PauseUI] Denied: {action}");
+        // אם הלקוח הזה הוא מי שלחץ "כן" ומחכה לתשובה
+        if (_waitingPeerDecision && confirmWindow != null && confirmWindow.activeInHierarchy)
+        {
+            _waitingPeerDecision = false;
 
+            if (confirmText)
+                confirmText.text = "חברך לא מאשר";
+
+            SetConfirmButtonsInteractable(false);
+            ForceUIInteractive(confirmWindow);
+
+            if (_closeConfirmCo != null) StopCoroutine(_closeConfirmCo);
+            _closeConfirmCo = StartCoroutine(CloseConfirmAfterSeconds(3f));
+            return;
+        }
+
+        // fallback: טוסט
         if (!toastText) return;
 
-        string what = (action == PauseConsensus.PauseAction.ReplayLevel)
-            ? "שחק מחדש"
-            : "לחזור למסך בחירת הרמות";
-
+        string what = (action == PauseConsensus.PauseAction.ReplayLevel) ? "שחק מחדש" : "לחזור למסך בחירת הרמות";
         toastText.text = $"חברך לא מאשר {what}";
         toastText.gameObject.SetActive(true);
 
@@ -641,6 +726,15 @@ public class CornerUIButtons : MonoBehaviour
         _toastCo = null;
     }
 
+    private void SetConfirmButtonsInteractable(bool on)
+    {
+        if (confirmYesButton) confirmYesButton.interactable = on;
+        if (confirmNoButton) confirmNoButton.interactable = on;
+    }
+
+
+
+
     private static void ForceUIInteractive(GameObject go)
     {
         if (!go) return;
@@ -650,16 +744,81 @@ public class CornerUIButtons : MonoBehaviour
         var cg = go.GetComponent<CanvasGroup>();
         if (cg != null)
         {
-            cg.alpha = 1f;
+            if (cg.alpha <= 0.01f) cg.alpha = 1f;
             cg.interactable = true;
             cg.blocksRaycasts = true;
         }
     }
-    // ===================================================
 
-    // ===================================================
+    // ============================================================
+    // Helpers
+    // ============================================================
+    private static Button FindButton(Transform root, string childName)
+    {
+        if (root == null) return null;
+        var t = root.Find(childName);
+        if (t == null) t = FindDeepChild(root, childName);
+        return t ? t.GetComponent<Button>() : null;
+    }
 
+    private static Transform FindChild(Transform root, string childName)
+    {
+        if (root == null) return null;
+        var t = root.Find(childName);
+        if (t == null) t = FindDeepChild(root, childName);
+        return t;
+    }
 
-   
+    private static GameObject FindChildGO(Transform root, string childName)
+    {
+        var t = FindChild(root, childName);
+        return t ? t.gameObject : null;
+    }
 
+    private static TMP_Text FindTMP(Transform root, string childName)
+    {
+        var t = FindChild(root, childName);
+        return t ? t.GetComponent<TMP_Text>() : null;
+    }
+
+    // עוזר כי אצלך זה "Text (TMP)" ולא שם נקי
+    private static TMP_Text FindTMPByContains(Transform root, string contains)
+    {
+        if (root == null) return null;
+        foreach (var tx in root.GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (tx != null && tx.name != null && tx.name.Contains(contains))
+                return tx;
+        }
+        return root.GetComponentInChildren<TMP_Text>(true);
+    }
+
+    private static Transform FindDeepChild(Transform root, string childName)
+    {
+        if (root == null) return null;
+        var q = new Queue<Transform>();
+        q.Enqueue(root);
+
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+            if (cur.name == childName) return cur;
+
+            for (int i = 0; i < cur.childCount; i++)
+                q.Enqueue(cur.GetChild(i));
+        }
+        return null;
+    }
+
+    private static string GetFullPath(Transform t)
+    {
+        if (!t) return "<NULL>";
+        var sb = new StringBuilder(t.name);
+        while (t.parent != null)
+        {
+            t = t.parent;
+            sb.Insert(0, t.name + "/");
+        }
+        return sb.ToString();
+    }
 }

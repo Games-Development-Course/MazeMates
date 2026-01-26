@@ -402,6 +402,37 @@ public sealed class RelayUIController : MonoBehaviour
         if (loginUI != null)
             loginUI.ResetForLogoutUI();
     }
+    public void ForceOpenLevelSelectFromGame()
+    {
+        // Called after coming back to StartScene while still connected
+        difficultyMenuOpened = false;
+        clientWaitingForDifficulty = false;
+
+        showRoomCode = false;
+        if (roomCodeRoot != null) roomCodeRoot.SetActive(false);
+
+        var nm = NetworkManager.Singleton;
+        bool isHost = nm != null && nm.IsHost;
+        bool isClientOnly = nm != null && nm.IsClient && !nm.IsHost;
+
+        bool hasRealClient =
+            isHost && nm != null && nm.ConnectedClientsIds != null && nm.ConnectedClientsIds.Count > 1;
+
+        if (isHost && hasRealClient)
+        {
+            // opens host difficulty menu (same as normal flow)
+            OpenDifficultyMenuOnHost();
+            return;
+        }
+
+        if (isClientOnly)
+        {
+            // client should wait for host to choose difficulty
+            clientWaitingForDifficulty = true;
+        }
+
+        ApplyUiState();
+    }
 
     private void ShowLobbyButtons(bool show)
     {
