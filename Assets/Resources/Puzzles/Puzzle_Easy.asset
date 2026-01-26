@@ -19,19 +19,19 @@ MonoBehaviour:
   - id: Bird
     targetId: Bird
     sprite: {fileID: 21300000, guid: c6eafb839d3ebf94fb30ec5664cb4632, type: 3}
-    normalizedPos: {x: 0.14431679, y: 0.8877843}
-    normalizedSize: {x: 0.12848228, y: 0.26811895}
+    normalizedPos: {x: 0.14431678, y: 0.8877842}
+    normalizedSize: {x: 0.12848233, y: 0.26811892}
   - id: Car
     targetId: Car
     sprite: {fileID: 21300000, guid: 7f112e84744cfba4db3480be46db52a9, type: 3}
-    normalizedPos: {x: 0.41700223, y: 0.23355627}
-    normalizedSize: {x: 0.43579355, y: 0.46494946}
+    normalizedPos: {x: 0.41700223, y: 0.2335563}
+    normalizedSize: {x: 0.43579355, y: 0.4649493}
   pieces:
   - id: Bird
     sprite: {fileID: 21300000, guid: bec04175e4b5f0d479855398961bc55e, type: 3}
-    normalizedSize: {x: 0.15171976, y: 0.23826201}
+    normalizedSize: {x: 0.15171972, y: 0.23826198}
     targetId: Bird
   - id: Car
     sprite: {fileID: 21300000, guid: ebd22e8aa0d2d1f42a313479fc56d173, type: 3}
-    normalizedSize: {x: 0.21851054, y: 0.26352337}
+    normalizedSize: {x: 0.2185105, y: 0.26352334}
     targetId: Car

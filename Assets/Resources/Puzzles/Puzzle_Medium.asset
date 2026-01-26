@@ -19,28 +19,28 @@ MonoBehaviour:
   - id: Chicken
     targetId: Chicken
     sprite: {fileID: 21300000, guid: ef251234f0ea447e194221e8855fd592, type: 3}
-    normalizedPos: {x: 0.15307984, y: 0.32952046}
-    normalizedSize: {x: 0.15311638, y: 0.29366827}
+    normalizedPos: {x: 0.08516268, y: 0.30507094}
+    normalizedSize: {x: 0.15644343, y: 0.25260144}
   - id: Horse
     targetId: Horse
     sprite: {fileID: 21300000, guid: f3f1e8902cb0f4934900d60df41d26ad, type: 3}
-    normalizedPos: {x: 0.76992977, y: 0.2042271}
-    normalizedSize: {x: 0.18483391, y: 0.26962093}
+    normalizedPos: {x: 0.81496906, y: 0.21309072}
+    normalizedSize: {x: 0.18885021, y: 0.2319169}
   - id: Plane
     targetId: Plane
     sprite: {fileID: 21300000, guid: 554000000444f4142a9dd4890dbf4257, type: 3}
-    normalizedPos: {x: 0.22652973, y: 0.8978488}
-    normalizedSize: {x: 0.25812328, y: 0.15986098}
+    normalizedPos: {x: 0.16813011, y: 0.89834344}
+    normalizedSize: {x: 0.26373208, y: 0.13750578}
   pieces:
   - id: Horse
     sprite: {fileID: 21300000, guid: 86a77b518da8a4d499d987486713ac09, type: 3}
-    normalizedSize: {x: 0.2061054, y: 0.273619}
+    normalizedSize: {x: 0.21058385, y: 0.23535584}
     targetId: Horse
   - id: Chicken
     sprite: {fileID: 21300000, guid: 5db3b1c0c894749c586e24d20eeba311, type: 3}
-    normalizedSize: {x: 0.1584524, y: 0.30494064}
+    normalizedSize: {x: 0.16189544, y: 0.26229745}
     targetId: Chicken
   - id: Plane
     sprite: {fileID: 21300000, guid: e0c945d1fc1d640278ba90635a4cd252, type: 3}
-    normalizedSize: {x: 0.27020317, y: 0.17709285}
+    normalizedSize: {x: 0.2760744, y: 0.152328}
     targetId: Plane

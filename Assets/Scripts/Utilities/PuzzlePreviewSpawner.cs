@@ -1,4 +1,5 @@
 ﻿// File: Assets/Scripts/UI/Puzzle/PuzzlePreviewSpawner.cs
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -536,7 +537,87 @@ public class PuzzlePreviewSpawner : MonoBehaviour
             max = Vector2.Max(max, p);
         }
     }
+    [Header("Live Tuning (Play Mode)")]
+    public bool liveUpdateInPlayMode = true;
 
+    [Tooltip("How often to re-apply while playing (seconds). 0 = every frame.")]
+    [Min(0f)] public float liveUpdateInterval = 0.05f;
+
+    private float _nextLiveApplyTime;
+
+    // a cheap “fingerprint” of the fields that affect layout
+    private int _lastHash;
+
+    private void Update()
+    {
+        if (!Application.isPlaying) return;
+        if (!liveUpdateInPlayMode) return;
+        if (_ui == null) return;
+
+        if (liveUpdateInterval > 0f && Time.unscaledTime < _nextLiveApplyTime)
+            return;
+
+        int h = ComputeLiveHash();
+        if (h == _lastHash)
+        {
+            _nextLiveApplyTime = Time.unscaledTime + liveUpdateInterval;
+            return;
+        }
+
+        _lastHash = h;
+        _nextLiveApplyTime = Time.unscaledTime + liveUpdateInterval;
+
+        // re-apply runtime layout without rebuilding whole UI
+        ApplyNow(rebuildAll: false);
+    }
+
+    private int ComputeLiveHash()
+    {
+        // include anything you want to respond to instantly
+        HashCode hc = new HashCode();
+
+        hc.Add(puzzle);
+
+        hc.Add(scaleOffsetsWithCanvas);
+        hc.Add(bgPosOffset);
+        hc.Add(snapTrayUnderBG);
+        hc.Add(gapBetweenBgAndTray);
+        hc.Add(trayPosOffset);
+
+        hc.Add(trayBgAlpha);
+        hc.Add(trayHeight);
+
+        hc.Add(trayPaddingLeft);
+        hc.Add(trayPaddingRight);
+        hc.Add(trayPaddingTop);
+        hc.Add(trayPaddingBottom);
+        hc.Add(traySpacingX);
+
+        hc.Add(trayBorderPaddingLeft);
+        hc.Add(trayBorderPaddingRight);
+        hc.Add(trayBorderPaddingTop);
+        hc.Add(trayBorderPaddingBottom);
+        hc.Add(trayBorderOffset);
+        hc.Add(trayBorderPPU);
+
+        hc.Add(bgBorderWrapRenderedSpriteArea);
+        hc.Add(bgBorderPadding);
+        hc.Add(bgBorderOffset);
+        hc.Add(bgBorderPPU);
+
+        hc.Add(borderSprite);
+        hc.Add(borderAlpha);
+
+        hc.Add(addCloseButton);
+        hc.Add(closeBtnSprite);
+        hc.Add(closeBtnAlpha);
+        hc.Add(closeBtnOffset);
+        hc.Add(closeBtnSize);
+        hc.Add(closeBtnPreserveAspect);
+        hc.Add(closeBtnSetNativeSize);
+
+        return hc.ToHashCode();
+    }
     private void GetRenderedSpriteBoundsInRoot(Image img, RectTransform root, out Vector2 min, out Vector2 max)
     {
         RectTransform rt = img.rectTransform;

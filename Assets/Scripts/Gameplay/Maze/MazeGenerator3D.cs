@@ -68,13 +68,13 @@ public class MazeGenerator3D : MonoBehaviour
 
     [Header("Puzzles (ScriptableObjects)")]
     [SerializeField] private Puzzle puzzleEasySO;
-    [SerializeField] private Puzzle puzzleEasySO2;      // EASY #2 (optional)
+
 
     [SerializeField] private Puzzle puzzleMediumSO;
-    [SerializeField] private Puzzle puzzleMediumSO2;    // MEDIUM #2 (optional)
+
 
     [SerializeField] private Puzzle puzzleHardSO;       // HARD #1
-    [SerializeField] private Puzzle puzzleHardSO2;      // HARD #2 (optional)
+
 
 
 
@@ -140,7 +140,7 @@ public class MazeGenerator3D : MonoBehaviour
         // תמיד למשוך קונפיג (גם בקליינט)
         PullConfigIfExists();
 
-        puzzleDoorsAmount = 2;
+        puzzleDoorsAmount = 1;
         Random.InitState(seed);
 
         CreateHierarchyFolders();
@@ -738,7 +738,7 @@ public class MazeGenerator3D : MonoBehaviour
     {
         if (puzzleDoors == null || puzzleDoors.Count == 0) return;
 
-        int desired = 2; // always 2 puzzle doors
+        int desired = 1; // only 1 puzzle door
         int count = Mathf.Min(desired, puzzleDoors.Count);
 
         for (int i = 0; i < count; i++)
@@ -748,21 +748,13 @@ public class MazeGenerator3D : MonoBehaviour
 
             Puzzle chosen = null;
 
+            // for 1 door we always take the "first" SO per difficulty
             if (difficulty == Difficulty.Easy)
-            {
-                chosen = (i == 0) ? puzzleEasySO
-                                  : (puzzleEasySO2 != null ? puzzleEasySO2 : puzzleEasySO);
-            }
+                chosen = puzzleEasySO;
             else if (difficulty == Difficulty.Medium)
-            {
-                chosen = (i == 0) ? puzzleMediumSO
-                                  : (puzzleMediumSO2 != null ? puzzleMediumSO2 : puzzleMediumSO);
-            }
-            else // Hard
-            {
-                chosen = (i == 0) ? puzzleHardSO
-                                  : (puzzleHardSO2 != null ? puzzleHardSO2 : puzzleHardSO);
-            }
+                chosen = puzzleMediumSO;
+            else
+                chosen = puzzleHardSO;
 
             if (chosen == null)
             {
@@ -773,6 +765,7 @@ public class MazeGenerator3D : MonoBehaviour
             controller.SetPuzzleDefinitionServer(chosen);
         }
     }
+
 
 
     // ================================================================

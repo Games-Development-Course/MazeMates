@@ -1,4 +1,5 @@
 ﻿// File: Assets/Scripts/Gameplay/Doors/PuzzleDoor.cs
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -86,12 +87,17 @@ public sealed class PuzzleDoor : IDoor
         CheckSolvedAndNotify();
     }
 
-    // Optional: reveal a hint (enables hint Image(s) by targetId)
-    public void RevealRandomHint()
+    // inside your class fields:
+    private Coroutine _hintCo;
+    private string _activeHintTargetId;
+
+    // Optional: reveal a hint for 3 seconds (enables hint Image(s) by targetId)
+    public void RevealRandomHint(float seconds = 3f)
     {
         Puzzle puzzle = controller != null ? controller.PuzzleDef : null;
         if (puzzle == null || previewUI == null) return;
 
+        // collect not-snapped piece ids
         var notSnapped = new List<string>();
         foreach (var kv in pieceById)
         {
@@ -99,9 +105,9 @@ public sealed class PuzzleDoor : IDoor
             if (!kv.Value.IsSnapped())
                 notSnapped.Add(kv.Key);
         }
-
         if (notSnapped.Count == 0) return;
 
+        // pick random piece
         string pieceId = notSnapped[Random.Range(0, notSnapped.Count)];
 
         // find targetId in SO
@@ -118,8 +124,39 @@ public sealed class PuzzleDoor : IDoor
             }
         }
 
-        if (!string.IsNullOrEmpty(targetId))
-            previewUI.SetHintsActiveForTarget(targetId, true);
+        if (string.IsNullOrEmpty(targetId))
+            return;
+
+        // stop previous timer + hide previous hint (so it can work repeatedly)
+        if (_hintCo != null)
+        {
+            controller.StopCoroutine(_hintCo);
+            _hintCo = null;
+        }
+
+        if (!string.IsNullOrEmpty(_activeHintTargetId))
+            previewUI.SetHintsActiveForTarget(_activeHintTargetId, false);
+
+        // show new hint
+        _activeHintTargetId = targetId;
+        previewUI.SetHintsActiveForTarget(targetId, true);
+
+        // hide after N seconds
+        _hintCo = controller.StartCoroutine(HideHintAfter(seconds, targetId));
+    }
+
+    private IEnumerator HideHintAfter(float seconds, string targetId)
+    {
+        yield return new WaitForSeconds(seconds);
+
+        // only hide if this is still the active one
+        if (previewUI != null && _activeHintTargetId == targetId)
+        {
+            previewUI.SetHintsActiveForTarget(targetId, false);
+            _activeHintTargetId = null;
+        }
+
+        _hintCo = null;
     }
 
     // ============================================================
