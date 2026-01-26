@@ -52,6 +52,34 @@ public class CornerUIButtons : MonoBehaviour
     [SerializeField] private string emptyPlaceholder = "___";
     // ===================================================
 
+    // ==================== Pause ====================
+    [Header("Pause Menu (Game only)")]
+    [SerializeField] private Button pauseButton;
+    [SerializeField] private GameObject pauseWindow;
+    [SerializeField] private Button pauseContinueButton; // "המשך"
+    [SerializeField] private Button pauseReplayButton;   // "שחק מחדש"
+    [SerializeField] private Button pauseLevelsButton;   // "מסך השלבים"
+
+    [Header("Confirm Window (Local)")]
+    [SerializeField] private GameObject confirmWindow;
+    [SerializeField] private TMP_Text confirmText;
+    [SerializeField] private Button confirmYesButton;
+    [SerializeField] private Button confirmNoButton;
+
+    [Header("Peer Request Window (Other player)")]
+    [SerializeField] private GameObject peerRequestWindow;
+    [SerializeField] private TMP_Text peerRequestText;
+    [SerializeField] private Button peerYesButton;
+    [SerializeField] private Button peerNoButton;
+
+    [Header("Toast / Message")]
+    [SerializeField] private TMP_Text toastText;
+    [SerializeField] private float toastSeconds = 2.5f;
+
+    private PauseConsensus.PauseAction _pendingLocalAction;
+    private Coroutine _toastCo;
+    // ===================================================
+
     private bool isMuted;
     private Image muteButtonImage;
 
@@ -79,6 +107,9 @@ public class CornerUIButtons : MonoBehaviour
         TryResolveRoomCodeRefs(force: true);
         if (roomCodeWindow != null) roomCodeWindow.SetActive(false);
 
+        SafeHidePauseUI();
+        ApplyPauseVisibility();
+
         LayoutButtons();
     }
 
@@ -91,6 +122,8 @@ public class CornerUIButtons : MonoBehaviour
 
         TryResolveRoomCodeRefs(force: false);
         BindToRoomCodeStore();
+
+        ApplyPauseVisibility();
         LayoutButtons();
     }
 
@@ -116,6 +149,12 @@ public class CornerUIButtons : MonoBehaviour
         {
             StopCoroutine(_probeCo);
             _probeCo = null;
+        }
+
+        if (_toastCo != null)
+        {
+            StopCoroutine(_toastCo);
+            _toastCo = null;
         }
     }
 
@@ -147,7 +186,6 @@ public class CornerUIButtons : MonoBehaviour
         Canvas myCanvas = GetComponentInParent<Canvas>(true);
         Transform canvasRoot = myCanvas ? myCanvas.transform : transform.root;
 
-        // אם חיווט ידני מצביע לקנבס אחר -> ננקה ונאתר מחדש
         if (roomCodeWindow != null && myCanvas != null)
         {
             Canvas winCanvas = roomCodeWindow.GetComponentInParent<Canvas>(true);
@@ -162,7 +200,6 @@ public class CornerUIButtons : MonoBehaviour
             }
         }
 
-        // Deep Find בתוך אותו קנבס
         if (force || roomCodeWindow == null)
         {
             Transform t = FindDeepChild(canvasRoot, "RoomCodeScreen");
@@ -219,13 +256,11 @@ public class CornerUIButtons : MonoBehaviour
         if (_boundToStore) return;
         _boundToStore = true;
 
-        // ייתכן שה-Store נוצר רגע אחרי -> ננסה כמה פריימים
         StartCoroutine(BindStoreWhenReady());
     }
 
     private IEnumerator BindStoreWhenReady()
     {
-        // עד 2 שניות
         float t = 0f;
         while (RoomCodeStore.Instance == null && t < 2f)
         {
@@ -237,8 +272,6 @@ public class CornerUIButtons : MonoBehaviour
         {
             RoomCodeStore.Instance.OnJoinCodeChanged -= OnJoinCodeChanged;
             RoomCodeStore.Instance.OnJoinCodeChanged += OnJoinCodeChanged;
-
-            // ✅ נסה גם טעינה מהקובץ במקרה שהקוד הגיע מתהליך אחר
             RoomCodeStore.Instance.TryLoadFromFile();
         }
 
@@ -254,10 +287,7 @@ public class CornerUIButtons : MonoBehaviour
             RoomCodeStore.Instance.OnJoinCodeChanged -= OnJoinCodeChanged;
     }
 
-    private void OnJoinCodeChanged(string _)
-    {
-        RefreshRoomCodeText();
-    }
+    private void OnJoinCodeChanged(string _) => RefreshRoomCodeText();
 
     // -------------------- Buttons wiring --------------------
     private void WireButtons()
@@ -265,6 +295,24 @@ public class CornerUIButtons : MonoBehaviour
         if (helpButton != null) helpButton.onClick.AddListener(ToggleHelp);
         if (muteToggleButton != null) muteToggleButton.onClick.AddListener(ToggleMute);
         if (toggleRoomCodeButton != null) toggleRoomCodeButton.onClick.AddListener(ToggleRoomCode);
+
+        // Pause
+        if (pauseButton != null) pauseButton.onClick.AddListener(OpenPause);
+        if (pauseContinueButton != null) pauseContinueButton.onClick.AddListener(ClosePause);
+        if (pauseReplayButton != null) pauseReplayButton.onClick.AddListener(OnPauseReplayClicked);
+        if (pauseLevelsButton != null) pauseLevelsButton.onClick.AddListener(OnPauseLevelsClicked);
+
+        if (confirmYesButton != null) confirmYesButton.onClick.AddListener(OnConfirmYes);
+        if (confirmNoButton != null) confirmNoButton.onClick.AddListener(OnConfirmNo);
+
+        if (peerYesButton != null) peerYesButton.onClick.AddListener(OnPeerYesClicked);
+        if (peerNoButton != null) peerNoButton.onClick.AddListener(OnPeerNoClicked);
+        Debug.Log(
+    $"[PauseUI] refs: confirmWindow={(confirmWindow ? "OK" : "NULL")} " +
+    $"confirmYes={(confirmYesButton ? "OK" : "NULL")} confirmNo={(confirmNoButton ? "OK" : "NULL")} " +
+    $"peerWin={(peerRequestWindow ? "OK" : "NULL")} peerYes={(peerYesButton ? "OK" : "NULL")} peerNo={(peerNoButton ? "OK" : "NULL")}"
+);
+
     }
 
     private void UnwireButtons()
@@ -272,6 +320,18 @@ public class CornerUIButtons : MonoBehaviour
         if (helpButton != null) helpButton.onClick.RemoveListener(ToggleHelp);
         if (muteToggleButton != null) muteToggleButton.onClick.RemoveListener(ToggleMute);
         if (toggleRoomCodeButton != null) toggleRoomCodeButton.onClick.RemoveListener(ToggleRoomCode);
+
+        // Pause
+        if (pauseButton != null) pauseButton.onClick.RemoveListener(OpenPause);
+        if (pauseContinueButton != null) pauseContinueButton.onClick.RemoveListener(ClosePause);
+        if (pauseReplayButton != null) pauseReplayButton.onClick.RemoveListener(OnPauseReplayClicked);
+        if (pauseLevelsButton != null) pauseLevelsButton.onClick.RemoveListener(OnPauseLevelsClicked);
+
+        if (confirmYesButton != null) confirmYesButton.onClick.RemoveListener(OnConfirmYes);
+        if (confirmNoButton != null) confirmNoButton.onClick.RemoveListener(OnConfirmNo);
+
+        if (peerYesButton != null) peerYesButton.onClick.RemoveListener(OnPeerYesClicked);
+        if (peerNoButton != null) peerNoButton.onClick.RemoveListener(OnPeerNoClicked);
     }
 
     // -------------------- Help --------------------
@@ -301,25 +361,13 @@ public class CornerUIButtons : MonoBehaviour
         }
 
         bool nextState = !roomCodeWindow.activeSelf;
-        Debug.Log($"[CornerUIButtons] ToggleRoomCode clicked (this={transform.name}) -> nextState={nextState} window={GetFullPath(roomCodeWindow.transform)}");
-
         roomCodeWindow.SetActive(nextState);
 
-        // ✅ make sure it is visually visible (CanvasGroup can hide even when active)
         ForceVisible(roomCodeWindow);
-
-        // ✅ bring to top of UI
         roomCodeWindow.transform.SetAsLastSibling();
 
-        // PROBE
         if (_probeCo != null) StopCoroutine(_probeCo);
         _probeCo = StartCoroutine(PostToggleProbe(roomCodeWindow, nextState));
-
-        Debug.Log(
-            $"[CornerUIButtons] After SetActive({nextState}): " +
-            $"activeSelf={roomCodeWindow.activeSelf} activeInHierarchy={roomCodeWindow.activeInHierarchy} " +
-            $"parentActive={(roomCodeWindow.transform.parent ? roomCodeWindow.transform.parent.gameObject.activeInHierarchy : true)}"
-        );
 
         if (nextState)
             RefreshRoomCodeText();
@@ -341,45 +389,27 @@ public class CornerUIButtons : MonoBehaviour
         if (canvas != null) canvas.enabled = true;
 
         var rt = go.GetComponent<RectTransform>();
-        if (rt != null)
-        {
-            if (rt.localScale == Vector3.zero) rt.localScale = Vector3.one;
-        }
+        if (rt != null && rt.localScale == Vector3.zero)
+            rt.localScale = Vector3.one;
     }
 
     private IEnumerator PostToggleProbe(GameObject go, bool intended)
     {
-        int id = go ? go.GetInstanceID() : -1;
-
         yield return new WaitForEndOfFrame();
-        if (go == null)
-        {
-            Debug.LogWarning($"[RoomCode PROBE][EndOfFrame] intended={intended} go=NULL (was id={id})");
-            yield break;
-        }
-        Debug.Log($"[RoomCode PROBE][EndOfFrame] intended={intended} go={GetFullPath(go.transform)} id={go.GetInstanceID()} activeSelf={go.activeSelf} activeInHierarchy={go.activeInHierarchy}");
+        if (go == null) yield break;
 
         yield return new WaitForSeconds(0.15f);
-        if (go == null)
-        {
-            Debug.LogWarning($"[RoomCode PROBE][+0.15s] intended={intended} go=NULL (was id={id})");
-            yield break;
-        }
-        Debug.Log($"[RoomCode PROBE][+0.15s] intended={intended} go={GetFullPath(go.transform)} id={go.GetInstanceID()} activeSelf={go.activeSelf} activeInHierarchy={go.activeInHierarchy}");
     }
 
     private void RefreshRoomCodeText()
     {
         if (roomCodeText == null) return;
 
-        // ✅ if store exists, try load file once (client process)
         if (RoomCodeStore.Instance != null)
             RoomCodeStore.Instance.TryLoadFromFile();
 
         string code = (RoomCodeStore.Instance != null) ? RoomCodeStore.Instance.JoinCode : "";
         roomCodeText.text = string.IsNullOrWhiteSpace(code) ? emptyPlaceholder : code;
-
-        Debug.Log($"[CornerUIButtons] RefreshRoomCodeText -> '{roomCodeText.text}' (store='{code}')");
     }
 
     // -------------------- Layout --------------------
@@ -437,4 +467,199 @@ public class CornerUIButtons : MonoBehaviour
             else if (!isMuted && volumeOnSprite != null) muteButtonImage.sprite = volumeOnSprite;
         }
     }
+
+    // ==================== Pause Flow ====================
+    // ==================== Pause Flow ====================
+    private bool IsInGameScene() => gameObject.scene.name == targetScene;
+
+    private void ApplyPauseVisibility()
+    {
+        bool inGame = IsInGameScene();
+        if (pauseButton != null) pauseButton.gameObject.SetActive(inGame);
+        if (!inGame) SafeHidePauseUI();
+    }
+
+    private void SafeHidePauseUI()
+    {
+        if (pauseWindow) pauseWindow.SetActive(false);
+        if (confirmWindow) confirmWindow.SetActive(false);
+        if (peerRequestWindow) peerRequestWindow.SetActive(false);
+        if (toastText) toastText.gameObject.SetActive(false);
+    }
+
+    private void OpenPause()
+    {
+        Debug.Log("[PauseUI] OpenPause()");
+        if (!IsInGameScene()) return;
+        if (pauseWindow) pauseWindow.SetActive(true);
+    }
+
+    private void ClosePause()
+    {
+        Debug.Log("[PauseUI] ClosePause()");
+        if (pauseWindow) pauseWindow.SetActive(false);
+    }
+
+    private void OnPauseReplayClicked()
+    {
+        Debug.Log("[PauseUI] Replay clicked");
+        AskLocalConfirm(PauseConsensus.PauseAction.ReplayLevel);
+    }
+
+    private void OnPauseLevelsClicked()
+    {
+        Debug.Log("[PauseUI] Levels clicked");
+        AskLocalConfirm(PauseConsensus.PauseAction.GoToLevels);
+    }
+
+    private void AskLocalConfirm(PauseConsensus.PauseAction action)
+    {
+        Debug.Log($"[PauseUI] AskLocalConfirm({action})");
+
+        if (!IsInGameScene()) return;
+
+        _pendingLocalAction = action;
+
+        if (confirmText)
+        {
+            string what = (action == PauseConsensus.PauseAction.ReplayLevel)
+                ? "שחק מחדש"
+                : "לחזור למסך בחירת הרמות";
+            confirmText.text = $"האם אתה בטוח שאתה רוצה {what}?";
+        }
+        else
+        {
+            Debug.LogWarning("[PauseUI] confirmText is NULL");
+        }
+
+        if (confirmWindow)
+        {
+            confirmWindow.SetActive(true);
+            ForceUIInteractive(confirmWindow);
+        }
+        else
+        {
+            Debug.LogError("[PauseUI] confirmWindow is NULL (not assigned in Inspector)");
+        }
+    }
+
+    private void OnConfirmNo()
+    {
+        Debug.Log("[PauseUI] Confirm NO");
+        if (confirmWindow) confirmWindow.SetActive(false);
+    }
+
+    private void OnConfirmYes()
+    {
+        Debug.Log("[PauseUI] Confirm YES");
+        if (confirmWindow) confirmWindow.SetActive(false);
+
+        if (PauseConsensus.Instance != null)
+        {
+            Debug.Log($"[PauseUI] Sending request: {_pendingLocalAction}");
+            PauseConsensus.Instance.RequestAction(_pendingLocalAction);
+        }
+        else
+        {
+            Debug.LogError("[PauseUI] PauseConsensus.Instance is NULL. (Did you add it on a NetworkObject, e.g. GameConfigNet?)");
+        }
+    }
+
+    // נקרא ע"י PauseConsensus אצל השחקן השני
+    public void ShowPeerRequest(PauseConsensus.PauseAction action)
+    {
+        Debug.Log($"[PauseUI] ShowPeerRequest({action})");
+        _pendingLocalAction = action;
+
+        if (peerRequestText)
+        {
+            string what = (action == PauseConsensus.PauseAction.ReplayLevel)
+                ? "שחק מחדש"
+                : "לחזור למסך בחירת הרמות";
+            peerRequestText.text = $"חברך רוצה {what}. האם אתה מסכים?";
+        }
+        else
+        {
+            Debug.LogWarning("[PauseUI] peerRequestText is NULL");
+        }
+
+        if (peerRequestWindow)
+        {
+            peerRequestWindow.SetActive(true);
+            ForceUIInteractive(peerRequestWindow);
+        }
+        else
+        {
+            Debug.LogError("[PauseUI] peerRequestWindow is NULL (not assigned in Inspector)");
+        }
+    }
+
+    private void OnPeerYesClicked()
+    {
+        Debug.Log("[PauseUI] Peer YES");
+        OnPeerAnswer(true);
+    }
+
+    private void OnPeerNoClicked()
+    {
+        Debug.Log("[PauseUI] Peer NO");
+        OnPeerAnswer(false);
+    }
+
+    private void OnPeerAnswer(bool accept)
+    {
+        Debug.Log($"[PauseUI] Peer answer: {accept}");
+        if (peerRequestWindow) peerRequestWindow.SetActive(false);
+
+        if (PauseConsensus.Instance != null)
+            PauseConsensus.Instance.RespondToPeerRequest(accept);
+        else
+            Debug.LogError("[PauseUI] PauseConsensus.Instance is NULL while responding.");
+    }
+
+    public void ShowDeniedMessage(PauseConsensus.PauseAction action)
+    {
+        Debug.Log($"[PauseUI] Denied: {action}");
+
+        if (!toastText) return;
+
+        string what = (action == PauseConsensus.PauseAction.ReplayLevel)
+            ? "שחק מחדש"
+            : "לחזור למסך בחירת הרמות";
+
+        toastText.text = $"חברך לא מאשר {what}";
+        toastText.gameObject.SetActive(true);
+
+        if (_toastCo != null) StopCoroutine(_toastCo);
+        _toastCo = StartCoroutine(HideToastAfterSeconds());
+    }
+
+    private IEnumerator HideToastAfterSeconds()
+    {
+        yield return new WaitForSeconds(toastSeconds);
+        if (toastText) toastText.gameObject.SetActive(false);
+        _toastCo = null;
+    }
+
+    private static void ForceUIInteractive(GameObject go)
+    {
+        if (!go) return;
+
+        go.transform.SetAsLastSibling();
+
+        var cg = go.GetComponent<CanvasGroup>();
+        if (cg != null)
+        {
+            cg.alpha = 1f;
+            cg.interactable = true;
+            cg.blocksRaycasts = true;
+        }
+    }
+    // ===================================================
+
+    // ===================================================
+
+
+   
+
 }
