@@ -1,4 +1,4 @@
-// Assets/Scripts/Gameplay/Doors/DoorOpenSfx.cs
+ï»¿// Assets/Scripts/Gameplay/Doors/DoorOpenSfx.cs
 using System.Collections;
 using UnityEngine;
 
@@ -77,6 +77,8 @@ public sealed class DoorOpenSfx : MonoBehaviour
             _stillFrames = 0;
             _source.PlayOneShot(openClip, volume);
         }
+
+        
     }
 
     private IEnumerator InitPivotIfNeeded()
@@ -113,7 +115,7 @@ public sealed class DoorOpenSfx : MonoBehaviour
         EnsureAudioSource();
         _source.PlayOneShot(openClip, volume);
 
-        // àì úðâï ùåá ëù-Pivot éúçéì ìæåæ
+        // Ã Ã¬ ÃºÃ°Ã¢Ã¯ Ã¹Ã¥Ã¡ Ã«Ã¹-Pivot Ã©ÃºÃ§Ã©Ã¬ Ã¬Ã¦Ã¥Ã¦
         _armed = false;
         _stillFrames = 0;
         _hasLast = false;
