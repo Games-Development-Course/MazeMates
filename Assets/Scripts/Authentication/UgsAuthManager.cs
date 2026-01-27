@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using UnityEngine;
 using Unity.Services.Core;
@@ -11,6 +11,7 @@ namespace MazeMates.Authentication
     {
         public static UgsAuthManager Instance { get; private set; }
 
+        // ✅ נשאר לתאימות עם הקוד שלך
         public event Action SignedIn;
         public event Action SignedOut;
         public event Action<string> AuthError;
@@ -21,12 +22,15 @@ namespace MazeMates.Authentication
         private bool _initializing;
         private bool _eventsHooked;
 
+        // ✅ בשביל ה-UI תרגום אצלך
+        public string LastErrorRaw { get; private set; }
+
         public bool IsInitialized => UnityServices.State == ServicesInitializationState.Initialized;
         public bool IsSignedIn => AuthenticationService.Instance != null && AuthenticationService.Instance.IsSignedIn;
 
         private void Awake()
         {
-            if (Instance != null)
+            if (Instance != null && Instance != this)
             {
                 Destroy(gameObject);
                 return;
@@ -62,6 +66,7 @@ namespace MazeMates.Authentication
             }
             catch (Exception e)
             {
+                LastErrorRaw = e.ToString();
                 AuthError?.Invoke($"UGS init failed: {e.Message}");
             }
             finally
@@ -94,35 +99,71 @@ namespace MazeMates.Authentication
             _eventsHooked = false;
         }
 
-        public async Task SignInWithUsernamePasswordAsync(string username, string password)
+        // -------------------- Auth API (returns bool) --------------------
+
+        public async Task<bool> SignInWithUsernamePasswordAsync(string username, string password)
         {
+            LastErrorRaw = null;
+
             try
             {
                 await EnsureReadyAsync();
                 await AuthenticationService.Instance.SignInWithUsernamePasswordAsync(username, password);
+                return AuthenticationService.Instance.IsSignedIn;
             }
             catch (Exception e)
             {
+                LastErrorRaw = e.ToString();
                 AuthError?.Invoke($"Login failed: {e.Message}");
+                return false;
             }
         }
 
-        public async Task RegisterWithUsernamePasswordAsync(string username, string password)
+        public async Task<bool> RegisterWithUsernamePasswordAsync(string username, string password)
         {
+            LastErrorRaw = null;
+
             try
             {
                 await EnsureReadyAsync();
                 await AuthenticationService.Instance.SignUpWithUsernamePasswordAsync(username, password);
 
+                // לפעמים SignUp לא עושה SignIn, אז נוודא
                 if (!AuthenticationService.Instance.IsSignedIn)
                     await AuthenticationService.Instance.SignInWithUsernamePasswordAsync(username, password);
+
+                return AuthenticationService.Instance.IsSignedIn;
             }
             catch (Exception e)
             {
+                LastErrorRaw = e.ToString();
                 AuthError?.Invoke($"Register failed: {e.Message}");
+                return false;
             }
         }
 
+        public async Task<bool> SignInAsGuestAsync()
+        {
+            LastErrorRaw = null;
+
+            try
+            {
+                await EnsureReadyAsync();
+
+                if (!AuthenticationService.Instance.IsSignedIn)
+                    await AuthenticationService.Instance.SignInAnonymouslyAsync();
+
+                return AuthenticationService.Instance.IsSignedIn;
+            }
+            catch (Exception e)
+            {
+                LastErrorRaw = e.ToString();
+                AuthError?.Invoke($"Guest sign-in failed: {e.Message}");
+                return false;
+            }
+        }
+
+        // ✅ חזר לתאימות עם RelayUIController וכו'
         public void SignOut(bool clearSession = false)
         {
             try
@@ -132,6 +173,7 @@ namespace MazeMates.Authentication
             }
             catch (Exception e)
             {
+                LastErrorRaw = e.ToString();
                 AuthError?.Invoke($"SignOut failed: {e.Message}");
             }
         }

@@ -1,37 +1,51 @@
-using UnityEngine;
-using Unity.Services.Authentication;
-using Unity.Services.Core;
-using System.Threading.Tasks;
+﻿using UnityEngine;
+using MazeMates.Authentication;
 
 public class GuestButtonHandler : MonoBehaviour
 {
     [SerializeField] private GameObject authRoot;
     [SerializeField] private GameObject lobbyRoot;
 
+    [Header("UI")]
+    [SerializeField] private AuthMessageUI authMessageUI;   // פאנל הודעות באותנטיקציה
+    [SerializeField] private PlayerStatusUI lobbyPlayerStatusUI; // סטטוס בלובי
+
     public async void OnGuestClicked()
     {
-        await SignInAsGuest();
+        authMessageUI?.ShowInfo("מתחבר כאורח...");
+
+        bool ok = await UgsAuthManager.Instance.SignInAsGuestAsync();
+        if (!ok)
+        {
+            // תרגום פשוט – אותו לוגיקה כמו בלוגין (הכי חשוב: בעברית)
+            string heb = TranslateFromMessage(UgsAuthManager.Instance.LastErrorRaw);
+            authMessageUI?.ShowError(heb);
+            return;
+        }
+
+        authMessageUI?.ShowSuccess("התחברת כאורח!");
+
+        if (lobbyRoot != null) lobbyRoot.SetActive(true);
+        if (authRoot != null) authRoot.SetActive(false);
+
+        await System.Threading.Tasks.Task.Yield();
+
+        lobbyPlayerStatusUI?.SetGuest();
     }
 
-    private async Task SignInAsGuest()
+    private static string TranslateFromMessage(string msg)
     {
-        await UnityServices.InitializeAsync();
+        if (string.IsNullOrWhiteSpace(msg))
+            return "הפעולה נכשלה. נסה שוב.";
 
-        try
-        {
-            await AuthenticationService.Instance.SignInAnonymouslyAsync();
-            Debug.Log($"Guest signed in successfully. PlayerID: {AuthenticationService.Instance.PlayerId}");
+        string m = msg.ToUpperInvariant();
 
-            authRoot.SetActive(false);
-            lobbyRoot.SetActive(true);
-        }
-        catch (AuthenticationException ex)
-        {
-            Debug.LogError($"Authentication failed: {ex.Message}");
-        }
-        catch (RequestFailedException ex)
-        {
-            Debug.LogError($"Request failed: {ex.Message}");
-        }
+        if (m.Contains("NETWORK") || m.Contains("TIMEOUT") || m.Contains("CONNECTION"))
+            return "בעיית תקשורת/רשת. בדוק אינטרנט ונסה שוב.";
+
+        if (m.Contains("RATE_LIMIT") || m.Contains("TOO MANY"))
+            return "יותר מדי ניסיונות. המתן קצת ונסה שוב.";
+
+        return "ההתחברות כאורח נכשלה. נסה שוב.";
     }
 }
