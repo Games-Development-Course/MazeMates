@@ -260,7 +260,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
   openClip: {fileID: 8300000, guid: e306fc10f06b9b54c969141e5eb75edd, type: 3}
-  volume: 1
+  volume: 0.619
   startAngleThreshold: 0.25
   pivot: {fileID: 0}
   allowReplay: 1
