@@ -364,16 +364,16 @@ public class MazeGenerator3D : MonoBehaviour
         //SpawnDoorBetweenCells(normalDoorPrefab, TutorialJunction, new Vector2Int(10, 9), "TutorialDoor_Stem");
     }
 
-    private void SpawnTutorialResources()
-    {
-        // Bomb on the path to exit (right arm)
-        if (bombPrefab != null)
-            SpawnNetPrefabAtCell(bombPrefab, TutorialBombCell, "TutorialBomb", yOffset: 1f);
+    // private void SpawnTutorialResources()
+    // {
+    //     // Bomb on the path to exit (right arm)
+    //     if (bombPrefab != null)
+    //         SpawnNetPrefabAtCell(bombPrefab, TutorialBombCell, "TutorialBomb", yOffset: 1f);
 
-        // Key on opposite side (left end)
-        if (keyPrefab != null)
-            SpawnNetPrefabAtCell(keyPrefab, TutorialKeyCell, "TutorialKey", yOffset: 1f);
-    }
+    //     // Key on opposite side (left end)
+    //     if (keyPrefab != null)
+    //         SpawnNetPrefabAtCell(keyPrefab, TutorialKeyCell, "TutorialKey", yOffset: 1f);
+    // }
 
     private void SpawnDoorBetweenCells(GameObject prefab, Vector2Int a, Vector2Int b, string name)
     {
@@ -404,20 +404,20 @@ public class MazeGenerator3D : MonoBehaviour
         spawnedDoors.Add(go);
     }
 
-    private void SpawnNetPrefabAtCell(GameObject prefab, Vector2Int cell, string name, float yOffset)
-    {
-        if (prefab == null) return;
-        if (!InBounds(cell)) return;
-        if (grid[cell.x, cell.y]) return;
+    // private void SpawnNetPrefabAtCell(GameObject prefab, Vector2Int cell, string name, float yOffset)
+    // {
+    //     if (prefab == null) return;
+    //     if (!InBounds(cell)) return;
+    //     if (grid[cell.x, cell.y]) return;
 
-        Vector3 pos = CellCenterWorld(cell.x, cell.y, yOffset);
-        var go = Instantiate(prefab, pos, Quaternion.identity);
-        go.name = name;
+    //     Vector3 pos = CellCenterWorld(cell.x, cell.y, yOffset);
+    //     var go = Instantiate(prefab, pos, Quaternion.identity);
+    //     go.name = name;
 
-        var netObj = go.GetComponent<NetworkObject>();
-        if (netObj != null)
-            netObj.Spawn(true);
-    }
+    //     var netObj = go.GetComponent<NetworkObject>();
+    //     if (netObj != null)
+    //         netObj.Spawn(true);
+    // }
 
     // ================================================================
     //   MAZE GENERATION (DFS CARVE) - PERFECT MAZE
@@ -603,6 +603,77 @@ public class MazeGenerator3D : MonoBehaviour
     // ================================================================
     //   BUILD WALLS
     // ================================================================
+// File: Assets/Scripts/Maze/MazeGenerator3D.cs
+// Replace/adjust your tutorial door spawn with the code below.
+
+private void SpawnTutorialDoors_TwoOnly()
+{
+    if (normalDoorPrefab == null) return;
+
+    // Door at x=7 on the horizontal arm (blocks passage). Place BETWEEN (7,10) and (8,10).
+    SpawnDoorBetweenCells_Tutorial(normalDoorPrefab,
+        a: new Vector2Int(7, 10),
+        b: new Vector2Int(8, 10),
+        name: "TutorialDoor_Left_7_10");
+
+    // Door at x=14 on the horizontal arm. Place BETWEEN (14,10) and (13,10).
+    SpawnDoorBetweenCells_Tutorial(normalDoorPrefab,
+        a: new Vector2Int(14, 10),
+        b: new Vector2Int(13, 10),
+        name: "TutorialDoor_Right_14_10");
+}
+
+private void SpawnDoorBetweenCells_Tutorial(GameObject prefab, Vector2Int a, Vector2Int b, string name)
+{
+    if (prefab == null) return;
+    if (!InBounds(a) || !InBounds(b)) return;
+
+    // Both cells must be open in your T path
+    if (grid[a.x, a.y] || grid[b.x, b.y])
+    {
+        Debug.LogWarning($"[TutorialDoor] Not spawning {name}: a/b not open. a={a} open={!grid[a.x,a.y]} b={b} open={!grid[b.x,b.y]}");
+        return;
+    }
+
+    Vector3 worldA = CellCenterWorld(a.x, a.y, 0f);
+    Vector3 worldB = CellCenterWorld(b.x, b.y, 0f);
+    Vector3 pos = (worldA + worldB) * 0.5f;
+
+    Vector3 dir = (worldB - worldA);
+    dir.y = 0f;
+    if (dir.sqrMagnitude < 0.0001f) dir = transform.forward;
+
+    Quaternion rot =
+        Quaternion.LookRotation(dir.normalized, Vector3.up) *
+        Quaternion.Euler(0f, doorPrefabYawOffset, 0f);
+
+    GameObject go = Instantiate(prefab, pos, rot);
+    go.name = name;
+
+    // ✅ critical: set layers on ALL children (colliders often live on children)
+    SetLayerRecursive(go, doorsLayer);
+
+    // Optional but nice for hierarchy
+    if (doorsRoot != null)
+        go.transform.SetParent(doorsRoot, true);
+
+    var netObj = go.GetComponent<NetworkObject>();
+    if (netObj != null)
+        netObj.Spawn(true);
+
+    spawnedDoors.Add(go);
+
+    Debug.Log($"[TutorialDoor] Spawned {name} at {pos}, rootLayer={go.layer}");
+}
+
+private void SetLayerRecursive(GameObject go, int layer)
+{
+    if (go == null) return;
+    go.layer = layer;
+    foreach (Transform child in go.transform)
+        SetLayerRecursive(child.gameObject, layer);
+}
+
     private void BuildMaze()
     {
         foreach (Transform c in wallsRoot) Destroy(c.gameObject);
@@ -639,14 +710,61 @@ public class MazeGenerator3D : MonoBehaviour
             wall.transform.localScale = new Vector3(cellSize, s.y, cellSize);
         }
     }
+// File: Assets/Scripts/Maze/MazeGenerator3D.cs
 
-    private void SetLayerRecursive(GameObject go, int layer)
-    {
-        if (go == null) return;
-        go.layer = layer;
-        foreach (Transform child in go.transform)
-            SetLayerRecursive(child.gameObject, layer);
-    }
+private void SpawnTutorialResources()
+{
+    // Bomb on the path to exit (right arm)
+    if (bombPrefab != null)
+        SpawnNetPrefabAtCell(
+            prefab: bombPrefab,
+            cell: TutorialBombCell,
+            // IMPORTANT: keep canonical name if your systems depend on it
+            forcedName: "Bomb",
+            yOffset: 1f
+        );
+
+    // Key on opposite side (left end)
+    if (keyPrefab != null)
+        SpawnNetPrefabAtCell(
+            prefab: keyPrefab,
+            cell: TutorialKeyCell,
+            // IMPORTANT: AllKeysCollected often depends on finding/collecting "Key"
+            forcedName: "Key",
+            yOffset: 1f
+        );
+}
+
+// ✅ Replace your existing SpawnNetPrefabAtCell with this version.
+// Key point: DON'T invent names like "TutorialKey" unless you're 100% sure no logic depends on it.
+private void SpawnNetPrefabAtCell(GameObject prefab, Vector2Int cell, string forcedName, float yOffset)
+{
+    if (prefab == null) return;
+    if (!InBounds(cell)) return;
+    if (grid[cell.x, cell.y]) return; // must be open
+
+    Vector3 pos = CellCenterWorld(cell.x, cell.y, yOffset);
+
+    var go = Instantiate(prefab, pos, Quaternion.identity);
+
+    // If you pass forcedName, use it; otherwise keep prefab's name.
+    if (!string.IsNullOrWhiteSpace(forcedName))
+        go.name = forcedName;
+    else
+        go.name = prefab.name;
+
+    var netObj = go.GetComponent<NetworkObject>();
+    if (netObj != null)
+        netObj.Spawn(true);
+}
+
+    // private void SetLayerRecursive(GameObject go, int layer)
+    // {
+    //     if (go == null) return;
+    //     go.layer = layer;
+    //     foreach (Transform child in go.transform)
+    //         SetLayerRecursive(child.gameObject, layer);
+    // }
 
     // ================================================================
     //   ALIGNMENT + WIN DOOR
