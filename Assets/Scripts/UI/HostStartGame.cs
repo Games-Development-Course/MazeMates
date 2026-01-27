@@ -213,19 +213,12 @@ public sealed class HostStartGame : MonoBehaviour
         int clientCount = nmOk ? nm.ConnectedClientsList.Count : -1;
         bool hasRealClient = nmOk && isListening && clientCount >= 2;
 
-        bool lobbySpawned = lobbyState != null && lobbyState.IsSpawned;
-        bool lobbyFull = lobbySpawned && lobbyState.SessionFull.Value;
-
         bool visible = isHost && hasRealClient;
-
         hostButtonsPanel.SetActive(visible);
 
-        DLog($"ApplyVisibility({reason}) -> visible={visible} | " +
-             $"nmOk={nmOk} listening={isListening} host={isHost} clients={clientCount} hasRealClient={hasRealClient} | " +
-             $"lobbySpawned={lobbySpawned} lobbyFull={lobbyFull}");
+        DLog($"ApplyVisibility({reason}) -> visible={visible} | nmOk={nmOk} listening={isListening} host={isHost} clients={clientCount}");
     }
 
-    // -------------------- Public API --------------------
     public void StartTutorial()
     {
         DumpState("StartTutorial:BEFORE");
@@ -234,21 +227,18 @@ public sealed class HostStartGame : MonoBehaviour
         if (nm == null || !nm.IsServer)
         {
             DLog("StartTutorial() ABORT: nm null or not server");
-            DumpState("StartTutorial:ABORT");
             return;
         }
 
         if (!nm.IsListening)
         {
             DLog("StartTutorial() ABORT: nm not listening");
-            DumpState("StartTutorial:ABORT_NOT_LISTENING");
             return;
         }
 
         if (nm.ConnectedClientsList.Count < 2)
         {
-            DLog("StartTutorial() ABORT: less than 2 clients (other player missing?)");
-            DumpState("StartTutorial:ABORT_CLIENTS<2");
+            DLog("StartTutorial() ABORT: less than 2 clients");
             return;
         }
 
@@ -256,18 +246,15 @@ public sealed class HostStartGame : MonoBehaviour
         if (cfg == null)
         {
             DLog("StartTutorial() ABORT: GameConfigNet.Instance is NULL");
-            DumpState("StartTutorial:ABORT_CFG_NULL");
             return;
         }
 
-        // ✅ push fixed tutorial config (5x5 T-shape)
         cfg.SetTutorialConfigServerRpc();
         DLog("StartTutorial() -> SetTutorialConfigServerRpc() sent");
 
         hostButtonsPanel?.SetActive(false);
 
         string targetScene = tutorialLoadsGameScene ? gameSceneName : tutorialSceneName;
-        DLog($"StartTutorial() -> Loading scene '{targetScene}' via Netcode SceneManager");
         nm.SceneManager.LoadScene(targetScene, LoadSceneMode.Single);
 
         DumpState("StartTutorial:AFTER");
@@ -277,135 +264,31 @@ public sealed class HostStartGame : MonoBehaviour
     public void StartGameMedium() => StartGameWithDifficulty(1);
     public void StartGameHard() => StartGameWithDifficulty(2);
 
-    public void StartGameWithDifficultyAndSeed(int diff, int seed)
-    {
-        DumpState($"StartGameWithDifficultyAndSeed:BEFORE diff={diff} seed={seed}");
-
-        var nm = NetworkManager.Singleton;
-        if (nm == null || !nm.IsServer)
-        {
-            DLog("StartGameWithDifficultyAndSeed() ABORT: nm null or not server");
-            DumpState("StartGameWithDifficultyAndSeed:ABORT_NOT_SERVER");
-            return;
-        }
-
-        if (!nm.IsListening)
-        {
-            DLog("StartGameWithDifficultyAndSeed() ABORT: nm not listening (DISCONNECTED?)");
-            DumpState("StartGameWithDifficultyAndSeed:ABORT_NOT_LISTENING");
-            return;
-        }
-
-        if (nm.ConnectedClientsList.Count < 2)
-        {
-            DLog("StartGameWithDifficultyAndSeed() ABORT: less than 2 clients (other player missing?)");
-            DumpState("StartGameWithDifficultyAndSeed:ABORT_CLIENTS<2");
-            return;
-        }
-
-        var cfg = GameConfigNet.Instance;
-        if (cfg == null)
-        {
-            DLog("StartGameWithDifficultyAndSeed() ABORT: GameConfigNet.Instance is NULL (not in scene? not spawned? destroyed?)");
-            DumpState("StartGameWithDifficultyAndSeed:ABORT_CFG_NULL");
-            return;
-        }
-
-        // Normal game => ensure tutorial off.
-        cfg.SetTutorialModeServerRpc(false);
-
-        DLog($"StartGameWithDifficultyAndSeed() -> cfg={(cfg ? cfg.name : "NULL")} cfgIsSpawned={(cfg != null && cfg.IsSpawned)}");
-
-        ApplyConfig(diff, seed);
-
-        hostButtonsPanel?.SetActive(false);
-
-        cfg.SetSkinSelectOpenServerRpc(true);
-        DLog("StartGameWithDifficultyAndSeed() -> SetSkinSelectOpenServerRpc(true) sent");
-
-        if (lobbySkinUI != null)
-        {
-            lobbySkinUI.OpenSkinMenu();
-            DLog("StartGameWithDifficultyAndSeed() -> lobbySkinUI.OpenSkinMenu()");
-        }
-        else
-        {
-            DLog("StartGameWithDifficultyAndSeed() -> lobbySkinUI is NULL (won't open locally)");
-        }
-
-        DumpState("StartGameWithDifficultyAndSeed:AFTER");
-    }
-
     private void StartGameWithDifficulty(int diff)
     {
-        DumpState($"StartGameWithDifficulty:BEFORE diff={diff}");
-
         var nm = NetworkManager.Singleton;
-        if (nm == null || !nm.IsServer)
-        {
-            DLog("StartGameWithDifficulty() ABORT: nm null or not server");
-            DumpState("StartGameWithDifficulty:ABORT_NOT_SERVER");
-            return;
-        }
-
-        if (!nm.IsListening)
-        {
-            DLog("StartGameWithDifficulty() ABORT: nm not listening (DISCONNECTED?)");
-            DumpState("StartGameWithDifficulty:ABORT_NOT_LISTENING");
-            return;
-        }
-
-        if (nm.ConnectedClientsList.Count < 2)
-        {
-            DLog("StartGameWithDifficulty() ABORT: less than 2 clients (other player missing?)");
-            DumpState("StartGameWithDifficulty:ABORT_CLIENTS<2");
-            return;
-        }
+        if (nm == null || !nm.IsServer) return;
+        if (!nm.IsListening) return;
+        if (nm.ConnectedClientsList.Count < 2) return;
 
         var cfg = GameConfigNet.Instance;
-        if (cfg == null)
-        {
-            DLog("StartGameWithDifficulty() ABORT: GameConfigNet.Instance is NULL");
-            DumpState("StartGameWithDifficulty:ABORT_CFG_NULL");
-            return;
-        }
+        if (cfg == null) return;
 
-        // Normal game => ensure tutorial off.
         cfg.SetTutorialModeServerRpc(false);
 
         int seed = Random.Range(1, int.MaxValue);
-        DLog($"StartGameWithDifficulty() -> generated seed={seed}");
-
         ApplyConfig(diff, seed);
 
         hostButtonsPanel?.SetActive(false);
 
         cfg.SetSkinSelectOpenServerRpc(true);
-        DLog("StartGameWithDifficulty() -> SetSkinSelectOpenServerRpc(true) sent");
-
-        if (lobbySkinUI != null)
-        {
-            lobbySkinUI.OpenSkinMenu();
-            DLog("StartGameWithDifficulty() -> lobbySkinUI.OpenSkinMenu()");
-        }
-        else
-        {
-            DLog("StartGameWithDifficulty() -> lobbySkinUI is NULL (won't open locally)");
-        }
-
-        DumpState("StartGameWithDifficulty:AFTER");
+        if (lobbySkinUI != null) lobbySkinUI.OpenSkinMenu();
     }
 
     private void ApplyConfig(int diff, int seed)
     {
         var cfg = GameConfigNet.Instance;
-        if (cfg == null)
-        {
-            DLog("ApplyConfig() -> cfg NULL (should not happen here)");
-            return;
-        }
-
-        DLog($"ApplyConfig(diff={diff}, seed={seed}) BEGIN");
+        if (cfg == null) return;
 
         if (diff == 0)
         {
@@ -443,8 +326,6 @@ public sealed class HostStartGame : MonoBehaviour
                 HARD_HINTS
             );
         }
-
-        DLog("ApplyConfig() -> SetConfigServerRpc SENT");
     }
 
     private void DumpState(string tag)
@@ -461,32 +342,14 @@ public sealed class HostStartGame : MonoBehaviour
         sb.AppendLine($"  nm={(nm ? "OK" : "NULL")}");
         if (nm != null)
         {
-            sb.AppendLine($"  nm.IsListening={nm.IsListening} IsHost={nm.IsHost} IsServer={nm.IsServer} IsClient={nm.IsClient}");
-            sb.AppendLine($"  LocalClientId={nm.LocalClientId} ServerClientId={NetworkManager.ServerClientId}");
+            sb.AppendLine($"  nm.IsListening={nm.IsListening} IsHost={nm.IsHost} IsServer={nm.IsServer}");
             sb.AppendLine($"  ConnectedClientsList.Count={nm.ConnectedClientsList.Count}");
-
-            sb.Append("  ConnectedClientIds=[");
-            for (int i = 0; i < nm.ConnectedClientsList.Count; i++)
-            {
-                sb.Append(nm.ConnectedClientsList[i].ClientId);
-                if (i < nm.ConnectedClientsList.Count - 1) sb.Append(", ");
-            }
-            sb.AppendLine("]");
-
-            sb.AppendLine($"sceneMgr={(nm.SceneManager != null ? "OK" : "NULL")}");
         }
 
         var cfg = GameConfigNet.Instance;
         sb.AppendLine($"  GameConfigNet.Instance={(cfg ? cfg.name : "NULL")} cfgIsSpawned={(cfg != null && cfg.IsSpawned)}");
         if (cfg != null)
             sb.AppendLine($"  cfg.IsTutorial={cfg.IsTutorial.Value} size={cfg.MazeWidth.Value}x{cfg.MazeHeight.Value}");
-
-        sb.AppendLine($"  lobbyState={(lobbyState ? lobbyState.name : "NULL")} lobbyIsSpawned={(lobbyState != null && lobbyState.IsSpawned)}");
-        if (lobbyState != null && lobbyState.IsSpawned)
-            sb.AppendLine($"  lobbyState.SessionFull={lobbyState.SessionFull.Value}");
-
-        sb.AppendLine($"  lobbySkinUI={(lobbySkinUI ? lobbySkinUI.name : "NULL")}");
-        sb.AppendLine($"  hostButtonsPanel={(hostButtonsPanel ? hostButtonsPanel.name : "NULL")} active={(hostButtonsPanel ? hostButtonsPanel.activeSelf : false)}");
 
         Debug.Log(sb.ToString());
     }
@@ -496,4 +359,30 @@ public sealed class HostStartGame : MonoBehaviour
         if (!verboseLogs) return;
         Debug.Log($"[HostStartGame] {msg} (scene={SceneManager.GetActiveScene().name}, obj={name})");
     }
+    /// <summary>
+/// Start a normal (non-tutorial) game with explicit difficulty and seed.
+/// Expected by PauseConsensus.
+/// </summary>
+public void StartGameWithDifficultyAndSeed(int diff, int seed)
+{
+    var nm = NetworkManager.Singleton;
+    if (nm == null || !nm.IsServer) return;
+    if (!nm.IsListening) return;
+    if (nm.ConnectedClientsList.Count < 2) return;
+
+    var cfg = GameConfigNet.Instance;
+    if (cfg == null) return;
+
+    // Ensure normal game.
+    cfg.SetTutorialModeServerRpc(false);
+
+    ApplyConfig(diff, seed);
+
+    hostButtonsPanel?.SetActive(false);
+
+    cfg.SetSkinSelectOpenServerRpc(true);
+    if (lobbySkinUI != null)
+        lobbySkinUI.OpenSkinMenu();
+}
+
 }

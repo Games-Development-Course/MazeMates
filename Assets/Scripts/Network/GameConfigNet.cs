@@ -1,5 +1,6 @@
 ﻿// =========================
 // File: Assets/Scripts/Net/GameConfigNet.cs
+// (Only changed SetTutorialConfigServerRpc + tutorial enforcement values)
 // =========================
 using Unity.Collections;
 using Unity.Netcode;
@@ -57,7 +58,6 @@ public sealed class GameConfigNet : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-    // 0=Easy, 1=Medium, 2=Hard
     public readonly NetworkVariable<int> Difficulty = new(0);
     public readonly NetworkVariable<int> Seed = new(0);
 
@@ -73,7 +73,6 @@ public sealed class GameConfigNet : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-    // ✅ NEW: tutorial mode flag (read by MazeGenerator3D)
     public NetworkVariable<bool> IsTutorial { get; } = new(
         false,
         NetworkVariableReadPermission.Everyone,
@@ -85,7 +84,7 @@ public sealed class GameConfigNet : NetworkBehaviour
         get
         {
             int idx = Mathf.Clamp(Difficulty.Value, 0, 2);
-            return (global::Difficulty)(idx + 1); // 1=Easy,2=Medium,3=Hard
+            return (global::Difficulty)(idx + 1);
         }
     }
 
@@ -103,49 +102,32 @@ public sealed class GameConfigNet : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void SetShowHintsServerRpc(bool value) => ShowHints.Value = value;
-
-    [ServerRpc(RequireOwnership = false)]
-    public void SetSkinSelectOpenServerRpc(bool open) => SkinSelectOpen.Value = open;
-
-    [ServerRpc(RequireOwnership = false)]
-    public void SetDifficultyServerRpc(global::Difficulty difficulty)
-    {
-        int idx = Mathf.Clamp(((int)difficulty) - 1, 0, 2);
-        Difficulty.Value = idx;
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    public void SetTutorialModeServerRpc(bool isTutorial)
-    {
-        IsTutorial.Value = isTutorial;
-    }
+    public void SetTutorialModeServerRpc(bool isTutorial) => IsTutorial.Value = isTutorial;
 
     /// <summary>
-    /// Fixed tutorial config (5x5 T-shape maze, deterministic placements handled in MazeGenerator3D).
+    /// Fixed tutorial config: 21x21 T-shape, 3 normal doors at junction, 1 bomb on exit path, 1 key opposite side.
+    /// Deterministic placements are done in MazeGenerator3D.
     /// </summary>
     [ServerRpc(RequireOwnership = false)]
     public void SetTutorialConfigServerRpc()
     {
         IsTutorial.Value = true;
 
-        // Keep it deterministic even if you later decide to use Random for tutorial placements.
         Seed.Value = 1337;
 
-        // Allow 5x5 for tutorial.
-        MazeWidth.Value = 5;
-        MazeHeight.Value = 5;
+        MazeWidth.Value = 21;
+        MazeHeight.Value = 21;
 
-        Hearts.Value = 1;
-        Bombs.Value = 0;
+        Hearts.Value = 0;
+        Bombs.Value = 1;
         Keys.Value = 1;
 
         KeysToCollect.Value = 1;
 
-        NormalDoors.Value = 1;
+        NormalDoors.Value = 2;
         PuzzleDoors.Value = 0;
 
-        Difficulty.Value = 0;   // Easy
+        Difficulty.Value = 0;
         Lives.Value = 3;
         BombRemovals.Value = 0;
         Hints.Value = 1;
@@ -167,10 +149,8 @@ public sealed class GameConfigNet : NetworkBehaviour
         int hints
     )
     {
-        // Normal game => not tutorial.
         IsTutorial.Value = false;
 
-        // Keep your original safety min, but still allow 5 for tutorial via SetTutorialConfigServerRpc.
         MazeWidth.Value = Mathf.Max(7, mazeW);
         MazeHeight.Value = Mathf.Max(7, mazeH);
 
@@ -195,5 +175,18 @@ public sealed class GameConfigNet : NetworkBehaviour
     public void SetBombRemovalsRuntimeServerRpc(int bombRemovals)
     {
         BombRemovals.Value = Mathf.Max(0, bombRemovals);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SetShowHintsServerRpc(bool value) => ShowHints.Value = value;
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SetSkinSelectOpenServerRpc(bool open) => SkinSelectOpen.Value = open;
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SetDifficultyServerRpc(global::Difficulty difficulty)
+    {
+        int idx = Mathf.Clamp(((int)difficulty) - 1, 0, 2);
+        Difficulty.Value = idx;
     }
 }
