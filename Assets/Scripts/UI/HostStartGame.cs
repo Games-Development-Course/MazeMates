@@ -1,4 +1,6 @@
-﻿// Assets/Scripts/UI/HostStartGame.cs
+﻿// =========================
+// File: Assets/Scripts/UI/HostStartGame.cs
+// =========================
 using System.Text;
 using Unity.Netcode;
 using UnityEngine;
@@ -9,6 +11,10 @@ public sealed class HostStartGame : MonoBehaviour
     [Header("Scenes")]
     [SerializeField] private string tutorialSceneName = "TutorialScene";
     [SerializeField] private string gameSceneName = "GameScene";
+
+    [Header("Tutorial")]
+    [Tooltip("If true, tutorial will load the GameScene (recommended). If false, loads tutorialSceneName.")]
+    [SerializeField] private bool tutorialLoadsGameScene = true;
 
     [Header("Host-only UI")]
     [SerializeField] private GameObject hostButtonsPanel;
@@ -86,7 +92,6 @@ public sealed class HostStartGame : MonoBehaviour
         UnbindSceneCallbacks();
     }
 
-    // -------------------- Binding --------------------
     private void TryBind()
     {
         if (lobbyState == null)
@@ -117,7 +122,6 @@ public sealed class HostStartGame : MonoBehaviour
         DumpState("OnSessionFullChanged");
     }
 
-    // -------------------- Scene callbacks --------------------
     private void BindSceneCallbacks()
     {
         if (_sceneBound) return;
@@ -136,14 +140,12 @@ public sealed class HostStartGame : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         DLog($"OnSceneLoaded(scene={scene.name}, mode={mode})");
-        // אחרי חזרה ל-StartScene יש הרבה פעמים race condition: objects עוד לא binded.
         TryBind();
         BindNetworkCallbacks();
         ApplyVisibility($"SceneLoaded:{scene.name}");
         DumpState($"SceneLoaded:{scene.name}");
     }
 
-    // -------------------- Network callbacks --------------------
     private void BindNetworkCallbacks()
     {
         if (_nmBound) return;
@@ -198,7 +200,6 @@ public sealed class HostStartGame : MonoBehaviour
         DumpState("ClientConnChanged");
     }
 
-    // -------------------- Visibility --------------------
     private void ApplyVisibility(string reason)
     {
         if (hostButtonsPanel == null) return;
@@ -212,8 +213,6 @@ public sealed class HostStartGame : MonoBehaviour
         int clientCount = nmOk ? nm.ConnectedClientsList.Count : -1;
         bool hasRealClient = nmOk && isListening && clientCount >= 2;
 
-        // NOTE: במצבים מסוימים lobbyState עוד לא Spawned למרות שיש 2 קליינטים,
-        // אז לא נכבה את הפאנל בגלל lobbyState, רק נלוג.
         bool lobbySpawned = lobbyState != null && lobbyState.IsSpawned;
         bool lobbyFull = lobbySpawned && lobbyState.SessionFull.Value;
 
@@ -239,15 +238,45 @@ public sealed class HostStartGame : MonoBehaviour
             return;
         }
 
-        DLog($"StartTutorial() -> Loading scene '{tutorialSceneName}' via Netcode SceneManager");
-        nm.SceneManager.LoadScene(tutorialSceneName, LoadSceneMode.Single);
+        if (!nm.IsListening)
+        {
+            DLog("StartTutorial() ABORT: nm not listening");
+            DumpState("StartTutorial:ABORT_NOT_LISTENING");
+            return;
+        }
+
+        if (nm.ConnectedClientsList.Count < 2)
+        {
+            DLog("StartTutorial() ABORT: less than 2 clients (other player missing?)");
+            DumpState("StartTutorial:ABORT_CLIENTS<2");
+            return;
+        }
+
+        var cfg = GameConfigNet.Instance;
+        if (cfg == null)
+        {
+            DLog("StartTutorial() ABORT: GameConfigNet.Instance is NULL");
+            DumpState("StartTutorial:ABORT_CFG_NULL");
+            return;
+        }
+
+        // ✅ push fixed tutorial config (5x5 T-shape)
+        cfg.SetTutorialConfigServerRpc();
+        DLog("StartTutorial() -> SetTutorialConfigServerRpc() sent");
+
+        hostButtonsPanel?.SetActive(false);
+
+        string targetScene = tutorialLoadsGameScene ? gameSceneName : tutorialSceneName;
+        DLog($"StartTutorial() -> Loading scene '{targetScene}' via Netcode SceneManager");
+        nm.SceneManager.LoadScene(targetScene, LoadSceneMode.Single);
+
+        DumpState("StartTutorial:AFTER");
     }
 
     public void StartGameEasy() => StartGameWithDifficulty(0);
     public void StartGameMedium() => StartGameWithDifficulty(1);
     public void StartGameHard() => StartGameWithDifficulty(2);
 
-    // ✅ Used by "Restart" flow (force seed)
     public void StartGameWithDifficultyAndSeed(int diff, int seed)
     {
         DumpState($"StartGameWithDifficultyAndSeed:BEFORE diff={diff} seed={seed}");
@@ -282,13 +311,15 @@ public sealed class HostStartGame : MonoBehaviour
             return;
         }
 
+        // Normal game => ensure tutorial off.
+        cfg.SetTutorialModeServerRpc(false);
+
         DLog($"StartGameWithDifficultyAndSeed() -> cfg={(cfg ? cfg.name : "NULL")} cfgIsSpawned={(cfg != null && cfg.IsSpawned)}");
 
         ApplyConfig(diff, seed);
 
         hostButtonsPanel?.SetActive(false);
 
-        // Open skins menu (this is your existing “correct” flow)
         cfg.SetSkinSelectOpenServerRpc(true);
         DLog("StartGameWithDifficultyAndSeed() -> SetSkinSelectOpenServerRpc(true) sent");
 
@@ -338,6 +369,9 @@ public sealed class HostStartGame : MonoBehaviour
             DumpState("StartGameWithDifficulty:ABORT_CFG_NULL");
             return;
         }
+
+        // Normal game => ensure tutorial off.
+        cfg.SetTutorialModeServerRpc(false);
 
         int seed = Random.Range(1, int.MaxValue);
         DLog($"StartGameWithDifficulty() -> generated seed={seed}");
@@ -413,7 +447,6 @@ public sealed class HostStartGame : MonoBehaviour
         DLog("ApplyConfig() -> SetConfigServerRpc SENT");
     }
 
-    // -------------------- Debug helpers --------------------
     private void DumpState(string tag)
     {
         if (!verboseLogs) return;
@@ -432,7 +465,6 @@ public sealed class HostStartGame : MonoBehaviour
             sb.AppendLine($"  LocalClientId={nm.LocalClientId} ServerClientId={NetworkManager.ServerClientId}");
             sb.AppendLine($"  ConnectedClientsList.Count={nm.ConnectedClientsList.Count}");
 
-            // list ids
             sb.Append("  ConnectedClientIds=[");
             for (int i = 0; i < nm.ConnectedClientsList.Count; i++)
             {
@@ -441,12 +473,13 @@ public sealed class HostStartGame : MonoBehaviour
             }
             sb.AppendLine("]");
 
-            sb.AppendLine($"sceneMgr={(nm.SceneManager != null ? "OK" : "NULL")}"
-);
+            sb.AppendLine($"sceneMgr={(nm.SceneManager != null ? "OK" : "NULL")}");
         }
 
         var cfg = GameConfigNet.Instance;
         sb.AppendLine($"  GameConfigNet.Instance={(cfg ? cfg.name : "NULL")} cfgIsSpawned={(cfg != null && cfg.IsSpawned)}");
+        if (cfg != null)
+            sb.AppendLine($"  cfg.IsTutorial={cfg.IsTutorial.Value} size={cfg.MazeWidth.Value}x{cfg.MazeHeight.Value}");
 
         sb.AppendLine($"  lobbyState={(lobbyState ? lobbyState.name : "NULL")} lobbyIsSpawned={(lobbyState != null && lobbyState.IsSpawned)}");
         if (lobbyState != null && lobbyState.IsSpawned)

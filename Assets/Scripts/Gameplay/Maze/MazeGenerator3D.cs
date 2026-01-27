@@ -1,4 +1,6 @@
-﻿// Assets/Scripts/Maze/MazeGenerator3D.cs
+﻿// =========================
+// File: Assets/Scripts/Maze/MazeGenerator3D.cs
+// =========================
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -14,7 +16,7 @@ public class MazeGenerator3D : MonoBehaviour
     [SerializeField] private int width = 21;
     [SerializeField] private int height = 21;
     [SerializeField] private float cellSize = 2f;
-    [SerializeField] private float doorPrefabYawOffset = 0f; // use ONLY if prefab faces wrong direction
+    [SerializeField] private float doorPrefabYawOffset = 0f;
 
     [Header("Layers")]
     [SerializeField] private int wallsLayer = 12;
@@ -23,9 +25,6 @@ public class MazeGenerator3D : MonoBehaviour
     [Header("Traveller Spawn")]
     [SerializeField] private Transform travellerSpawn;
 
-    // -------------------------------
-    // Public API for deterministic spawning (read-only)
-    // -------------------------------
     public Transform TravellerSpawn => travellerSpawn;
     public Vector2Int StartCellPublic => StartCell;
 
@@ -33,10 +32,8 @@ public class MazeGenerator3D : MonoBehaviour
     public event System.Action Ready;
     public float MazeWorldWidth => width * cellSize;
     public float MazeWorldHeight => height * cellSize;
-    public bool IsCellOpen(Vector2Int c)
-    {
-        return InBounds(c) && grid != null && !grid[c.x, c.y];
-    }
+
+    public bool IsCellOpen(Vector2Int c) => InBounds(c) && grid != null && !grid[c.x, c.y];
 
     public Dictionary<Vector2Int, int> GetDistancesFromWorld(Vector3 worldPos)
     {
@@ -64,19 +61,12 @@ public class MazeGenerator3D : MonoBehaviour
     [SerializeField] private GameObject normalDoorPrefab;
     [SerializeField] private GameObject puzzleDoorPrefab;
     [SerializeField] private GameObject winDoorPrefab;
-    [SerializeField] private float doorYawOffset = 0f; // try 90 or -90
+    [SerializeField] private float doorYawOffset = 0f;
 
     [Header("Puzzles (ScriptableObjects)")]
     [SerializeField] private Puzzle puzzleEasySO;
-
-
     [SerializeField] private Puzzle puzzleMediumSO;
-
-
-    [SerializeField] private Puzzle puzzleHardSO;       // HARD #1
-
-
-
+    [SerializeField] private Puzzle puzzleHardSO;
 
     [Header("Resources (Prefabs)")]
     [SerializeField] private GameObject heartPrefab;
@@ -94,8 +84,8 @@ public class MazeGenerator3D : MonoBehaviour
     private readonly List<Vector2Int> pathCells = new();
     private readonly List<Vector2Int> carvedWalls = new();
 
-    private Vector2Int forcedExitCell;     // open cell inside (adjacent to border)
-    private Vector2Int forcedExitWallCell; // border wall cell where the victory door sits
+    private Vector2Int forcedExitCell;
+    private Vector2Int forcedExitWallCell;
     private Vector3 forcedExitDoorLocalPos;
     private Quaternion forcedExitDoorRot;
 
@@ -106,8 +96,10 @@ public class MazeGenerator3D : MonoBehaviour
     private int bombsAmount = 2;
     private int keysAmount = 2;
 
-    private Difficulty difficulty = Difficulty.Easy; // 0 easy, 1 medium, 2 hard
+    private Difficulty difficulty = Difficulty.Easy;
     private int seed = 0;
+
+    private bool tutorialMode;
 
     private static readonly Vector2Int StartCell = new Vector2Int(1, 1);
 
@@ -127,46 +119,63 @@ public class MazeGenerator3D : MonoBehaviour
     private Vector2Int WorldToCell(Vector3 worldPos)
     {
         Vector3 local = transform.InverseTransformPoint(worldPos);
-
-        // ✅ יציב ודטרמיניסטי: FLOOR (לא RoundToInt ולא -0.5)
         int cx = Mathf.Clamp(Mathf.FloorToInt(local.x / cellSize), 0, width - 1);
         int cy = Mathf.Clamp(Mathf.FloorToInt(local.z / cellSize), 0, height - 1);
-
         return new Vector2Int(cx, cy);
     }
 
     private void Start()
     {
-        // תמיד למשוך קונפיג (גם בקליינט)
         PullConfigIfExists();
 
-        puzzleDoorsAmount = 1;
-        Random.InitState(seed);
+        // Keep your existing behavior for non-tutorial:
+        if (!tutorialMode)
+        {
+            // Your original code always forced puzzleDoorsAmount=1
+            puzzleDoorsAmount = 1;
+            Random.InitState(seed);
+        }
 
         CreateHierarchyFolders();
-        GenerateMaze();
 
+        if (tutorialMode)
+        {
+            BuildFixedTutorialMaze_TShape_5x5();
+        }
+        else
+        {
+            GenerateMaze();
+        }
+
+        // ensure start open
         grid[StartCell.x, StartCell.y] = false;
         if (!pathCells.Contains(StartCell)) pathCells.Add(StartCell);
 
         ComputeForcedExitCells_FarthestBorderAdjacent();
         OpenForcedExit();
 
-        // ✅ לבנות קירות/קרקע גם בקליינט כדי שיהיה מה לראות + מינימאפ
         BuildMaze();
         CreateGround();
 
         AlignMazeToNavigatorEntrance();
 
-        // ❗️דברים שצריכים להיות רק בשרת:
+        // Server-only spawning
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
         {
             UpdateTravellerSpawn();
 
-            List<GameObject> puzzleDoorInstances = PlaceDoors();
-            PlaceResources();
-            StartCoroutine(ComputeBombRemovalsAfterResources());
-            AssignPuzzlesToPuzzleDoors(puzzleDoorInstances);
+            if (tutorialMode)
+            {
+                SpawnTutorialNormalDoor();
+                SpawnTutorialResources();
+            }
+            else
+            {
+                List<GameObject> puzzleDoorInstances = PlaceDoors();
+                PlaceResources();
+                StartCoroutine(ComputeBombRemovalsAfterResources());
+                AssignPuzzlesToPuzzleDoors(puzzleDoorInstances);
+            }
         }
 
         MarkReady();
@@ -174,12 +183,8 @@ public class MazeGenerator3D : MonoBehaviour
 
     private IEnumerator ComputeBombRemovalsAfterResources()
     {
-        // מחכה פריים אחד כדי לוודא שכל המשאבים הונחו
         yield return null;
-
-        // אם PlaceResources משתמש בעוד קורוטינות – בטוח יותר:
         yield return new WaitForEndOfFrame();
-
         ComputeAndApplyBombRemovalsRuntime();
     }
 
@@ -187,6 +192,8 @@ public class MazeGenerator3D : MonoBehaviour
     {
         var cfg = GameConfigNet.Instance;
         if (cfg == null) return;
+
+        tutorialMode = cfg.IsTutorial.Value;
 
         width = cfg.MazeWidth.Value;
         height = cfg.MazeHeight.Value;
@@ -196,13 +203,27 @@ public class MazeGenerator3D : MonoBehaviour
         keysAmount = cfg.Keys.Value;
 
         normalDoorsAmount = cfg.NormalDoors.Value;
-        puzzleDoorsAmount = cfg.PuzzleDoors.Value; // overridden by difficulty rule above
+        puzzleDoorsAmount = cfg.PuzzleDoors.Value;
 
         int d = cfg.Difficulty.Value;
         difficulty = (d == 0) ? Difficulty.Easy : (d == 1 ? Difficulty.Medium : Difficulty.Hard);
 
         seed = cfg.Seed.Value;
         if (seed == 0) seed = 1234567;
+
+        if (tutorialMode)
+        {
+            // enforce the tutorial spec even if something else writes config accidentally
+            width = 5;
+            height = 5;
+
+            heartsAmount = 1;
+            bombsAmount = 0;
+            keysAmount = 1;
+
+            normalDoorsAmount = 1;
+            puzzleDoorsAmount = 0;
+        }
     }
 
     // ================================================================
@@ -240,6 +261,98 @@ public class MazeGenerator3D : MonoBehaviour
 
         ground.transform.localPosition = new Vector3(groundWidth / 2f, 0f, groundHeight / 2f);
         ground.transform.localScale = new Vector3(groundWidth, groundHeight, 1f);
+    }
+
+    // ================================================================
+    //   TUTORIAL MAZE (FIXED 5x5, T-SHAPE)
+    // ================================================================
+    private void BuildFixedTutorialMaze_TShape_5x5()
+    {
+        if (width != 5 || height != 5)
+        {
+            width = 5;
+            height = 5;
+        }
+
+        pathCells.Clear();
+        carvedWalls.Clear();
+
+        grid = new bool[width, height];
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                grid[x, y] = true; // wall
+
+        // Open cells (T shape) with StartCell=(1,1) connected:
+        // Stem: (2,1)->(2,3), Bar: y=3, x=1..3, plus (1,1).
+        OpenCell(1, 1);
+        OpenCell(2, 1);
+        OpenCell(2, 2);
+        OpenCell(2, 3);
+        OpenCell(1, 3);
+        OpenCell(3, 3);
+
+        // Optional: add one extra open cell to make it feel less tight
+        // OpenCell(3, 1);
+
+        Debug.Log("[TutorialMaze] Built fixed 5x5 T-shape.");
+    }
+
+    private void OpenCell(int x, int y)
+    {
+        if (x < 0 || y < 0 || x >= width || y >= height) return;
+        grid[x, y] = false;
+        var c = new Vector2Int(x, y);
+        if (!pathCells.Contains(c))
+            pathCells.Add(c);
+    }
+
+    private void SpawnTutorialNormalDoor()
+    {
+        if (normalDoorPrefab == null) return;
+
+        // Place door between (2,1) and (2,2): corridor direction +Z
+        Vector3 a = CellCenterWorld(2, 1, 0f);
+        Vector3 pos = a + transform.TransformVector(new Vector3(0f, 0f, cellSize * 0.5f));
+
+        Quaternion rot =
+            transform.rotation *
+            Quaternion.LookRotation(transform.TransformDirection(Vector3.forward), Vector3.up) *
+            Quaternion.Euler(0f, doorPrefabYawOffset, 0f);
+
+        var go = Instantiate(normalDoorPrefab, pos, rot);
+        go.name = "TutorialNormalDoor";
+        go.layer = doorsLayer;
+
+        var netObj = go.GetComponent<NetworkObject>();
+        if (netObj != null)
+            netObj.Spawn(true);
+
+        spawnedDoors.Add(go);
+    }
+
+    private void SpawnTutorialResources()
+    {
+        // Heart at (1,3), Key at (3,3) - fixed, deterministic
+        if (heartPrefab != null)
+            SpawnNetPrefabAtCell(heartPrefab, new Vector2Int(1, 3), "TutorialHeart", yOffset: 1f);
+
+        if (keyPrefab != null)
+            SpawnNetPrefabAtCell(keyPrefab, new Vector2Int(3, 3), "TutorialKey", yOffset: 1f);
+    }
+
+    private void SpawnNetPrefabAtCell(GameObject prefab, Vector2Int cell, string name, float yOffset)
+    {
+        if (prefab == null) return;
+        if (!InBounds(cell)) return;
+        if (grid[cell.x, cell.y]) return;
+
+        Vector3 pos = CellCenterWorld(cell.x, cell.y, yOffset);
+        var go = Instantiate(prefab, pos, Quaternion.identity);
+        go.name = name;
+
+        var netObj = go.GetComponent<NetworkObject>();
+        if (netObj != null)
+            netObj.Spawn(true);
     }
 
     // ================================================================
@@ -554,7 +667,7 @@ public class MazeGenerator3D : MonoBehaviour
     }
 
     // ================================================================
-    //   DOORS (selection logic moved to DoorPlacement)
+    //   DOORS (original runtime planning)
     // ================================================================
     private List<GameObject> PlaceDoors()
     {
@@ -645,7 +758,7 @@ public class MazeGenerator3D : MonoBehaviour
     }
 
     // ================================================================
-    //   RESOURCES
+    //   RESOURCES (original runtime placement)
     // ================================================================
     private void PlaceResources()
     {
@@ -738,7 +851,7 @@ public class MazeGenerator3D : MonoBehaviour
     {
         if (puzzleDoors == null || puzzleDoors.Count == 0) return;
 
-        int desired = 1; // only 1 puzzle door
+        int desired = 1;
         int count = Mathf.Min(desired, puzzleDoors.Count);
 
         for (int i = 0; i < count; i++)
@@ -748,7 +861,6 @@ public class MazeGenerator3D : MonoBehaviour
 
             Puzzle chosen = null;
 
-            // for 1 door we always take the "first" SO per difficulty
             if (difficulty == Difficulty.Easy)
                 chosen = puzzleEasySO;
             else if (difficulty == Difficulty.Medium)
@@ -765,8 +877,6 @@ public class MazeGenerator3D : MonoBehaviour
             controller.SetPuzzleDefinitionServer(chosen);
         }
     }
-
-
 
     // ================================================================
     //   TRAVELLER SPAWN
@@ -847,12 +957,7 @@ public class MazeGenerator3D : MonoBehaviour
         return bestDir;
     }
 
-    // ================================================================
-    //   Bounds helper
-    // ================================================================
     private bool InBounds(Vector2Int c) => c.x >= 0 && c.y >= 0 && c.x < width && c.y < height;
-
-    // --- (שאר הקוד שלך נשאר כמו שהוא בהמשך הקובץ: BombRemovals, CollectResourceCellsOfType, FindShortestPathCells וכו') ---
 
     private float ComputeDoorWidthWorld_FromMesh(GameObject doorPrefab)
     {
@@ -870,12 +975,9 @@ public class MazeGenerator3D : MonoBehaviour
         return Mathf.Max(0.01f, w);
     }
 
-
     // ================================================================
-    // Missing API (needed by ResourceManager / GridCellAssignment + runtime logic)
-    // Paste this INSIDE MazeGenerator3D class (before the final '}')
+    // Missing API (kept as-is from your file)
     // ================================================================
-
     public bool TrySnapToNearestOpenCell(Vector3 worldPos, int radius, out Vector2Int snapped)
     {
         Vector2Int start = WorldToCell(worldPos);
@@ -907,16 +1009,12 @@ public class MazeGenerator3D : MonoBehaviour
         return found;
     }
 
-    public Dictionary<Vector2Int, int> GetDistancesFromCell(Vector2Int startCell)
-    {
-        return BFS_Distances(startCell);
-    }
+    public Dictionary<Vector2Int, int> GetDistancesFromCell(Vector2Int startCell) => BFS_Distances(startCell);
 
     public Bounds GetCellWorldBounds(Vector2Int c, float yCenter = 0f, float ySize = 10f)
     {
         float cs = cellSize;
 
-        // center of cell in world
         Vector3 center = transform.TransformPoint(
             new Vector3((c.x + 0.5f) * cs, yCenter, (c.y + 0.5f) * cs)
         );
@@ -925,25 +1023,19 @@ public class MazeGenerator3D : MonoBehaviour
         return new Bounds(center, size);
     }
 
-    // Called after resources are placed (you already call this from Start coroutine)
-    // Called after resources are placed (you already call this from Start coroutine)
     private void ComputeAndApplyBombRemovalsRuntime()
     {
-        // server only
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
             return;
 
         var cfg = GameConfigNet.Instance;
         if (cfg == null) return;
 
-        // 1) collect placed bomb cells (ONLY root bomb objects, not child meshes/colliders)
         HashSet<Vector2Int> bombCells = CollectPlacedBombCells_SceneWide();
         int totalBombs = bombCells.Count;
 
-        // 2) shortest path cells from start -> forced exit
         List<Vector2Int> exitPath = DoorPlacement.FindPathBFS(grid, width, height, StartCell, forcedExitCell);
 
-        // 3) count bombs that are ON that path
         int bombsOnExitPath = 0;
         for (int i = 0; i < exitPath.Count; i++)
         {
@@ -951,18 +1043,13 @@ public class MazeGenerator3D : MonoBehaviour
                 bombsOnExitPath++;
         }
 
-        // Requested logic:
-        // EASY  = total bombs
-        // HARD  = bombs on exit path
-        // MED   = midpoint between them
         int easy = totalBombs;
         int hard = bombsOnExitPath;
         int medium = Mathf.RoundToInt((easy + hard) * 0.5f);
 
-        int diff = cfg.Difficulty.Value; // 0 easy, 1 medium, 2 hard
+        int diff = cfg.Difficulty.Value;
         int result = (diff == 0) ? easy : (diff == 1 ? medium : hard);
 
-        // safety clamp
         result = Mathf.Clamp(result, 0, totalBombs);
 
         cfg.SetBombRemovalsRuntimeServerRpc(result);
@@ -970,8 +1057,7 @@ public class MazeGenerator3D : MonoBehaviour
         Debug.Log($"[Maze] BombRemovals computed: totalBombs={totalBombs}, bombsOnExitPath={bombsOnExitPath}, " +
                   $"easy={easy}, medium={medium}, hard={hard}, chosen={result} (diff={diff})");
     }
-    // Finds bombs anywhere in the scene by *root object name* (MazeBomb or MazeBomb(Clone)).
-    // Counts each bomb once (not child transforms).
+
     private HashSet<Vector2Int> CollectPlacedBombCells_SceneWide()
     {
         HashSet<Vector2Int> cells = new HashSet<Vector2Int>();
@@ -982,24 +1068,14 @@ public class MazeGenerator3D : MonoBehaviour
             var root = roots[r];
             if (root == null) continue;
 
-            // include inactive just in case
             var all = root.GetComponentsInChildren<Transform>(true);
             for (int i = 0; i < all.Length; i++)
             {
                 var t = all[i];
                 if (t == null) continue;
 
-                // IMPORTANT: only count the bomb's ROOT object, not its children
                 string n = t.gameObject.name;
                 if (n != "Bomb" && n != "Bomb(Clone)") continue;
-
-                // Ensure we only count the top-level bomb GO once:
-                // If this transform is not the root of its own hierarchy, skip.
-                // (Children will have different names usually, but this makes it bulletproof.)
-                if (t != t.root && (t.parent != null && t.parent.name.StartsWith("MazeBomb")))
-                {
-                    // optional extra guard; safe to just not use this block
-                }
 
                 Vector2Int c = WorldToCell(t.position);
                 if (InBounds(c) && !grid[c.x, c.y])
@@ -1036,5 +1112,4 @@ public class MazeGenerator3D : MonoBehaviour
 
         return count;
     }
-
 }
