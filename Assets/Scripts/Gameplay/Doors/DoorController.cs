@@ -692,6 +692,31 @@ public class DoorController : NetworkBehaviour
         return true;
     }
 
+    private void ShowHUD()
+    {
+        string msg = null;
+
+        switch (doorType)
+        {
+            case DoorType.Normal:
+                msg = "כל הכבוד! הדלת נפתחה!";
+                break;
+
+            case DoorType.Puzzle:
+                msg = "כל הכבוד! פתרתם את הפאזל. אפשר להתקדם!";
+                break;
+
+            case DoorType.Exit:
+                msg = "אלופים! סיימתם את המבוך!";
+                break;
+        }
+
+        if (!string.IsNullOrEmpty(msg))
+        {
+            HudBroadcastNet.Instance.Broadcast(msg);
+        }
+    }
+
     // ============================================================
     // RPC — OPEN NORMAL/EXIT DOOR
     // ============================================================
@@ -730,6 +755,7 @@ public class DoorController : NetworkBehaviour
 
         float chosen = ChooseOpenAngleSign(travellerPos);
         OpenDoorRpc(chosen);
+        ShowHUD();
     }
 
     [Rpc(SendTo.Everyone)]

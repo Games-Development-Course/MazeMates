@@ -152,7 +152,6 @@ public class GameManager : NetworkBehaviour
         ApplyConfigFromNetwork();
         BindConfigListeners();
         HUDManager.Instance?.UpdateHUD();
-
         OnLevelStarted?.Invoke();
     }
 
