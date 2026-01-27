@@ -122,19 +122,22 @@ public class GameManager : NetworkBehaviour
     }
 
     public override void OnNetworkSpawn()
-    {
-        // Keep HUD synced for everyone when keys changes
-        _keysNet.OnValueChanged += OnKeysChanged;
+{
+    _keysNet.OnValueChanged += OnKeysChanged;
 
-        // If server spawned after local accumulation (rare), push it once
-        if (IsServer && _localKeys != 0 && _keysNet.Value == 0)
-            _keysNet.Value = _localKeys;
+    if (IsServer && _localKeys != 0 && _keysNet.Value == 0)
+        _keysNet.Value = _localKeys;
 
-        // Apply config once network is alive (if available)
-        ApplyConfigFromNetwork();
-        BindConfigListeners();
-        HUDManager.Instance?.UpdateHUD();
-    }
+    ApplyConfigFromNetwork();
+    BindConfigListeners();
+
+    // ✅ חשוב: אם זה רמה חדשה / Restart, תתחיל ממצב נקי בשרת
+    if (IsServer)
+        ResetRuntimeStateServer();
+
+    HUDManager.Instance?.UpdateHUD();
+}
+
 
     private void OnKeysChanged(int oldValue, int newValue)
     {
@@ -152,12 +155,48 @@ public class GameManager : NetworkBehaviour
         ApplyConfigFromNetwork();
         BindConfigListeners();
         HUDManager.Instance?.UpdateHUD();
-        OnLevelStarted?.Invoke();
     }
 
     public void EndLevel()
     {
         OnLevelEnded?.Invoke();
+    }
+    // =============================
+    // Level lifecycle (authoritative)
+    // =============================
+    public void BeginLevelServer()
+    {
+        if (!IsServer) return;
+
+        // Reset runtime state for a clean restart
+        ResetRuntimeStateServer();
+
+        // Notify everyone (also host) that the level is ready
+        BeginLevelClientRpc();
+    }
+
+    [ClientRpc]
+    private void BeginLevelClientRpc()
+    {
+        HUDManager.Instance?.UpdateHUD();
+        OnLevelStarted?.Invoke();
+    }
+
+    private void ResetRuntimeStateServer()
+    {
+        // Server-authoritative runtime reset
+        inPuzzle = false;
+        activePuzzleDoor = null;
+
+        // Reset keys safely (NetworkVariable authoritative)
+        _localKeys = 0;
+        _keysNet.Value = 0;
+
+        // If these are meant to be per-level runtime values, reset them too:
+        // (If you actually want them to persist between levels, tell me and we’ll exclude them)
+        // HeartPlacements = 1; // leave if it's config-like
+        // BombRemovals is taken from config
+        // lifebuoys is taken from config
     }
 
     // -----------------------------
@@ -210,8 +249,9 @@ public class GameManager : NetworkBehaviour
         totalKeysToCollect = cfg.KeysToCollect.Value;
 
         lives = cfg.Lives.Value;
-        BombRemovals = cfg.BombRemovals.Value;
-        lifebuoys = cfg.Hints.Value;
+        BombRemovals = cfg.BombRemovalsRuntime.Value;
+        lifebuoys = cfg.HintsRuntime.Value;
+
 
         HUDManager.Instance?.UpdateHUD();
 

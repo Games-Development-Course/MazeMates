@@ -6,7 +6,7 @@ public sealed class HudBroadcastNet : NetworkBehaviour
     public static HudBroadcastNet Instance { get; private set; }
 
     [Header("Defaults")]
-    [SerializeField] private float defaultDuration = 1.8f;
+    [SerializeField] private float defaultDuration = 3f;
     [SerializeField] private Color32 defaultColor = new Color32(255, 255, 255, 255);
 
     private void Awake()
