@@ -1,4 +1,7 @@
-﻿// Assets/Scripts/Net/GameConfigNet.cs
+﻿// =========================
+// File: Assets/Scripts/Net/GameConfigNet.cs
+// (Only changed SetTutorialConfigServerRpc + tutorial enforcement values)
+// =========================
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -55,7 +58,6 @@ public sealed class GameConfigNet : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-    // 0=Easy, 1=Medium, 2=Hard (כמו שהיה אצלך)
     public readonly NetworkVariable<int> Difficulty = new(0);
     public readonly NetworkVariable<int> Seed = new(0);
 
@@ -65,21 +67,24 @@ public sealed class GameConfigNet : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-    // NEW: פותח/סוגר תפריט סקינים במסך הפתיחה לכולם
     public NetworkVariable<bool> SkinSelectOpen { get; } = new(
         false,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
 
-    // ✅ מה ש־MazeGenerator3D חיפש:
-    // מחזיר Difficulty enum לפי האינדקס 0..2 (Easy..Hard)
+    public NetworkVariable<bool> IsTutorial { get; } = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
     public global::Difficulty CurrentDifficulty
     {
         get
         {
             int idx = Mathf.Clamp(Difficulty.Value, 0, 2);
-            return (global::Difficulty)(idx + 1); // 1=Easy,2=Medium,3=Hard
+            return (global::Difficulty)(idx + 1);
         }
     }
 
@@ -97,23 +102,35 @@ public sealed class GameConfigNet : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void SetShowHintsServerRpc(bool value)
-    {
-        ShowHints.Value = value;
-    }
+    public void SetTutorialModeServerRpc(bool isTutorial) => IsTutorial.Value = isTutorial;
 
+    /// <summary>
+    /// Fixed tutorial config: 21x21 T-shape, 3 normal doors at junction, 1 bomb on exit path, 1 key opposite side.
+    /// Deterministic placements are done in MazeGenerator3D.
+    /// </summary>
     [ServerRpc(RequireOwnership = false)]
-    public void SetSkinSelectOpenServerRpc(bool open)
+    public void SetTutorialConfigServerRpc()
     {
-        SkinSelectOpen.Value = open;
-    }
+        IsTutorial.Value = true;
 
-    // ✅ אופציונלי/נוח: להגדיר קושי ע"י enum, בלי לשבור כלום
-    [ServerRpc(RequireOwnership = false)]
-    public void SetDifficultyServerRpc(global::Difficulty difficulty)
-    {
-        int idx = Mathf.Clamp(((int)difficulty) - 1, 0, 2);
-        Difficulty.Value = idx;
+        Seed.Value = 1337;
+
+        MazeWidth.Value = 21;
+        MazeHeight.Value = 21;
+
+        Hearts.Value = 0;
+        Bombs.Value = 1;
+        Keys.Value = 1;
+
+        KeysToCollect.Value = 1;
+
+        NormalDoors.Value = 2;
+        PuzzleDoors.Value = 0;
+
+        Difficulty.Value = 0;
+        Lives.Value = 3;
+        BombRemovals.Value = 1;
+        Hints.Value = 1;
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -132,6 +149,8 @@ public sealed class GameConfigNet : NetworkBehaviour
         int hints
     )
     {
+        IsTutorial.Value = false;
+
         MazeWidth.Value = Mathf.Max(7, mazeW);
         MazeHeight.Value = Mathf.Max(7, mazeH);
 
@@ -156,5 +175,18 @@ public sealed class GameConfigNet : NetworkBehaviour
     public void SetBombRemovalsRuntimeServerRpc(int bombRemovals)
     {
         BombRemovals.Value = Mathf.Max(0, bombRemovals);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SetShowHintsServerRpc(bool value) => ShowHints.Value = value;
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SetSkinSelectOpenServerRpc(bool open) => SkinSelectOpen.Value = open;
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SetDifficultyServerRpc(global::Difficulty difficulty)
+    {
+        int idx = Mathf.Clamp(((int)difficulty) - 1, 0, 2);
+        Difficulty.Value = idx;
     }
 }

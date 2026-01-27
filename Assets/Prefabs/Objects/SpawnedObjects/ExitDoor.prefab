@@ -257,7 +257,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7003319071433294287}
   - component: {fileID: 7155479638007781881}
-  m_Layer: 11
+  m_Layer: 14
   m_Name: sticker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -914,7 +914,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4190215946564981046}
   - component: {fileID: 7356224714117264053}
-  m_Layer: 8
+  m_Layer: 14
   m_Name: sticker (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1374,7 +1374,7 @@ GameObject:
   - component: {fileID: 5580334502023404487}
   m_Layer: 14
   m_Name: ExitDoor
-  m_TagString: Untagged
+  m_TagString: Door
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1409,7 +1409,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2383890221
+  GlobalObjectIdHash: 401991486
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1512,7 +1512,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
   openClip: {fileID: 8300000, guid: 8048068539a86ff4d811ba71aceb3558, type: 3}
-  volume: 1
+  volume: 0.581
   startAngleThreshold: 0.25
   pivot: {fileID: 8891580112988688947}
   allowReplay: 1

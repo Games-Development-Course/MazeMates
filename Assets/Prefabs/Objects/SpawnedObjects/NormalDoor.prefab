@@ -259,11 +259,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c81acbca62a445dabc8a07ff436a60, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
-  ShowTopMostFoldoutHeaderGroup: 1
   openClip: {fileID: 8300000, guid: e306fc10f06b9b54c969141e5eb75edd, type: 3}
-  volume: 1
+  volume: 0.619
   startAngleThreshold: 0.25
   pivot: {fileID: 0}
+  allowReplay: 1
+  stillFramesToRearm: 45
 --- !u!114 &6894894911927113548
 MonoBehaviour:
   m_ObjectHideFlags: 0
