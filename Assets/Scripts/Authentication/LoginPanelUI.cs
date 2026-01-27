@@ -35,11 +35,28 @@ namespace MazeMates.Authentication
         private void Start()
         {
             authMessageUI?.Hide();
+
+            // ✅ Step 6: show AuthError messages (including "USERNAME_IN_USE" from networking)
+            if (UgsAuthManager.Instance != null)
+                UgsAuthManager.Instance.AuthError += OnAuthError;
         }
 
         private void OnEnable()
         {
             ResetForLogoutUI();
+        }
+
+        private void OnDestroy()
+        {
+            if (UgsAuthManager.Instance != null)
+                UgsAuthManager.Instance.AuthError -= OnAuthError;
+        }
+
+        private void OnAuthError(string msg)
+        {
+            if (string.IsNullOrWhiteSpace(msg)) return;
+            authMessageUI?.ShowError(msg);
+            if (verboseLogs) Debug.Log($"[LoginPanelUI][AuthError] {msg}");
         }
 
         private void WireOnce()

@@ -4,6 +4,8 @@ using System.Reflection;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Linq;
+
 
 public class PauseConsensus : NetworkBehaviour
 {
@@ -18,11 +20,15 @@ public class PauseConsensus : NetworkBehaviour
     [Header("Scene Names")]
     [SerializeField] private string startSceneName = "StartScene";
     [SerializeField] private string tutorialSceneName = "TutorialScene";
-
+    [SerializeField] private string gameSceneName = "GameScene";
     // replay snapshot (server)
     private bool _replayIsTutorial;
     private int _replayDiff;
     private int _replaySeed;
+    private string _replaySceneName; 
+
+
+
 
     private ulong _requesterClientId;
     private PauseAction _pendingAction;
@@ -160,21 +166,86 @@ public class PauseConsensus : NetworkBehaviour
         var nm = NetworkManager.Singleton;
         if (nm == null || nm.SceneManager == null)
         {
-            // fallback (shouldn’t happen in your project)
             ExecuteLocalClientRpc(action);
             return;
         }
 
         if (action == PauseAction.ReplayLevel)
+        {
+            // שמור snapshot (לא חובה לרילואד עצמו, אבל נשאר לתאימות/לוגים)
             CaptureReplaySnapshot();
 
-        // Always return to StartScene, then continue flow from there
+            // ✅ Restart אמיתי: Reload של אותה סצנה משחקית דרך NGO
+            ReplayLevelInPlace(nm);
+            return;
+        }
+
+        // GoToLevels נשאר כמו שהיה: חוזרים ל-StartScene
         _pendingAfterStartScene = true;
         _afterStartSceneAction = action;
 
         HookSceneEvents();
         nm.SceneManager.LoadScene(startSceneName, LoadSceneMode.Single);
     }
+
+    private void ReplayLevelInPlace(NetworkManager nm)
+    {
+        // Server/Host בלבד
+        if (!IsServer) return;
+
+        // איזה סצנה אנחנו מרעננים?
+        // אם אתה תמיד עובד עם GameScene (גם טיוטוריאל נטען ל-GameScene), זה יהיה GameScene.
+        // אם לפעמים יש באמת TutorialScene, זה יתפוס גם את זה.
+        _replaySceneName = SceneManager.GetActiveScene().name;
+
+        // Safety: אם מסיבה כלשהי אנחנו לא בסצנה משחקית, תיפול ל-GameScene
+        if (_replaySceneName != gameSceneName && _replaySceneName != tutorialSceneName)
+            _replaySceneName = gameSceneName;
+
+        // ✅ CLEANUP לפני LoadScene (רק אובייקטים של הרמה, בלי שחקנים ובלי DontDestroy)
+        CleanupLevelNetworkObjects(_replaySceneName);
+
+        // ✅ Reload דרך Netcode SceneManager כדי שכל הלקוחות יסתנכרנו
+        nm.SceneManager.LoadScene(_replaySceneName, LoadSceneMode.Single);
+    }
+
+    private void CleanupLevelNetworkObjects(string activeSceneName)
+    {
+        if (!IsServer) return;
+
+        var nm = NetworkManager.Singleton;
+        if (nm == null) return;
+
+        // Snapshot כדי שאפשר יהיה Despawn בלי לשבור את האוסף בזמן איטרציה
+        var spawned = nm.SpawnManager.SpawnedObjectsList;
+        if (spawned == null) return;
+
+        var snapshot = spawned.ToArray(); // עובד גם אם זה HashSet וגם אם זה List
+
+        for (int i = snapshot.Length - 1; i >= 0; i--)
+        {
+            var no = snapshot[i];
+            if (no == null) continue;
+
+            // ❌ לא נוגעים בשחקנים
+            if (no.IsPlayerObject) continue;
+
+            // ❌ לא נוגעים באובייקטים שנמצאים ב-DontDestroyOnLoad
+            var sceneName = no.gameObject.scene.name;
+            if (sceneName == "DontDestroyOnLoad") continue;
+
+            // ✅ מנקים רק אובייקטים ששייכים לסצנה הנוכחית של המשחק
+            if (sceneName != activeSceneName) continue;
+
+            // Despawn+Destroy
+            if (no.IsSpawned)
+                no.Despawn(destroy: true);
+            else
+                Destroy(no.gameObject);
+        }
+
+    }
+
 
     private void CaptureReplaySnapshot()
     {

@@ -155,7 +155,9 @@ public class PickupObject : NetworkBehaviour
                 // ✅ IMPORTANT: keys are networked -> add on server (authoritative)
                 if (gm != null) gm.AddKeys(1);
                 if (string.IsNullOrWhiteSpace(finalMessage))
-                    finalMessage = "אספת מפתח!";
+                    finalMessage = gm.AllKeysCollected()
+                        ? "יש לכם את כל המפתחות! לכו ליציאה."
+                        : "אספת מפתח!";
                 break;
 
             case PickupType.Lifebuoy:

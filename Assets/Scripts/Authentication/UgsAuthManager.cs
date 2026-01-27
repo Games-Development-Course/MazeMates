@@ -24,6 +24,8 @@ namespace MazeMates.Authentication
 
         // ✅ בשביל ה-UI תרגום אצלך
         public string LastErrorRaw { get; private set; }
+        public string CurrentUsername { get; private set; }
+
 
         public bool IsInitialized => UnityServices.State == ServicesInitializationState.Initialized;
         public bool IsSignedIn => AuthenticationService.Instance != null && AuthenticationService.Instance.IsSignedIn;
@@ -109,7 +111,10 @@ namespace MazeMates.Authentication
             {
                 await EnsureReadyAsync();
                 await AuthenticationService.Instance.SignInWithUsernamePasswordAsync(username, password);
+                if (AuthenticationService.Instance.IsSignedIn)
+                    CurrentUsername = username?.Trim();
                 return AuthenticationService.Instance.IsSignedIn;
+
             }
             catch (Exception e)
             {
@@ -131,6 +136,8 @@ namespace MazeMates.Authentication
                 // לפעמים SignUp לא עושה SignIn, אז נוודא
                 if (!AuthenticationService.Instance.IsSignedIn)
                     await AuthenticationService.Instance.SignInWithUsernamePasswordAsync(username, password);
+                if (AuthenticationService.Instance.IsSignedIn)
+                    CurrentUsername = username?.Trim();
 
                 return AuthenticationService.Instance.IsSignedIn;
             }
@@ -170,6 +177,8 @@ namespace MazeMates.Authentication
             {
                 if (AuthenticationService.Instance == null) return;
                 AuthenticationService.Instance.SignOut(clearSession);
+                CurrentUsername = null;
+
             }
             catch (Exception e)
             {

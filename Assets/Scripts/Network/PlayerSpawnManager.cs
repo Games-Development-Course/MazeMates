@@ -284,6 +284,7 @@ public sealed class PlayerSpawnManager : MonoBehaviour
     // -------------------------------------------------
     private void RegisterPlayersInGameManager(ulong travellerId, ulong? navigatorId)
     {
+
         var nm = NetworkManager.Singleton;
         if (nm == null || !nm.IsServer) return;
 

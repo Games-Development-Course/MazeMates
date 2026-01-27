@@ -133,6 +133,7 @@ public class RelayManager : MonoBehaviour
 
             string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
             Debug.Log($"[Relay] Host allocation created. JoinCode={joinCode}");
+            NetcodeUsernamePayload.ApplyFromAuthManager();
 
             bool started = NetworkManager.Singleton.StartHost();
             Debug.Log($"[Relay] StartHost result={started}");
@@ -167,6 +168,7 @@ public class RelayManager : MonoBehaviour
 
             transport.SetRelayServerData(relayServerData);
             transport.UseWebSockets = true;
+            NetcodeUsernamePayload.ApplyFromAuthManager();
 
             bool started = NetworkManager.Singleton.StartClient();
             Debug.Log($"[Relay] StartClient result={started}");

@@ -23,7 +23,10 @@ public sealed class HostStartGame : MonoBehaviour
     [Header("Skin Select UI")]
     [SerializeField] private LobbySkinUI lobbySkinUI;
 
-    [Header("Easy Config")]
+    // -------------------------
+    // Difficulty configs (maze generation)
+    // -------------------------
+    [Header("Easy Config (maze generation)")]
     [SerializeField] private int easyMazeW = 13;
     [SerializeField] private int easyMazeH = 13;
     [SerializeField] private int easyHearts = 3;
@@ -32,7 +35,7 @@ public sealed class HostStartGame : MonoBehaviour
     [SerializeField] private int easyNormalDoors = 3;
     [SerializeField] private int easyPuzzleDoors = 2;
 
-    [Header("Medium Config")]
+    [Header("Medium Config (maze generation)")]
     [SerializeField] private int medMazeW = 25;
     [SerializeField] private int medMazeH = 25;
     [SerializeField] private int medHearts = 4;
@@ -41,7 +44,7 @@ public sealed class HostStartGame : MonoBehaviour
     [SerializeField] private int medNormalDoors = 4;
     [SerializeField] private int medPuzzleDoors = 3;
 
-    [Header("Hard Config")]
+    [Header("Hard Config (maze generation)")]
     [SerializeField] private int hardMazeW = 31;
     [SerializeField] private int hardMazeH = 31;
     [SerializeField] private int hardHearts = 3;
@@ -50,13 +53,25 @@ public sealed class HostStartGame : MonoBehaviour
     [SerializeField] private int hardNormalDoors = 5;
     [SerializeField] private int hardPuzzleDoors = 4;
 
+    // -------------------------
+    // HostStartGame rules (NOT seed)
+    // -------------------------
+    [Header("HostStartGame Rules")]
     [SerializeField] private int easyLives = 3;
     [SerializeField] private int medLives = 2;
     [SerializeField] private int hardLives = 1;
 
-    private const int EASY_HINTS = 2;
-    private const int MED_HINTS = 2;
-    private const int HARD_HINTS = 4;
+    [SerializeField] private int easyKeysToCollect = 3;
+    [SerializeField] private int medKeysToCollect = 2;
+    [SerializeField] private int hardKeysToCollect = 1;
+
+    [SerializeField] private int easyBombRemovals = 1;
+    [SerializeField] private int medBombRemovals = 0;
+    [SerializeField] private int hardBombRemovals = 0;
+
+    [SerializeField] private int easyHints = 2;
+    [SerializeField] private int medHints = 2;
+    [SerializeField] private int hardHints = 4;
 
     [Header("Debug")]
     [SerializeField] private bool verboseLogs = true;
@@ -271,18 +286,35 @@ public sealed class HostStartGame : MonoBehaviour
         if (!nm.IsListening) return;
         if (nm.ConnectedClientsList.Count < 2) return;
 
+        int seed = Random.Range(1, int.MaxValue);
+        StartGameWithDifficultyAndSeed(diff, seed);
+    }
+
+    /// <summary>
+    /// Start a normal (non-tutorial) game with explicit difficulty and seed.
+    /// Expected by PauseConsensus.
+    /// </summary>
+    public void StartGameWithDifficultyAndSeed(int diff, int seed)
+    {
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer) return;
+        if (!nm.IsListening) return;
+        if (nm.ConnectedClientsList.Count < 2) return;
+
         var cfg = GameConfigNet.Instance;
         if (cfg == null) return;
 
+        // Ensure normal game.
         cfg.SetTutorialModeServerRpc(false);
 
-        int seed = Random.Range(1, int.MaxValue);
         ApplyConfig(diff, seed);
 
         hostButtonsPanel?.SetActive(false);
 
+        // Open skin selection
         cfg.SetSkinSelectOpenServerRpc(true);
-        if (lobbySkinUI != null) lobbySkinUI.OpenSkinMenu();
+        if (lobbySkinUI != null)
+            lobbySkinUI.OpenSkinMenu();
     }
 
     private void ApplyConfig(int diff, int seed)
@@ -297,9 +329,10 @@ public sealed class HostStartGame : MonoBehaviour
                 easyHearts, easyBombs, easyKeys,
                 easyNormalDoors, easyPuzzleDoors,
                 0, seed,
+                easyKeysToCollect,
                 easyLives,
-                easyBombs,
-                EASY_HINTS
+                easyBombRemovals,
+                easyHints
             );
         }
         else if (diff == 1)
@@ -309,9 +342,10 @@ public sealed class HostStartGame : MonoBehaviour
                 medHearts, medBombs, medKeys,
                 medNormalDoors, medPuzzleDoors,
                 1, seed,
+                medKeysToCollect,
                 medLives,
-                0,
-                MED_HINTS
+                medBombRemovals,
+                medHints
             );
         }
         else
@@ -321,11 +355,16 @@ public sealed class HostStartGame : MonoBehaviour
                 hardHearts, hardBombs, hardKeys,
                 hardNormalDoors, hardPuzzleDoors,
                 2, seed,
+                hardKeysToCollect,
                 hardLives,
-                0,
-                HARD_HINTS
+                hardBombRemovals,
+                hardHints
             );
         }
+
+        // Redundant-safe: SetConfigServerRpc already resets runtime,
+        // but keeping this is harmless and makes intent super explicit.
+        cfg.ResetRuntimeToBaseServerRpc();
     }
 
     private void DumpState(string tag)
@@ -349,7 +388,11 @@ public sealed class HostStartGame : MonoBehaviour
         var cfg = GameConfigNet.Instance;
         sb.AppendLine($"  GameConfigNet.Instance={(cfg ? cfg.name : "NULL")} cfgIsSpawned={(cfg != null && cfg.IsSpawned)}");
         if (cfg != null)
-            sb.AppendLine($"  cfg.IsTutorial={cfg.IsTutorial.Value} size={cfg.MazeWidth.Value}x{cfg.MazeHeight.Value}");
+        {
+            sb.AppendLine($"  cfg.IsTutorial={cfg.IsTutorial.Value} size={cfg.MazeWidth.Value}x{cfg.MazeHeight.Value} seed={cfg.Seed.Value}");
+            sb.AppendLine($"  base: lives={cfg.Lives.Value} hints={cfg.Hints.Value} bombRem={cfg.BombRemovals.Value} keysToCollect={cfg.KeysToCollect.Value}");
+            sb.AppendLine($"  run : livesR={cfg.LivesRuntime.Value} hintsR={cfg.HintsRuntime.Value} bombRemR={cfg.BombRemovalsRuntime.Value}");
+        }
 
         Debug.Log(sb.ToString());
     }
@@ -359,30 +402,4 @@ public sealed class HostStartGame : MonoBehaviour
         if (!verboseLogs) return;
         Debug.Log($"[HostStartGame] {msg} (scene={SceneManager.GetActiveScene().name}, obj={name})");
     }
-    /// <summary>
-/// Start a normal (non-tutorial) game with explicit difficulty and seed.
-/// Expected by PauseConsensus.
-/// </summary>
-public void StartGameWithDifficultyAndSeed(int diff, int seed)
-{
-    var nm = NetworkManager.Singleton;
-    if (nm == null || !nm.IsServer) return;
-    if (!nm.IsListening) return;
-    if (nm.ConnectedClientsList.Count < 2) return;
-
-    var cfg = GameConfigNet.Instance;
-    if (cfg == null) return;
-
-    // Ensure normal game.
-    cfg.SetTutorialModeServerRpc(false);
-
-    ApplyConfig(diff, seed);
-
-    hostButtonsPanel?.SetActive(false);
-
-    cfg.SetSkinSelectOpenServerRpc(true);
-    if (lobbySkinUI != null)
-        lobbySkinUI.OpenSkinMenu();
-}
-
 }

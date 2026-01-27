@@ -1,6 +1,5 @@
 ﻿// =========================
 // File: Assets/Scripts/Net/GameConfigNet.cs
-// (Only changed SetTutorialConfigServerRpc + tutorial enforcement values)
 // =========================
 using Unity.Collections;
 using Unity.Netcode;
@@ -20,7 +19,7 @@ public sealed class GameConfigNet : NetworkBehaviour
     public readonly NetworkVariable<int> NormalDoors = new(3);
     public readonly NetworkVariable<int> PuzzleDoors = new(2);
 
-    public NetworkVariable<bool> ShowHints = new NetworkVariable<bool>(true);
+    public NetworkVariable<bool> ShowHints = new(true);
 
     public NetworkVariable<int> HostSkin { get; } = new(
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -28,17 +27,32 @@ public sealed class GameConfigNet : NetworkBehaviour
     public NetworkVariable<int> ClientSkin { get; } = new(
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    // -------------------------
+    // BASE (selected by HostStartGame)
+    // -------------------------
     public NetworkVariable<int> Lives { get; } = new(
-        3,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+        3, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     public NetworkVariable<int> Hints { get; } = new(
-        1,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+        1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    public NetworkVariable<int> BombRemovals { get; } = new(
+        1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    public NetworkVariable<int> KeysToCollect { get; } = new(
+        0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    // -------------------------
+    // RUNTIME (consumed during gameplay)
+    // -------------------------
+    public NetworkVariable<int> LivesRuntime { get; } = new(
+        3, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    public NetworkVariable<int> HintsRuntime { get; } = new(
+        1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    public NetworkVariable<int> BombRemovalsRuntime { get; } = new(
+        1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     public NetworkVariable<FixedString32Bytes> HostName { get; } = new(
         new FixedString32Bytes("Host"),
@@ -52,32 +66,14 @@ public sealed class GameConfigNet : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-    public NetworkVariable<int> BombRemovals { get; } = new(
-        1,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
-
     public readonly NetworkVariable<int> Difficulty = new(0);
     public readonly NetworkVariable<int> Seed = new(0);
 
-    public NetworkVariable<int> KeysToCollect { get; } = new(
-        0,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
-
     public NetworkVariable<bool> SkinSelectOpen { get; } = new(
-        false,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+        false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     public NetworkVariable<bool> IsTutorial { get; } = new(
-        false,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+        false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     public global::Difficulty CurrentDifficulty
     {
@@ -105,8 +101,8 @@ public sealed class GameConfigNet : NetworkBehaviour
     public void SetTutorialModeServerRpc(bool isTutorial) => IsTutorial.Value = isTutorial;
 
     /// <summary>
-    /// Fixed tutorial config: 21x21 T-shape, 3 normal doors at junction, 1 bomb on exit path, 1 key opposite side.
-    /// Deterministic placements are done in MazeGenerator3D.
+    /// Tutorial config: deterministic placements handled in MazeGenerator3D.
+    /// IMPORTANT: sets BOTH base + runtime so nothing "carries over".
     /// </summary>
     [ServerRpc(RequireOwnership = false)]
     public void SetTutorialConfigServerRpc()
@@ -128,28 +124,38 @@ public sealed class GameConfigNet : NetworkBehaviour
         PuzzleDoors.Value = 0;
 
         Difficulty.Value = 0;
+
+        // Base
         Lives.Value = 3;
         BombRemovals.Value = 1;
         Hints.Value = 1;
 
         ShowHints.Value = false;
+        // Runtime reset (critical)
+        LivesRuntime.Value = Lives.Value;
+        BombRemovalsRuntime.Value = BombRemovals.Value;
+        HintsRuntime.Value = Hints.Value;
     }
 
+    /// <summary>
+    /// Normal game config. IMPORTANT: sets BOTH base + runtime so counters reset every new game.
+    /// </summary>
     [ServerRpc(RequireOwnership = false)]
     public void SetConfigServerRpc(
-        int mazeW,
-        int mazeH,
-        int hearts,
-        int bombs,
-        int keys,
-        int normalDoors,
-        int puzzleDoors,
-        int difficulty,
-        int seed,
-        int lives,
-        int bombRemovals,
-        int hints
-    )
+     int mazeW,
+     int mazeH,
+     int hearts,
+     int bombs,
+     int keys,
+     int normalDoors,
+     int puzzleDoors,
+     int difficulty,
+     int seed,
+     int keysToCollect,   // ✅ חדש
+     int lives,
+     int bombRemovals,
+     int hints
+ )
     {
         IsTutorial.Value = false;
 
@@ -160,23 +166,53 @@ public sealed class GameConfigNet : NetworkBehaviour
         Bombs.Value = Mathf.Max(0, bombs);
         Keys.Value = Mathf.Max(0, keys);
 
-        KeysToCollect.Value = Mathf.Max(0, keys);
-
         NormalDoors.Value = Mathf.Max(0, normalDoors);
         PuzzleDoors.Value = Mathf.Max(0, puzzleDoors);
 
         Difficulty.Value = Mathf.Clamp(difficulty, 0, 2);
         Seed.Value = seed;
 
+        // ✅ לא קשור ל-seed: נקבע רק מ-HostStartGame
+        KeysToCollect.Value = Mathf.Max(0, keysToCollect);
         Lives.Value = Mathf.Max(0, lives);
         BombRemovals.Value = Mathf.Max(0, bombRemovals);
         Hints.Value = Mathf.Max(0, hints);
+
+        // ✅ איפוס רנטיים לבייס
+        ResetRuntimeToBase_Internal();
     }
+    private void ResetRuntimeToBase_Internal()
+    {
+        BombRemovalsRuntime.Value = BombRemovals.Value;
+        HintsRuntime.Value = Hints.Value;
+        LivesRuntime.Value = Lives.Value;
+    }
+
 
     [ServerRpc(RequireOwnership = false)]
     public void SetBombRemovalsRuntimeServerRpc(int bombRemovals)
     {
-        BombRemovals.Value = Mathf.Max(0, bombRemovals);
+        BombRemovalsRuntime.Value = Mathf.Max(0, bombRemovals);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SetHintsRuntimeServerRpc(int hints)
+    {
+        HintsRuntime.Value = Mathf.Max(0, hints);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SetLivesRuntimeServerRpc(int lives)
+    {
+        LivesRuntime.Value = Mathf.Max(0, lives);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void ResetRuntimeToBaseServerRpc()
+    {
+        LivesRuntime.Value = Lives.Value;
+        BombRemovalsRuntime.Value = BombRemovals.Value;
+        HintsRuntime.Value = Hints.Value;
     }
 
     [ServerRpc(RequireOwnership = false)]
