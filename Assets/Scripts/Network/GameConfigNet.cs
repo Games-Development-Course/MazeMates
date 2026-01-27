@@ -130,6 +130,7 @@ public sealed class GameConfigNet : NetworkBehaviour
         BombRemovals.Value = 1;
         Hints.Value = 1;
 
+        ShowHints.Value = false;
         // Runtime reset (critical)
         LivesRuntime.Value = Lives.Value;
         BombRemovalsRuntime.Value = BombRemovals.Value;

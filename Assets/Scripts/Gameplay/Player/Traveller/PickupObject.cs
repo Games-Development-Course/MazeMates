@@ -189,6 +189,7 @@ public class PickupObject : NetworkBehaviour
                     else
                     {
                         gameOver = true;
+                        ShowLoseClientRpc();
                     }
                 }
                 else
@@ -381,5 +382,10 @@ public class PickupObject : NetworkBehaviour
 
         Debug.LogWarning("[PickupObject] No PlayerStartPoint(Role.Traveller) found in this scene.");
         return false;
+    }
+    [ClientRpc]
+    private void ShowLoseClientRpc()
+    {
+        CornerUIButtons.SetLoseScreenForBothPlayers(true);
     }
 }

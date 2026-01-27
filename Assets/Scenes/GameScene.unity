@@ -10446,81 +10446,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 751490678}
   m_CullTransparentMesh: 1
---- !u!1 &765653083
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 765653086}
-  - component: {fileID: 765653084}
-  - component: {fileID: 765653085}
-  m_Layer: 0
-  m_Name: HudBroadcastNet
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &765653084
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 765653083}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2794368250
-  InScenePlacedSourceGlobalObjectIdHash: 0
-  DeferredDespawnTick: 0
-  Ownership: 1
-  AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 1
-  ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 0
-  SpawnWithObservers: 1
-  DontDestroyWithOwner: 0
-  AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 1
-  AllowOwnerToParent: 0
---- !u!114 &765653085
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 765653083}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2dbe44724a76ebc4699307172488cec4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HudBroadcastNet
-  ShowTopMostFoldoutHeaderGroup: 1
-  defaultDuration: 1.8
-  defaultColor:
-    serializedVersion: 2
-    rgba: 4294967295
---- !u!4 &765653086
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 765653083}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.68852, y: 1.0187, z: -2.34}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &771481629
 GameObject:
   m_ObjectHideFlags: 0
@@ -11768,6 +11693,11 @@ MonoBehaviour:
   peerNoButton: {fileID: 1715722796}
   toastText: {fileID: 0}
   toastSeconds: 2.5
+  WinWindow: {fileID: 0}
+  ReturnToLevels: {fileID: 0}
+  loseWindow: {fileID: 0}
+  loseReplayButton: {fileID: 0}
+  loseLevelsButton: {fileID: 0}
 --- !u!114 &828911824
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17017,7 +16947,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u05D0\u05EA\u05D4 \u05D4\u05E0\u05D5\u05D5\u05D8"
+  m_text: "\u05D0\u05EA\u05D4 \u05D4\u05DE\u05D8\u05D9\u05D9\u05DC\n"
   m_isRightToLeft: 1
   m_fontAsset: {fileID: 11400000, guid: b139ca59cde2911438d1e2b13d8e0bed, type: 2}
   m_sharedMaterial: {fileID: 5434979368872380595, guid: b139ca59cde2911438d1e2b13d8e0bed, type: 2}
@@ -25421,6 +25351,11 @@ MonoBehaviour:
   peerNoButton: {fileID: 0}
   toastText: {fileID: 0}
   toastSeconds: 2.5
+  WinWindow: {fileID: 0}
+  ReturnToLevels: {fileID: 0}
+  loseWindow: {fileID: 0}
+  loseReplayButton: {fileID: 0}
+  loseLevelsButton: {fileID: 0}
 --- !u!114 &1866288050
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -42985,7 +42920,6 @@ SceneRoots:
   - {fileID: 824253654}
   - {fileID: 10764858}
   - {fileID: 2059257714}
-  - {fileID: 765653086}
   - {fileID: 243993424}
   - {fileID: 581995589}
   - {fileID: 633039121}

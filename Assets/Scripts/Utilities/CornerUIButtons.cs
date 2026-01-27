@@ -76,6 +76,15 @@ public class CornerUIButtons : MonoBehaviour
     [SerializeField] private TMP_Text toastText;
     [SerializeField] private float toastSeconds = 2.5f;
 
+   [Header("Win Screen")]
+    [SerializeField] private GameObject WinWindow;     // PopupWindows/WinWindow (או השם אצלך)
+    [SerializeField] private Button ReturnToLevels;   // WinWindow/PlayAgain (או השם אצלך)
+
+    [Header("Lose Screen")]
+    [SerializeField] private GameObject loseWindow;     // PopupWindows/LooseWindow  (או LoseWindow)
+    [SerializeField] private Button loseReplayButton;   // אופציונלי: LooseWindow/PlayAgain
+    [SerializeField] private Button loseLevelsButton;   // אופציונלי: LooseWindow/ReturnToLevels
+
     private PauseConsensus.PauseAction _pendingLocalAction;
     private Coroutine _toastCo;
 
@@ -256,6 +265,35 @@ public class CornerUIButtons : MonoBehaviour
                 if (force || peerNoButton == null) peerNoButton = FindButton(peerRequestWindow.transform, "No");
                 if (force || peerRequestText == null) peerRequestText = FindTMPByContains(peerRequestWindow.transform, "Text");
             }
+            if (force || WinWindow == null)
+                WinWindow = FindChildGO(_popupRoot, "WinWindow"); // שנה אם השם אחר
+
+            if (WinWindow != null)
+            {
+                if (force || ReturnToLevels == null)
+                    ReturnToLevels = FindButton(WinWindow.transform, "ReturnToLevels"); // שנה אם השם אחר
+            }
+            // ---- LoseWindow ----
+            if (force || loseWindow == null)
+            {
+                // תומך בשני שמות כדי שלא תיתקע על טעות כתיב
+                loseWindow = FindChildGO(_popupRoot, "LooseWindow");
+                if (loseWindow == null)
+                    loseWindow = FindChildGO(_popupRoot, "LoseWindow");
+            }
+
+            if (loseWindow != null)
+            {
+                if (force || loseReplayButton == null)
+                    loseReplayButton = FindButton(loseWindow.transform, "PlayAgain");
+
+                if (force || loseLevelsButton == null)
+                    loseLevelsButton = FindButton(loseWindow.transform, "ReturnToLevels");
+            }
+
+
+
+
         }
 
         // RoomCodeScreen (לפי ההיררכיה שלך הוא תחת ה-HUD, לא תחת PopupWindows)
@@ -376,6 +414,10 @@ public class CornerUIButtons : MonoBehaviour
 
         if (peerYesButton != null) peerYesButton.onClick.AddListener(OnPeerYesClicked);
         if (peerNoButton != null) peerNoButton.onClick.AddListener(OnPeerNoClicked);
+
+        if (loseReplayButton != null) loseReplayButton.onClick.AddListener(OnPauseReplayClicked);
+        if (loseLevelsButton != null) loseLevelsButton.onClick.AddListener(OnPauseLevelsClicked);
+
     }
 
     private void UnwireButtons()
@@ -394,6 +436,9 @@ public class CornerUIButtons : MonoBehaviour
 
         if (peerYesButton != null) peerYesButton.onClick.RemoveListener(OnPeerYesClicked);
         if (peerNoButton != null) peerNoButton.onClick.RemoveListener(OnPeerNoClicked);
+        if (loseReplayButton != null) loseReplayButton.onClick.RemoveListener(OnPauseReplayClicked);
+        if (loseLevelsButton != null) loseLevelsButton.onClick.RemoveListener(OnPauseLevelsClicked);
+
     }
 
     // ============================================================
@@ -843,4 +888,95 @@ public class CornerUIButtons : MonoBehaviour
         }
         return sb.ToString();
     }
+    public void ToggleWinScreen()
+    {
+        ResolveAllRefs(force: false);
+
+        if (WinWindow == null)
+        {
+            Debug.LogError($"[CornerUIButtons] ToggleWinScreen: winWindow is NULL. popupRoot={(_popupRoot ? GetFullPath(_popupRoot) : "NULL")}");
+            return;
+        }
+
+        bool next = !WinWindow.activeSelf;
+        WinWindow.SetActive(next);
+
+        if (next)
+            ForceUIInteractive(WinWindow);
+        Debug.Log($"[CornerUIButtons][ToggleWinScreen] winWindow={GetFullPath(WinWindow.transform)} next={next}");
+    }
+    // === Win Screen API (instance) ===
+    public void SetWinScreen(bool open)
+    {
+        ResolveAllRefs(force: false);
+
+        if (WinWindow == null)
+        {
+            Debug.LogError($"[CornerUIButtons] SetWinScreen: winWindow is NULL on {GetFullPath(transform)}");
+            return;
+        }
+
+        WinWindow.SetActive(open);
+
+        if (open)
+            ForceUIInteractive(WinWindow);
+    }
+    // === Broadcast to BOTH HUDs (Traveller + Navigator) ===
+    public static void ResolveAllRefsForBothPlayers(bool force)
+    {
+    #if UNITY_6000_0_OR_NEWER
+        var uis = FindObjectsByType<CornerUIButtons>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+    #else
+        var uis = Object.FindObjectsOfType<CornerUIButtons>(true);
+    #endif
+        foreach (var ui in uis)
+            if (ui != null)
+                ui.ResolveAllRefs(force);
+    }
+
+    public static void SetWinScreenForBothPlayers(bool open)
+    {
+    #if UNITY_6000_0_OR_NEWER
+        var uis = FindObjectsByType<CornerUIButtons>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+    #else
+        var uis = Object.FindObjectsOfType<CornerUIButtons>(true);
+    #endif
+        foreach (var ui in uis)
+            if (ui != null)
+                ui.SetWinScreen(open);
+    }
+    public void SetLoseScreen(bool open)
+    {
+        ResolveAllRefs(force: false);
+
+        if (loseWindow == null)
+        {
+            Debug.LogError($"[CornerUIButtons] SetLoseScreen: loseWindow is NULL on {transform.name}");
+            return;
+        }
+
+        loseWindow.SetActive(open);
+
+        if (open)
+            ForceUIInteractive(loseWindow);
+    }
+    public static void SetLoseScreenForBothPlayers(bool open)
+    {
+    #if UNITY_6000_0_OR_NEWER
+        var uis = FindObjectsByType<CornerUIButtons>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+    #else
+        var uis = Object.FindObjectsOfType<CornerUIButtons>(true);
+    #endif
+
+        foreach (var ui in uis)
+        {
+            if (ui == null) continue;
+            if (!ui.gameObject.activeInHierarchy) continue;
+            if (!ui.enabled) continue;
+
+            ui.SetLoseScreen(open);
+        }
+    }
+
+
 }

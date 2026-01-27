@@ -1,3 +1,5 @@
+// File: Assets/Scripts/NavigatorDoorAreaSwitcher.cs
+using Unity.Netcode;
 using UnityEngine;
 
 public class NavigatorDoorAreaSwitcher : MonoBehaviour
@@ -5,6 +7,11 @@ public class NavigatorDoorAreaSwitcher : MonoBehaviour
     [Header("Layer names")]
     [SerializeField] private string outsideLayer = "NavigatorOutside";
     [SerializeField] private string insideLayer = "NavigatorInside";
+
+    [Header("Win UI (Scene objects)")]
+    [SerializeField] private GameObject travellerWinDecore; // Canvas->UI->TravellerHUD->WinDecore
+    [SerializeField] private GameObject navigatorWinDecore; // Canvas->UI->NavigatorHUD->WinDecore
+    [SerializeField] private bool playWinAudio = true;
 
     private int outsideBit;
     private int insideBit;
@@ -26,38 +33,57 @@ public class NavigatorDoorAreaSwitcher : MonoBehaviour
         if (!other.CompareTag("Player"))
             return;
 
-        var state = other.GetComponent<PlayerAreaState>();
-        if (!state)
+        // Only affect local player's UI
+        var no = other.GetComponent<NetworkObject>();
+        if (no != null && !no.IsOwner)
             return;
 
-        Camera cam = Camera.main; // Main Camera with CinemachineBrain
+        var state = other.GetComponent<PlayerAreaState>();
+        if (!state) return;
+
+        var cam = Camera.main;
         if (!cam)
         {
-            Debug.LogWarning("No Camera.main found. Make sure your Main Camera has the 'MainCamera' tag.");
+            Debug.LogWarning("No Camera.main found. Ensure Main Camera has tag 'MainCamera'.");
             return;
         }
 
         if (state.currentArea == PlayerAreaState.AreaState.Maze)
-            EnterNavigatorRoom(state, cam);
+        {
+            // Enter NavigatorRoom
+            cam.cullingMask |= insideBit;
+            cam.cullingMask &= ~outsideBit;
+            state.currentArea = PlayerAreaState.AreaState.NavigatorRoom;
+
+            ActivateWinDecore(travellerWinDecore);
+            ActivateWinDecore(navigatorWinDecore);
+        }
         else
-            ExitNavigatorRoom(state, cam);
+        {
+            // Exit NavigatorRoom
+            cam.cullingMask |= outsideBit;
+            cam.cullingMask &= ~insideBit;
+            state.currentArea = PlayerAreaState.AreaState.Maze;
+        }
     }
 
-    private void EnterNavigatorRoom(PlayerAreaState state, Camera cam)
+    private void ActivateWinDecore(GameObject winDecore)
     {
-        // show Inside, hide Outside
-        cam.cullingMask |= insideBit;
-        cam.cullingMask &= ~outsideBit;
+        if (winDecore == null)
+        {
+            Debug.LogWarning("[WinDecore] Reference not set in Inspector.");
+            return;
+        }
 
-        state.currentArea = PlayerAreaState.AreaState.NavigatorRoom;
-    }
+        winDecore.SetActive(true);
 
-    private void ExitNavigatorRoom(PlayerAreaState state, Camera cam)
-    {
-        // show Outside, hide Inside
-        cam.cullingMask |= outsideBit;
-        cam.cullingMask &= ~insideBit;
+        if (!playWinAudio) return;
 
-        state.currentArea = PlayerAreaState.AreaState.Maze;
+        var audio = winDecore.GetComponent<AudioSource>() ?? winDecore.GetComponentInChildren<AudioSource>(true);
+        if (audio != null)
+        {
+            audio.Stop();
+            audio.Play();
+        }
     }
 }
