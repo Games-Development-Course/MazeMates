@@ -1466,6 +1466,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   outsideLayer: NavigatorOutside
   insideLayer: NavigatorInside
+  travellerWinDecore: {fileID: 8425602591452794771, guid: d25a4b8887baa4c76982a4e29532044a, type: 3}
+  navigatorWinDecore: {fileID: 1647098092862203351, guid: a682c942870e5482fb05827a5a372c76, type: 3}
+  playWinAudio: 1
 --- !u!65 &-4360342995708607037
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1512,7 +1515,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
   openClip: {fileID: 8300000, guid: 8048068539a86ff4d811ba71aceb3558, type: 3}
-  volume: 0.581
+  volume: 0.506
   startAngleThreshold: 0.25
   pivot: {fileID: 8891580112988688947}
   allowReplay: 1
