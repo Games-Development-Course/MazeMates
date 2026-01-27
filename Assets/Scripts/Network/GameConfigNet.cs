@@ -131,6 +131,8 @@ public sealed class GameConfigNet : NetworkBehaviour
         Lives.Value = 3;
         BombRemovals.Value = 1;
         Hints.Value = 1;
+
+        ShowHints.Value = false;
     }
 
     [ServerRpc(RequireOwnership = false)]
