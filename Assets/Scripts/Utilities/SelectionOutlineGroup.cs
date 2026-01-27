@@ -23,15 +23,16 @@ public class SelectionOutlineGroup : MonoBehaviour
 
     public void SelectIndex(int index)
     {
-        if (_locked) return;   // ✅ lock: stop changing selection
+        if (_locked) return;   
         ApplySelection(index);
     }
 
     private void ApplySelection(int index)
     {
         if (outlines == null || outlines.Length == 0)
+        {
             return;
-
+        }
         if (index < -1) index = -1;
         if (index >= outlines.Length) index = outlines.Length - 1;
 
