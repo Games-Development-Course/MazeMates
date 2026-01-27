@@ -24,11 +24,10 @@ public class RelayManager : MonoBehaviour
 
     private const string ConnectionType = "wss";
     private bool _servicesInitialized;
-    private Task _initTask; // prevents double init/sign-in
+    private Task _initTask;
 
     private void Awake()
     {
-
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -49,15 +48,15 @@ public class RelayManager : MonoBehaviour
         }
 #endif
 
-        Debug.LogError($"[RelayManager] START name={gameObject.name} activeSelf={gameObject.activeSelf} activeInHierarchy={gameObject.activeInHierarchy} scene={gameObject.scene.name} id={GetInstanceID()}");
+        Debug.Log($"[RelayManager] START scene={gameObject.scene.name} id={GetInstanceID()}");
 
+        // ✅ Initialize ONLY (no sign-in)
         await EnsureUnityServicesInitializedAsync();
-        Debug.Log("[Relay] Unity Services ready.");
+        Debug.Log("[Relay] Unity Services ready (no auto sign-in).");
     }
 
     private Task EnsureUnityServicesInitializedAsync()
     {
-        // If an init is already running or completed, reuse it.
         _initTask ??= EnsureUnityServicesInitializedInternalAsync();
         return _initTask;
     }
@@ -74,22 +73,19 @@ public class RelayManager : MonoBehaviour
                 Debug.Log("[Relay] Unity Services initialized.");
             }
 
-            // No AuthenticationService.State API in some package versions.
-            // Using Task caching (_initTask) prevents concurrent SignIn calls.
-            if (!AuthenticationService.Instance.IsSignedIn)
-            {
-                await AuthenticationService.Instance.SignInAnonymouslyAsync();
-                Debug.Log($"[Relay] Signed in as player {AuthenticationService.Instance.PlayerId}");
-            }
-
+            // ✅ IMPORTANT: No SignInAnonymously here.
             _servicesInitialized = true;
         }
         catch (Exception e)
         {
-            // Allow retry if it failed
-            _initTask = null;
+            _initTask = null; // allow retry
             Debug.LogError($"[Relay] Failed to initialize Unity Services: {e}");
         }
+    }
+
+    private static bool IsSignedInToUGS()
+    {
+        return AuthenticationService.Instance != null && AuthenticationService.Instance.IsSignedIn;
     }
 
     private UnityTransport GetTransport()
@@ -115,25 +111,31 @@ public class RelayManager : MonoBehaviour
     {
         await EnsureUnityServicesInitializedAsync();
 
+        // ✅ Must be signed-in by Login/Register/Guest button
+        if (!IsSignedInToUGS())
+        {
+            Debug.LogError("[Relay] Cannot Host: not signed in. Please login/register/guest first.");
+            return null;
+        }
+
         var transport = GetTransport();
         if (transport == null) return null;
 
         try
         {
-            // Relay CreateAllocationAsync expects number of clients (excluding host).
             int maxClients = Mathf.Max(1, maxConnections - 1);
 
             Allocation allocation = await RelayService.Instance.CreateAllocationAsync(maxClients);
-            RelayServerData relayServerData = new RelayServerData(allocation, ConnectionType);
+            var relayServerData = new RelayServerData(allocation, ConnectionType);
 
             transport.SetRelayServerData(relayServerData);
             transport.UseWebSockets = true;
 
             string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
-            Debug.Log($"[Relay] Host allocation created. JoinCode = {joinCode}");
+            Debug.Log($"[Relay] Host allocation created. JoinCode={joinCode}");
 
             bool started = NetworkManager.Singleton.StartHost();
-            Debug.Log($"[Relay] StartHost result = {started}");
+            Debug.Log($"[Relay] StartHost result={started}");
 
             return started ? joinCode : null;
         }
@@ -148,19 +150,26 @@ public class RelayManager : MonoBehaviour
     {
         await EnsureUnityServicesInitializedAsync();
 
+        // ✅ Must be signed-in by Login/Register/Guest button
+        if (!IsSignedInToUGS())
+        {
+            Debug.LogError("[Relay] Cannot Join: not signed in. Please login/register/guest first.");
+            return false;
+        }
+
         var transport = GetTransport();
         if (transport == null) return false;
 
         try
         {
             JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
-            RelayServerData relayServerData = new RelayServerData(joinAllocation, ConnectionType);
+            var relayServerData = new RelayServerData(joinAllocation, ConnectionType);
 
             transport.SetRelayServerData(relayServerData);
             transport.UseWebSockets = true;
 
             bool started = NetworkManager.Singleton.StartClient();
-            Debug.Log($"[Relay] StartClient result = {started}");
+            Debug.Log($"[Relay] StartClient result={started}");
 
             return started;
         }
@@ -170,6 +179,7 @@ public class RelayManager : MonoBehaviour
             return false;
         }
     }
+
     public async void JoinWithCode(string joinCode)
     {
         if (string.IsNullOrWhiteSpace(joinCode))
@@ -178,8 +188,7 @@ public class RelayManager : MonoBehaviour
             return;
         }
 
-        bool ok = await StartClientWithRelayAsync(joinCode);
+        bool ok = await StartClientWithRelayAsync(joinCode.Trim().ToUpperInvariant());
         Debug.Log($"[Relay] Auto-join with code {joinCode} -> {ok}");
     }
-
 }
