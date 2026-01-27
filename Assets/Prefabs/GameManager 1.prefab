@@ -45,6 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33afb6fde6c72f245b4e7264a2bdc287, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
+  ShowTopMostFoldoutHeaderGroup: 1
   traveller: {fileID: 2708922950654919531, guid: ead5e1a7d5e707d4fb1ebba851b54ff3, type: 3}
   navigator: {fileID: 0}
   travellerMove: {fileID: 0}
@@ -52,13 +53,12 @@ MonoBehaviour:
   travellerCam: {fileID: 0}
   navigatorCam: {fileID: 0}
   lives: 1
-  keys: 0
   inPuzzle: 0
   lifebuoys: 1
   HeartPlacements: 1
   BombRemovals: 1
   activePuzzleDoor: {fileID: 0}
-  totalKeysInLevel: 2
+  totalKeysToCollect: 0
 --- !u!114 &6185249980537485262
 MonoBehaviour:
   m_ObjectHideFlags: 0

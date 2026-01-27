@@ -1371,6 +1371,7 @@ GameObject:
   - component: {fileID: 5308921012164081481}
   - component: {fileID: -4360342995708607037}
   - component: {fileID: 6797480827756528641}
+  - component: {fileID: 5580334502023404487}
   m_Layer: 14
   m_Name: ExitDoor
   m_TagString: Untagged
@@ -1408,7 +1409,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 401991486
+  GlobalObjectIdHash: 2383890221
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1498,3 +1499,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 841ade143a04e444d92528a648288df9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ForceDestroyWithScene
+--- !u!114 &5580334502023404487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8559443613435696601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54c81acbca62a445dabc8a07ff436a60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
+  openClip: {fileID: 8300000, guid: 8048068539a86ff4d811ba71aceb3558, type: 3}
+  volume: 1
+  startAngleThreshold: 0.25
+  pivot: {fileID: 8891580112988688947}
+  allowReplay: 1
+  stillFramesToRearm: 45

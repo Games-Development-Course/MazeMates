@@ -585,6 +585,8 @@ public class DoorController : NetworkBehaviour
 
     private IEnumerator ExitCinematicOpenRoutine(float chosenAngle)
     {
+        var sfx = GetComponent<DoorOpenSfx>();
+        if (sfx != null) sfx.TriggerOpenSfxOnce();
         if (exitCinematicSpinTarget != null && exitSpinDuration > 0f && Mathf.Abs(exitSpinDegrees) > 0.01f)
         {
             Quaternion start = exitCinematicSpinTarget.localRotation;

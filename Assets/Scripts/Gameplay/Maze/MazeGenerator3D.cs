@@ -991,7 +991,7 @@ public class MazeGenerator3D : MonoBehaviour
 
                 // IMPORTANT: only count the bomb's ROOT object, not its children
                 string n = t.gameObject.name;
-                if (n != "MazeBomb" && n != "MazeBomb(Clone)") continue;
+                if (n != "Bomb" && n != "Bomb(Clone)") continue;
 
                 // Ensure we only count the top-level bomb GO once:
                 // If this transform is not the root of its own hierarchy, skip.

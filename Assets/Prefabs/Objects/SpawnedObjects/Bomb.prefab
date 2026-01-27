@@ -10068,8 +10068,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6563b1322b5384740a61c52ba8d1d6f4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Collectible
-  pickupClip: {fileID: 8300000, guid: 146d4b19f95fe6d40832414952b4ea39, type: 3}
-  volume: 0.65
+  pickupClip: {fileID: 8300000, guid: 848e31edff4760240a71e853745d8524, type: 3}
+  volume: 0.792
   destroyOnPickup: 1
 --- !u!114 &7746399836895684741
 MonoBehaviour:

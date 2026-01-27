@@ -261,7 +261,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6563b1322b5384740a61c52ba8d1d6f4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Collectible
-  pickupClip: {fileID: 8300000, guid: 2a71d8e8ea428e0409d3df636b9f0192, type: 3}
+  pickupClip: {fileID: 8300000, guid: 598cbae26042a1d42988a1753981e5d9, type: 3}
   volume: 1
   destroyOnPickup: 1
 --- !u!114 &-6463058970796328759

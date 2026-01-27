@@ -260,8 +260,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
   ShowTopMostFoldoutHeaderGroup: 1
-  openClip: {fileID: 8300000, guid: 5ad1232b83c354d939ecc3f14e79a2a3, type: 3}
-  volume: 0.824
+  openClip: {fileID: 8300000, guid: e306fc10f06b9b54c969141e5eb75edd, type: 3}
+  volume: 1
   startAngleThreshold: 0.25
   pivot: {fileID: 0}
 --- !u!114 &6894894911927113548

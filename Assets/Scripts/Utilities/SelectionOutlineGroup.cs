@@ -6,7 +6,7 @@ public class SelectionOutlineGroup : MonoBehaviour
     [Header("Assign the 4 Outlines here (order = buttons order)")]
     [SerializeField] private Outline[] outlines;
 
-    [Header("Outline distances")]
+    [Header("Outline distance")]
     [SerializeField] private Vector2 normalDistance = new Vector2(4f, 4f);
     [SerializeField] private Vector2 selectedDistance = new Vector2(9f, 9f);
 

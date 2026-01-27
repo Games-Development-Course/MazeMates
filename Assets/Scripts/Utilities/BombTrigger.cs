@@ -30,7 +30,6 @@ public class BombTrigger : NetworkBehaviour
 
     private void OnDisable()
     {
-        // ✅ אם הפצצה נעלמת בזמן שהמטייל בתוך הטריגר – נכבה זרקור
         if (!IsServer) return;
         if (!travellerInside) return;
 
@@ -40,7 +39,6 @@ public class BombTrigger : NetworkBehaviour
 
     private void OnDestroy()
     {
-        // גיבוי נוסף (לפעמים OnDisable מספיק, אבל זה בטוח)
         if (!IsServer) return;
         if (!travellerInside) return;
 
@@ -54,7 +52,16 @@ public class BombTrigger : NetworkBehaviour
         if (no == null || !no.IsSpawned || !no.IsPlayerObject)
             return false;
 
-        // אם אצלכם traveller יכול לא להיות host, אפשר להחליף לזיהוי כמו ב-PickupObject.
+        // ✅ Prefer GameManager.traveller (traveller != necessarily host)
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+        {
+            var tNo = gm.traveller.GetComponent<NetworkObject>();
+            if (tNo != null && tNo.IsSpawned)
+                return tNo.NetworkObjectId == no.NetworkObjectId;
+        }
+
+        // fallback: old behavior (host)
         return no.OwnerClientId == NetworkManager.ServerClientId;
     }
 
@@ -73,14 +80,12 @@ public class BombTrigger : NetworkBehaviour
             Send = new ClientRpcSendParams { TargetClientIds = list.ToArray() }
         };
     }
+
     public void ForceOff_Server()
     {
         if (!IsServer) return;
-
-        // גם אם לא קיבלנו Exit (כי despawn), נכבה את הזרקור
         SetBombSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
     }
-
 
     [ClientRpc]
     private void SetBombSpotlightTargetClientRpc(bool on, ClientRpcParams rpcParams = default)

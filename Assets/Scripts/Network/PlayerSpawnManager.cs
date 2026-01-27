@@ -5,6 +5,7 @@
 
 using System.Collections;
 using System.Linq;
+using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -47,7 +48,9 @@ public sealed class PlayerSpawnManager : MonoBehaviour
     private int sceneLoadToken;
     private Coroutine sceneInitRoutine;
 
-    // -------------------------------------------------
+    // ✅ Role assignment (stable)
+    private ulong _travellerClientId = ulong.MaxValue;
+    private ulong _navigatorClientId = ulong.MaxValue;
 
     private void Awake()
     {
@@ -91,12 +94,9 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             nm.SceneManager.OnLoadEventCompleted -= OnNetcodeLoadEventCompleted;
     }
 
-    // -------------------------------------------------
-    // Scene / Network events
-    // -------------------------------------------------
-
     private void OnServerStarted()
     {
+        AssignRolesServerStable();
         var scene = SceneManager.GetActiveScene().name;
         BeginSceneInit(scene);
     }
@@ -120,16 +120,14 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         var nm = NetworkManager.Singleton;
         if (nm == null || !nm.IsServer) return;
 
+        AssignRolesServerStable();
+
         var sceneName = SceneManager.GetActiveScene().name;
         if (!IsGameplayScene(sceneName)) return;
 
         if (sceneSpawnsReady)
             EnsureOnlyThisClient(clientId);
     }
-
-    // -------------------------------------------------
-    // Core flow
-    // -------------------------------------------------
 
     private bool IsGameplayScene(string sceneName)
     {
@@ -142,7 +140,6 @@ public sealed class PlayerSpawnManager : MonoBehaviour
 
         sceneSpawnsReady = false;
 
-        // ✅ IMPORTANT: do nothing in non-gameplay scenes (e.g., StartScene)
         if (!IsGameplayScene(sceneName))
             return;
 
@@ -162,17 +159,13 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         yield return null;
         yield return new WaitForEndOfFrame();
 
-        // 1) First resolve
         ResolvePlayerStartPoints(sceneName);
 
-        // 2) GameScene: wait for maze to finish aligning (world may move)
         if (sceneName == gameSceneName)
             yield return WaitForMazeReady(token);
 
-        // 3) Re-resolve AFTER maze is ready/aligned (critical for Navigator)
         ResolvePlayerStartPoints(sceneName);
 
-        // 4) Now wait until navigator spawn exists (late load safety)
         yield return WaitForNavigatorSpawnPoint(sceneName, token);
 
         if (sceneName == tutorialSceneName)
@@ -181,8 +174,40 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         if (token != sceneLoadToken) yield break;
 
         sceneSpawnsReady = true;
-        SpawnOrMoveAllPlayers();
 
+        AssignRolesServerStable();
+        SpawnOrMoveAllPlayers();
+    }
+
+    // -------------------------------------------------
+    // ✅ Stable role assignment (Traveller != necessarily host)
+    // -------------------------------------------------
+    private void AssignRolesServerStable()
+    {
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer) return;
+
+        var ids = nm.ConnectedClientsIds?.ToList();
+        if (ids == null || ids.Count == 0) return;
+
+        ids.Sort();
+
+        // If traveller not assigned or disconnected -> assign smallest id
+        if (_travellerClientId == ulong.MaxValue || !nm.ConnectedClients.ContainsKey(_travellerClientId))
+            _travellerClientId = ids[0];
+
+        // Navigator is the first id that isn't traveller
+        _navigatorClientId = ids.FirstOrDefault(id => id != _travellerClientId);
+        if (_navigatorClientId == 0 && _travellerClientId == 0)
+        {
+            // If only traveller exists, FirstOrDefault returns 0 -> treat as "none"
+            if (ids.Count < 2)
+                _navigatorClientId = ulong.MaxValue;
+        }
+
+        // Fallback safety: if something weird happens, keep old behavior
+        if (_travellerClientId == ulong.MaxValue)
+            _travellerClientId = NetworkManager.ServerClientId;
     }
 
     // -------------------------------------------------
@@ -275,7 +300,6 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             gm.navigator = nClient.PlayerObject.gameObject;
         }
 
-        // דיבאג שמוכיח שהשרת באמת רואה מיקום נכון (לא (0,0,0))
         var tPos = gm.traveller ? gm.traveller.transform.position : Vector3.zero;
         var nPos = gm.navigator ? gm.navigator.transform.position : Vector3.zero;
         Debug.Log($"[SPAWN] RegisterPlayersInGameManager | traveller={(gm.traveller ? gm.traveller.name : "NULL")} pos={tPos} | navigator={(gm.navigator ? gm.navigator.name : "NULL")} pos={nPos}");
@@ -289,21 +313,18 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         var ids = nm.ConnectedClientsIds;
         if (ids == null || ids.Count == 0) return;
 
-        ulong travellerId = NetworkManager.ServerClientId;
+        AssignRolesServerStable();
 
-        // navigatorId exists only if there is a non-server client connected
-        bool hasNavigator = ids.Any(id => id != travellerId);
-        ulong navigatorId = ids.FirstOrDefault(id => id != travellerId);
+        ulong travellerId = _travellerClientId;
+        bool hasNavigator = _navigatorClientId != ulong.MaxValue && ids.Contains(_navigatorClientId);
+        ulong navigatorId = _navigatorClientId;
 
         EnsurePlayer(travellerId, travellerPrefab, travellerSpawn, true);
 
-        if (hasNavigator && ids.Contains(navigatorId))
+        if (hasNavigator)
             EnsurePlayer(navigatorId, navigatorPrefab, navigatorSpawn, false);
 
-
-        RegisterPlayersInGameManager(travellerId, hasNavigator ? navigatorId : (ulong?)null);   
-
-
+        RegisterPlayersInGameManager(travellerId, hasNavigator ? navigatorId : (ulong?)null);
     }
 
     private void EnsureOnlyThisClient(ulong clientId)
@@ -314,7 +335,9 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         var nm = NetworkManager.Singleton;
         if (nm == null || !nm.IsServer) return;
 
-        bool isTraveller = clientId == NetworkManager.ServerClientId;
+        AssignRolesServerStable();
+
+        bool isTraveller = clientId == _travellerClientId;
         var prefab = isTraveller ? travellerPrefab : navigatorPrefab;
         var spawn = isTraveller ? travellerSpawn : navigatorSpawn;
 
@@ -341,14 +364,13 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             else
             {
                 Debug.LogError("[SPAWN] ❌ Navigator has NO PlayerStartPoint in scene");
-                return; // 🚨 Hard fail for Navigator
+                return;
             }
         }
 
         Vector3 pos = spawn ? spawn.position : fallbackTravellerPos;
         Quaternion rot = spawn ? spawn.rotation : Quaternion.Euler(0f, fallbackYRotation, 0f);
 
-        // If already exists: teleport + re-apply role (Option A safety)
         if (cc.PlayerObject != null)
         {
             ApplyRoleIfPresent(cc.PlayerObject, isTraveller);
@@ -356,7 +378,6 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             return;
         }
 
-        // Spawn new
         var obj = Instantiate(prefab, pos, rot);
         var netObj = obj.GetComponent<NetworkObject>();
         if (netObj == null)
@@ -366,16 +387,11 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             return;
         }
 
-        // ✅ Option A: set role BEFORE SpawnAsPlayerObject
         ApplyRoleIfPresent(netObj, isTraveller);
 
         netObj.SpawnAsPlayerObject(clientId, destroyWithScene);
     }
 
-    /// <summary>
-    /// Option A helper:
-    /// Assumes PlayerMovement has: public void SetRole(PlayerMovement.PlayerRole r)
-    /// </summary>
     private static void ApplyRoleIfPresent(NetworkObject playerObject, bool isTraveller)
     {
         if (playerObject == null) return;
@@ -384,23 +400,21 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         if (pm != null)
             pm.SetRole(isTraveller ? PlayerMovement.PlayerRole.Traveller : PlayerMovement.PlayerRole.Navigator);
 
-        // ✅ Set initial area state
         var area = playerObject.GetComponent<PlayerAreaState>();
         if (area != null)
             area.currentArea = isTraveller
                 ? PlayerAreaState.AreaState.Maze
-                : PlayerAreaState.AreaState.NavigatorRoom; // נווט מתחיל בחדר נווט
+                : PlayerAreaState.AreaState.NavigatorRoom;
     }
 
     private IEnumerator WaitForNavigatorSpawnPoint(string sceneName, int token)
     {
-        const int maxFrames = 180; // ~3 seconds at 60fps
+        const int maxFrames = 180;
 
         for (int i = 0; i < maxFrames; i++)
         {
             if (token != sceneLoadToken) yield break;
 
-            // try resolve again
             ResolvePlayerStartPoints(sceneName);
 
             if (navigatorSpawn != null)
@@ -426,13 +440,8 @@ public sealed class PlayerSpawnManager : MonoBehaviour
             }
         }
 
-        // Fallback: at least set locally (authoritative side will replicate)
         obj.transform.SetPositionAndRotation(pos, rot);
     }
-
-    // -------------------------------------------------
-    // Tutorial helper (unchanged)
-    // -------------------------------------------------
 
     private bool TryGetTutorialManagerSpawn(
         bool isTraveller,

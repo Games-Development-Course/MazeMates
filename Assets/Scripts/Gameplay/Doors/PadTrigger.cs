@@ -10,14 +10,13 @@ public class PadTrigger : NetworkBehaviour
     private DoorController controller;
 
     [Header("Hint spotlight reminder (Puzzle only)")]
-    [SerializeField] private float hintReminderIntervalSeconds = 15f;   // כל כמה זמן לנסות להדליק שוב
-    [SerializeField] private float hintSpotlightPulseSeconds = 6f;      // כמה זמן הזרקור דולק כל פעם
+    [SerializeField] private float hintReminderIntervalSeconds = 15f;
+    [SerializeField] private float hintSpotlightPulseSeconds = 6f;
     private float nextPulseTimeServer = -1f;
 
     private Coroutine hintLoopCo;
     private bool puzzleActive;
     private bool cancelCurrentPulse;
-
 
     private readonly NetworkVariable<bool> playerOnPadNet = new(
         false,
@@ -50,10 +49,8 @@ public class PadTrigger : NetworkBehaviour
 
         Debug.Log($"[PadTrigger][Server] Traveller ENTER pad | door={controller.name} isOpen={controller.IsOpen()}");
 
-        // ✅ נוכחות על הפד (תמיד)
         SetNavigatorPadPresenceTargetClientRpc(true, MakeAllNonServerClientsTargetParams());
 
-        // ✅ אם הדלת עדיין לא פתוחה – זרקור "פתח דלת" זמין (לפני שהתחילה חידה)
         if (!controller.IsOpen())
             SetNavigatorOpenDoorAvailableTargetClientRpc(true, MakeAllNonServerClientsTargetParams());
 
@@ -74,14 +71,12 @@ public class PadTrigger : NetworkBehaviour
 
         Debug.Log($"[PadTrigger][Server] Traveller EXIT pad | door={(controller != null ? controller.name : "NULL")}");
 
-        // ✅ כיבוי נוכחות + הכל
         SetNavigatorPadPresenceTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
         SetNavigatorOpenDoorAvailableTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
         SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
 
         StopHintLoop_Server();
 
-        // סגירת פאזל אם צריך
         if (controller != null && !controller.IsOpen())
         {
             var puzzle = controller.GetPuzzle();
@@ -90,9 +85,6 @@ public class PadTrigger : NetworkBehaviour
         }
     }
 
-    // -------------------------------------------------------
-    // Called by DoorController when PUZZLE actually starts
-    // -------------------------------------------------------
     public void NotifyPuzzleStarted_Server()
     {
         if (!IsServer) return;
@@ -100,24 +92,15 @@ public class PadTrigger : NetworkBehaviour
         EnsureController();
         if (controller == null) return;
 
-        // ✅ רק מסתירים "פתח דלת", אבל המטייל עדיין על הפד!
         SetNavigatorOpenDoorAvailableTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
-
-        // ✅ מתחילים לולאת רמזים
         StartHintLoop_Server();
     }
 
-    // -------------------------------------------------------
-    // Called by DoorController when a normal/exit door opens
-    // -------------------------------------------------------
     public void NotifyDoorActionStartedOrOpened_Server()
     {
         if (!IsServer) return;
 
-        // ✅ מסתירים "פתח דלת"
         SetNavigatorOpenDoorAvailableTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
-
-        // ✅ אם היה לנו רמזים רצים – מפסיקים
         StopHintLoop_Server();
     }
 
@@ -132,19 +115,14 @@ public class PadTrigger : NetworkBehaviour
         StopHintLoop_Server();
 
         puzzleActive = true;
-
-        // ✅ הפולס הראשון יהיה עוד X שניות מרגע תחילת החידה
         nextPulseTimeServer = Time.time + hintReminderIntervalSeconds;
 
         hintLoopCo = StartCoroutine(HintLoop_Server());
     }
 
-
     private void StopHintLoop_Server()
     {
         puzzleActive = false;
-
-        // ✅ אם היינו באמצע Pulse ארוך — לבטל אותו
         cancelCurrentPulse = true;
 
         if (hintLoopCo != null)
@@ -153,36 +131,29 @@ public class PadTrigger : NetworkBehaviour
             hintLoopCo = null;
         }
 
-        // ניקוי: לכבות זרקור רמז
         SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
     }
-
 
     private IEnumerator HintLoop_Server()
     {
         while (puzzleActive)
         {
-            // מחכים עד הזמן הבא
             while (puzzleActive && Time.time < nextPulseTimeServer)
                 yield return null;
 
             if (!puzzleActive) yield break;
 
-            // קובעים כבר עכשיו את הפולס הבא
             nextPulseTimeServer = Time.time + hintReminderIntervalSeconds;
 
-            // תנאים
             if (!playerOnPadNet.Value) continue;
 
             EnsureController();
             if (controller == null) continue;
-
             if (controller.IsOpen()) continue;
 
             var gm = GameManager.Instance;
             if (gm == null || gm.lifebuoys <= 0) continue;
 
-            // ✅ פולס ON ואז OFF (עם אפשרות ביטול אם השתמשו ברמז באמצע)
             cancelCurrentPulse = false;
 
             SetNavigatorHintSpotlightTargetClientRpc(true, MakeAllNonServerClientsTargetParams());
@@ -195,27 +166,16 @@ public class PadTrigger : NetworkBehaviour
         }
     }
 
-    // ✅ לקרוא לזה כשהנווט השתמש ברמז
     public void NotifyHintUsed_Server()
     {
         if (!IsServer) return;
         if (!puzzleActive) return;
 
-        // ✅ אם יש Pulse פעיל כרגע — לבטל את ההמתנה הארוכה שלו
         cancelCurrentPulse = true;
-
-        // כבה מיד
         SetNavigatorHintSpotlightTargetClientRpc(false, MakeAllNonServerClientsTargetParams());
-
-        // ✅ תדליק שוב עוד X שניות *מהשימוש*, לא מהפולס הקודם
         nextPulseTimeServer = Time.time + hintReminderIntervalSeconds;
     }
 
-
-
-    // -------------------------------------------------------
-    // Traveller message
-    // -------------------------------------------------------
     private void ShowTravellerPadMessageServer()
     {
         if (controller == null) return;
@@ -244,17 +204,38 @@ public class PadTrigger : NetworkBehaviour
         }
 
         if (!string.IsNullOrEmpty(msg))
-            SendTravellerMessageTargetClientRpc(msg, MakeTargetParams(NetworkManager.ServerClientId));
+            SendTravellerMessageTargetClientRpc(msg, MakeTargetParams(GetTravellerClientIdSafe()));
     }
 
+    // ✅ NEW: Traveller detection via GameManager.traveller NetworkObjectId (host-independent)
     private bool IsTravellerPlayerCollider(Collider other)
     {
         var no = other.GetComponentInParent<NetworkObject>();
         if (no == null || !no.IsSpawned || !no.IsPlayerObject)
             return false;
 
-        // אצלכם traveller הוא ה-host
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+        {
+            var tNo = gm.traveller.GetComponent<NetworkObject>();
+            if (tNo != null && tNo.IsSpawned)
+                return tNo.NetworkObjectId == no.NetworkObjectId;
+        }
+
+        // fallback
         return no.OwnerClientId == NetworkManager.ServerClientId;
+    }
+
+    private ulong GetTravellerClientIdSafe()
+    {
+        var gm = GameManager.Instance;
+        if (gm != null && gm.traveller != null)
+        {
+            var tNo = gm.traveller.GetComponent<NetworkObject>();
+            if (tNo != null && tNo.IsSpawned)
+                return tNo.OwnerClientId;
+        }
+        return NetworkManager.ServerClientId;
     }
 
     public bool IsPlayerOnPad() => playerOnPadNet.Value;
@@ -295,14 +276,12 @@ public class PadTrigger : NetworkBehaviour
         HUDManager.Instance?.ShowMessageForTraveller(msg);
     }
 
-    // ✅ NEW: נוכחות על הפד
     [ClientRpc]
     private void SetNavigatorPadPresenceTargetClientRpc(bool onPad, ClientRpcParams rpcParams = default)
     {
         NavigatorSpotlights.I?.SetTravellerOnPad(onPad);
     }
 
-    // ✅ NEW: זמינות זרקור "פתח דלת"
     [ClientRpc]
     private void SetNavigatorOpenDoorAvailableTargetClientRpc(bool available, ClientRpcParams rpcParams = default)
     {
