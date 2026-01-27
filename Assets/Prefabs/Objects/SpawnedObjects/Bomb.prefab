@@ -9932,8 +9932,9 @@ GameObject:
   - component: {fileID: 2129685663221492048}
   - component: {fileID: 4530065451951943076}
   - component: {fileID: 6962300602328726546}
+  - component: {fileID: 7746399836895684741}
   m_Layer: 0
-  m_Name: MazeBomb
+  m_Name: Bomb
   m_TagString: Bomb
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -10070,6 +10071,18 @@ MonoBehaviour:
   pickupClip: {fileID: 8300000, guid: 146d4b19f95fe6d40832414952b4ea39, type: 3}
   volume: 0.65
   destroyOnPickup: 1
+--- !u!114 &7746399836895684741
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7454851548193310993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 841ade143a04e444d92528a648288df9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ForceDestroyWithScene
 --- !u!1 &7540040679316195036
 GameObject:
   m_ObjectHideFlags: 0

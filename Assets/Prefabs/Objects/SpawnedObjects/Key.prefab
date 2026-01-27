@@ -149,8 +149,9 @@ GameObject:
   - component: {fileID: 9149439205559208746}
   - component: {fileID: 909592112345739759}
   - component: {fileID: 8275155893416625700}
+  - component: {fileID: -6463058970796328759}
   m_Layer: 0
-  m_Name: Key(Clone)
+  m_Name: Key
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -263,6 +264,18 @@ MonoBehaviour:
   pickupClip: {fileID: 8300000, guid: 2a71d8e8ea428e0409d3df636b9f0192, type: 3}
   volume: 1
   destroyOnPickup: 1
+--- !u!114 &-6463058970796328759
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4654885429082179475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 841ade143a04e444d92528a648288df9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ForceDestroyWithScene
 --- !u!1 &8038593885767566491
 GameObject:
   m_ObjectHideFlags: 0

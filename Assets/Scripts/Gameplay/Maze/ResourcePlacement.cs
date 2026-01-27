@@ -250,7 +250,12 @@ public static class ResourcePlacement
             }
 
             var netObj = go.GetComponent<NetworkObject>();
-            if (netObj != null) netObj.Spawn();
+            if (netObj != null)
+            {
+                netObj.DestroyWithScene = true;
+                netObj.Spawn(true); // ownership stays server
+            }
+
 
             blockedCells.Add(it.cell);
         }

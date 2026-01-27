@@ -1370,6 +1370,7 @@ GameObject:
   - component: {fileID: 2977382227461565810}
   - component: {fileID: 5308921012164081481}
   - component: {fileID: -4360342995708607037}
+  - component: {fileID: 6797480827756528641}
   m_Layer: 14
   m_Name: ExitDoor
   m_TagString: Untagged
@@ -1407,7 +1408,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2383890221
+  GlobalObjectIdHash: 401991486
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1485,3 +1486,15 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 0.043310285}
   m_Center: {x: 0, y: 0.5, z: -0.12}
+--- !u!114 &6797480827756528641
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8559443613435696601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 841ade143a04e444d92528a648288df9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ForceDestroyWithScene

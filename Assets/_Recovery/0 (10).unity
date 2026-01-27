@@ -1060,22 +1060,22 @@ MonoBehaviour:
   lobbySkinUI: {fileID: 1341531480}
   easyMazeW: 13
   easyMazeH: 13
-  easyHearts: 2
+  easyHearts: 3
   easyBombs: 3
   easyKeys: 3
   easyNormalDoors: 3
   easyPuzzleDoors: 1
   medMazeW: 15
   medMazeH: 15
-  medHearts: 2
+  medHearts: 3
   medBombs: 5
   medKeys: 5
   medNormalDoors: 4
   medPuzzleDoors: 1
   hardMazeW: 17
   hardMazeH: 17
-  hardHearts: 2
-  hardBombs: 6
+  hardHearts: 3
+  hardBombs: 7
   hardKeys: 7
   hardNormalDoors: 5
   hardPuzzleDoors: 1
@@ -2833,7 +2833,7 @@ MonoBehaviour:
   gameSceneName: GameScene
   fallbackTravellerPos: {x: 1, y: 0, z: 1}
   fallbackYRotation: 0
-  destroyWithScene: 1
+  destroyWithScene: 0
 --- !u!1 &570899136
 GameObject:
   m_ObjectHideFlags: 0
@@ -3450,8 +3450,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
-  m_EffectColor: {r: 0, g: 0, b: 0, a: 1}
-  m_EffectDistance: {x: 2, y: -2}
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 4, y: 4}
   m_UseGraphicAlpha: 1
 --- !u!114 &642895623
 MonoBehaviour:
@@ -3509,18 +3509,6 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 1778278499}
-        m_TargetAssemblyTypeName: SelectionOutlineGroup, Assembly-CSharp
-        m_MethodName: SelectIndex
-        m_Mode: 3
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 3
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
 --- !u!114 &642895624
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3543,13 +3531,13 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: ef42abeb610617c44a0266cf4ec70609, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
   m_FillClockwise: 1
   m_FillOrigin: 0
-  m_UseSpriteMesh: 1
+  m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
 --- !u!222 &642895625
 CanvasRenderer:
@@ -5099,8 +5087,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
-  m_EffectColor: {r: 0, g: 0, b: 0, a: 1}
-  m_EffectDistance: {x: 2, y: -2}
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 4, y: 4}
   m_UseGraphicAlpha: 1
 --- !u!114 &835892461
 MonoBehaviour:
@@ -5158,18 +5146,6 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 1778278499}
-        m_TargetAssemblyTypeName: SelectionOutlineGroup, Assembly-CSharp
-        m_MethodName: SelectIndex
-        m_Mode: 3
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 2
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
 --- !u!114 &835892462
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5192,13 +5168,13 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: 2c3b77bb111b16742892cad96531f8e0, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
   m_FillClockwise: 1
   m_FillOrigin: 0
-  m_UseSpriteMesh: 1
+  m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
 --- !u!222 &835892463
 CanvasRenderer:
@@ -5430,18 +5406,6 @@ MonoBehaviour:
       - m_Target: {fileID: 1341531480}
         m_TargetAssemblyTypeName: LobbySkinUI, Assembly-CSharp
         m_MethodName: PressStart
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 1778278499}
-        m_TargetAssemblyTypeName: SelectionOutlineGroup, Assembly-CSharp
-        m_MethodName: LockSelection
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -6663,8 +6627,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
-  m_EffectColor: {r: 0, g: 0, b: 0, a: 1}
-  m_EffectDistance: {x: 2, y: -2}
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 4, y: 4}
   m_UseGraphicAlpha: 1
 --- !u!114 &1098890920
 MonoBehaviour:
@@ -6722,18 +6686,6 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 1778278499}
-        m_TargetAssemblyTypeName: SelectionOutlineGroup, Assembly-CSharp
-        m_MethodName: SelectIndex
-        m_Mode: 3
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
 --- !u!114 &1098890921
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6756,13 +6708,13 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: f7ea752a792fbac4f963347483e962ab, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
   m_FillClockwise: 1
   m_FillOrigin: 0
-  m_UseSpriteMesh: 1
+  m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
 --- !u!222 &1098890922
 CanvasRenderer:
@@ -7525,7 +7477,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3456262190
+  GlobalObjectIdHash: 2983308818
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -7654,7 +7606,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 734139743
+  GlobalObjectIdHash: 68926164
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -7889,7 +7841,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1362849700}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d3da0c5179418be40ae21944b18d4969, type: 3}
   m_Name: 
@@ -7911,7 +7863,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1435749686
 RectTransform:
   m_ObjectHideFlags: 0
@@ -9436,7 +9388,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1778278498}
-  - component: {fileID: 1778278499}
   m_Layer: 5
   m_Name: SkinButtons
   m_TagString: Untagged
@@ -9457,8 +9408,8 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1098890918}
-  - {fileID: 1854413553}
   - {fileID: 835892459}
+  - {fileID: 1854413553}
   - {fileID: 642895621}
   - {fileID: 362236390}
   m_Father: {fileID: 2006323949}
@@ -9468,26 +9419,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: -7.8}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1778278499
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1778278497}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6bfb677ffdd868140b38800d2b99425b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
-  outlines:
-  - {fileID: 1098890919}
-  - {fileID: 1854413554}
-  - {fileID: 835892460}
-  - {fileID: 642895622}
-  normalDistance: {x: 2, y: -2}
-  selectedDistance: {x: 7, y: -7}
-  defaultSelectedIndex: 0
 --- !u!1 &1786251621
 GameObject:
   m_ObjectHideFlags: 0
@@ -9982,8 +9913,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
-  m_EffectColor: {r: 0, g: 0, b: 0, a: 1}
-  m_EffectDistance: {x: 2, y: -2}
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 4, y: 4}
   m_UseGraphicAlpha: 1
 --- !u!114 &1854413555
 MonoBehaviour:
@@ -10041,18 +9972,6 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 1778278499}
-        m_TargetAssemblyTypeName: SelectionOutlineGroup, Assembly-CSharp
-        m_MethodName: SelectIndex
-        m_Mode: 3
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 1
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
 --- !u!114 &1854413556
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10075,13 +9994,13 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: b2be7c93ef969c14fb22d0fba87c1cd3, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
   m_FillClockwise: 1
   m_FillOrigin: 0
-  m_UseSpriteMesh: 1
+  m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
 --- !u!222 &1854413557
 CanvasRenderer:
@@ -10539,7 +10458,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3436842318
+  GlobalObjectIdHash: 1801307694
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -10791,7 +10710,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1986290941
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11128,7 +11047,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &2002847852
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11136,12 +11055,12 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2002847851}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3977619918
+  GlobalObjectIdHash: 2428362746
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -11176,7 +11095,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2002847851}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 96e40fa4befa8499bae49f57aa713758, type: 3}
   m_Name: 
@@ -11200,7 +11119,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &2006323949
 RectTransform:
   m_ObjectHideFlags: 0
@@ -12113,6 +12032,71 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: -132}
   m_SizeDelta: {x: 350, y: 70}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1001 &8082707606824974155
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 525142363841272789, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_Name
+      value: pausecons
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 675.45917
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 410.4547
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 2.3899
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151901834885279983, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5788011417793234523, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 2341594273
+      objectReference: {fileID: 0}
+    - target: {fileID: 5788011417793234523, guid: ecdf63974f5b4884996725064f562693, type: 3}
+      propertyPath: InScenePlacedSourceGlobalObjectIdHash
+      value: 4141159076
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ecdf63974f5b4884996725064f562693, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -12130,3 +12114,4 @@ SceneRoots:
   - {fileID: 2002847853}
   - {fileID: 383138010}
   - {fileID: 1098686996}
+  - {fileID: 8082707606824974155}

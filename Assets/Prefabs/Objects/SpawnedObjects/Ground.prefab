@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 7367218935197735701}
   - component: {fileID: 1528050930656105306}
   m_Layer: 8
-  m_Name: Quad
+  m_Name: Ground
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

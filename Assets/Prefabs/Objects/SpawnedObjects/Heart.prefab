@@ -252,8 +252,9 @@ GameObject:
   - component: {fileID: 239259283704700495}
   - component: {fileID: 6611569066103347738}
   - component: {fileID: 5625506204233617034}
+  - component: {fileID: -1014393385860894007}
   m_Layer: 8
-  m_Name: Heart(Clone) Variant
+  m_Name: Heart
   m_TagString: Heart
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -366,3 +367,15 @@ MonoBehaviour:
   pickupClip: {fileID: 8300000, guid: 1be2fcc16ab0da84f99ba7c633037620, type: 3}
   volume: 0.806
   destroyOnPickup: 1
+--- !u!114 &-1014393385860894007
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8215813411732749290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 841ade143a04e444d92528a648288df9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ForceDestroyWithScene

@@ -2,33 +2,35 @@ using UnityEngine;
 
 public class NavHintsController : MonoBehaviour
 {
-    [SerializeField] private GameObject showHint; // זה האובייקט ShowHint ב-NavEnvironment
+    [SerializeField] private GameObject showHint;        // כפתור/אובייקט ShowHint ב-NavEnvironment
+    [SerializeField] private GameObject hintRoomSprite;  // הספרייט בחדר הנווט (או ההורה שלו)
 
     private void Start()
     {
         Apply();
 
-        // אם הערך יכול להשתנות בזמן ריצה:
-        if (GameConfigNet.Instance != null)
-            GameConfigNet.Instance.ShowHints.OnValueChanged += OnHintsChanged;
+        var cfg = GameConfigNet.Instance;
+        if (cfg != null)
+            cfg.ShowHints.OnValueChanged += OnHintsChanged;
     }
 
     private void OnDestroy()
     {
-        if (GameConfigNet.Instance != null)
-            GameConfigNet.Instance.ShowHints.OnValueChanged -= OnHintsChanged;
+        var cfg = GameConfigNet.Instance;
+        if (cfg != null)
+            cfg.ShowHints.OnValueChanged -= OnHintsChanged;
     }
 
     private void OnHintsChanged(bool oldValue, bool newValue) => Apply();
 
     private void Apply()
     {
-        if (!showHint) return;
-
         bool show = true;
-        if (GameConfigNet.Instance != null)
-            show = GameConfigNet.Instance.ShowHints.Value;
+        var cfg = GameConfigNet.Instance;
+        if (cfg != null)
+            show = cfg.ShowHints.Value;
 
-        showHint.SetActive(show);
+        if (showHint) showHint.SetActive(show);
+        if (hintRoomSprite) hintRoomSprite.SetActive(show);
     }
 }

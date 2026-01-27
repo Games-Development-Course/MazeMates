@@ -1,4 +1,5 @@
-// Assets/Scripts/UI/HostStartGame.cs
+ï»¿// Assets/Scripts/UI/HostStartGame.cs
+using System.Text;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -51,24 +52,41 @@ public sealed class HostStartGame : MonoBehaviour
     private const int MED_HINTS = 2;
     private const int HARD_HINTS = 4;
 
+    [Header("Debug")]
+    [SerializeField] private bool verboseLogs = true;
+
+    private bool _nmBound;
+    private bool _sceneBound;
+
     private void Awake()
     {
+        DLog("Awake()");
         if (hostButtonsPanel != null)
             hostButtonsPanel.SetActive(false);
     }
 
     private void OnEnable()
     {
+        DLog("OnEnable()");
+        BindSceneCallbacks();
         TryBind();
-        ApplyVisibility();
+        BindNetworkCallbacks();
+        ApplyVisibility("OnEnable");
+        DumpState("OnEnable");
     }
 
     private void OnDisable()
     {
+        DLog("OnDisable()");
+
         if (lobbyState != null)
             lobbyState.SessionFull.OnValueChanged -= OnSessionFullChanged;
+
+        UnbindNetworkCallbacks();
+        UnbindSceneCallbacks();
     }
 
+    // -------------------- Binding --------------------
     private void TryBind()
     {
         if (lobbyState == null)
@@ -78,116 +96,282 @@ public sealed class HostStartGame : MonoBehaviour
             lobbySkinUI = FindFirstObjectByType<LobbySkinUI>();
 
         if (lobbyState != null)
+        {
+            lobbyState.SessionFull.OnValueChanged -= OnSessionFullChanged;
             lobbyState.SessionFull.OnValueChanged += OnSessionFullChanged;
+
+            DLog($"TryBind() lobbyState={(lobbyState ? lobbyState.name : "NULL")} isSpawned={(lobbyState != null && lobbyState.IsSpawned)}");
+        }
+        else
+        {
+            DLog("TryBind() lobbyState=NULL");
+        }
+
+        DLog($"TryBind() lobbySkinUI={(lobbySkinUI ? lobbySkinUI.name : "NULL")}");
     }
 
-    private void OnSessionFullChanged(bool _, bool __) => ApplyVisibility();
+    private void OnSessionFullChanged(bool _, bool __)
+    {
+        DLog("OnSessionFullChanged()");
+        ApplyVisibility("LobbyState.SessionFull changed");
+        DumpState("OnSessionFullChanged");
+    }
 
-    private void ApplyVisibility()
+    // -------------------- Scene callbacks --------------------
+    private void BindSceneCallbacks()
+    {
+        if (_sceneBound) return;
+        _sceneBound = true;
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private void UnbindSceneCallbacks()
+    {
+        if (!_sceneBound) return;
+        _sceneBound = false;
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        DLog($"OnSceneLoaded(scene={scene.name}, mode={mode})");
+        // ××—×¨×™ ×—×–×¨×” ×œ-StartScene ×™×© ×”×¨×‘×” ×¤×¢×ž×™× race condition: objects ×¢×•×“ ×œ× binded.
+        TryBind();
+        BindNetworkCallbacks();
+        ApplyVisibility($"SceneLoaded:{scene.name}");
+        DumpState($"SceneLoaded:{scene.name}");
+    }
+
+    // -------------------- Network callbacks --------------------
+    private void BindNetworkCallbacks()
+    {
+        if (_nmBound) return;
+
+        var nm = NetworkManager.Singleton;
+        if (nm == null)
+        {
+            DLog("BindNetworkCallbacks() -> NetworkManager.Singleton=NULL (not ready?)");
+            return;
+        }
+
+        _nmBound = true;
+
+        nm.OnClientConnectedCallback -= OnClientConnChanged;
+        nm.OnClientConnectedCallback += OnClientConnChanged;
+
+        nm.OnClientDisconnectCallback -= OnClientConnChanged;
+        nm.OnClientDisconnectCallback += OnClientConnChanged;
+
+        nm.OnServerStarted -= OnServerStarted;
+        nm.OnServerStarted += OnServerStarted;
+
+        DLog("BindNetworkCallbacks() -> bound OK");
+    }
+
+    private void UnbindNetworkCallbacks()
+    {
+        if (!_nmBound) return;
+        _nmBound = false;
+
+        var nm = NetworkManager.Singleton;
+        if (nm == null) return;
+
+        nm.OnClientConnectedCallback -= OnClientConnChanged;
+        nm.OnClientDisconnectCallback -= OnClientConnChanged;
+        nm.OnServerStarted -= OnServerStarted;
+
+        DLog("UnbindNetworkCallbacks() -> unbound");
+    }
+
+    private void OnServerStarted()
+    {
+        DLog("OnServerStarted()");
+        ApplyVisibility("OnServerStarted");
+        DumpState("OnServerStarted");
+    }
+
+    private void OnClientConnChanged(ulong clientId)
+    {
+        DLog($"OnClientConnChanged(clientId={clientId})");
+        ApplyVisibility("ClientConnChanged");
+        DumpState("ClientConnChanged");
+    }
+
+    // -------------------- Visibility --------------------
+    private void ApplyVisibility(string reason)
     {
         if (hostButtonsPanel == null) return;
 
         var nm = NetworkManager.Singleton;
-        bool isHost = nm != null && nm.IsHost;
-        bool full = lobbyState != null && lobbyState.IsSpawned && lobbyState.SessionFull.Value;
 
-        hostButtonsPanel.SetActive(isHost && full);
+        bool nmOk = nm != null;
+        bool isListening = nmOk && nm.IsListening;
+        bool isHost = nmOk && nm.IsHost;
+
+        int clientCount = nmOk ? nm.ConnectedClientsList.Count : -1;
+        bool hasRealClient = nmOk && isListening && clientCount >= 2;
+
+        // NOTE: ×‘×ž×¦×‘×™× ×ž×¡×•×™×ž×™× lobbyState ×¢×•×“ ×œ× Spawned ×œ×ž×¨×•×ª ×©×™×© 2 ×§×œ×™×™× ×˜×™×,
+        // ××– ×œ× × ×›×‘×” ××ª ×”×¤×× ×œ ×‘×’×œ×œ lobbyState, ×¨×§ × ×œ×•×’.
+        bool lobbySpawned = lobbyState != null && lobbyState.IsSpawned;
+        bool lobbyFull = lobbySpawned && lobbyState.SessionFull.Value;
+
+        bool visible = isHost && hasRealClient;
+
+        hostButtonsPanel.SetActive(visible);
+
+        DLog($"ApplyVisibility({reason}) -> visible={visible} | " +
+             $"nmOk={nmOk} listening={isListening} host={isHost} clients={clientCount} hasRealClient={hasRealClient} | " +
+             $"lobbySpawned={lobbySpawned} lobbyFull={lobbyFull}");
     }
 
+    // -------------------- Public API --------------------
     public void StartTutorial()
     {
-        var nm = NetworkManager.Singleton;
-        if (nm == null || !nm.IsServer) return;
+        DumpState("StartTutorial:BEFORE");
 
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer)
+        {
+            DLog("StartTutorial() ABORT: nm null or not server");
+            DumpState("StartTutorial:ABORT");
+            return;
+        }
+
+        DLog($"StartTutorial() -> Loading scene '{tutorialSceneName}' via Netcode SceneManager");
         nm.SceneManager.LoadScene(tutorialSceneName, LoadSceneMode.Single);
     }
 
     public void StartGameEasy() => StartGameWithDifficulty(0);
     public void StartGameMedium() => StartGameWithDifficulty(1);
     public void StartGameHard() => StartGameWithDifficulty(2);
+
+    // âœ… Used by "Restart" flow (force seed)
     public void StartGameWithDifficultyAndSeed(int diff, int seed)
     {
+        DumpState($"StartGameWithDifficultyAndSeed:BEFORE diff={diff} seed={seed}");
+
         var nm = NetworkManager.Singleton;
-        if (nm == null || !nm.IsServer) return;
+        if (nm == null || !nm.IsServer)
+        {
+            DLog("StartGameWithDifficultyAndSeed() ABORT: nm null or not server");
+            DumpState("StartGameWithDifficultyAndSeed:ABORT_NOT_SERVER");
+            return;
+        }
+
+        if (!nm.IsListening)
+        {
+            DLog("StartGameWithDifficultyAndSeed() ABORT: nm not listening (DISCONNECTED?)");
+            DumpState("StartGameWithDifficultyAndSeed:ABORT_NOT_LISTENING");
+            return;
+        }
 
         if (nm.ConnectedClientsList.Count < 2)
         {
-            Debug.LogWarning("No clients connected yet!");
+            DLog("StartGameWithDifficultyAndSeed() ABORT: less than 2 clients (other player missing?)");
+            DumpState("StartGameWithDifficultyAndSeed:ABORT_CLIENTS<2");
             return;
         }
 
         var cfg = GameConfigNet.Instance;
         if (cfg == null)
         {
-            Debug.LogError("GameConfigNet is missing in the Start/Menu scene (NetworkManager scene).");
+            DLog("StartGameWithDifficultyAndSeed() ABORT: GameConfigNet.Instance is NULL (not in scene? not spawned? destroyed?)");
+            DumpState("StartGameWithDifficultyAndSeed:ABORT_CFG_NULL");
             return;
         }
 
-        // same configs as StartGameWithDifficulty, but seed is forced
-        if (diff == 0)
+        DLog($"StartGameWithDifficultyAndSeed() -> cfg={(cfg ? cfg.name : "NULL")} cfgIsSpawned={(cfg != null && cfg.IsSpawned)}");
+
+        ApplyConfig(diff, seed);
+
+        hostButtonsPanel?.SetActive(false);
+
+        // Open skins menu (this is your existing â€œcorrectâ€ flow)
+        cfg.SetSkinSelectOpenServerRpc(true);
+        DLog("StartGameWithDifficultyAndSeed() -> SetSkinSelectOpenServerRpc(true) sent");
+
+        if (lobbySkinUI != null)
         {
-            cfg.SetConfigServerRpc(
-                easyMazeW, easyMazeH,
-                easyHearts, easyBombs, easyKeys,
-                easyNormalDoors, easyPuzzleDoors,
-                0, seed,
-                easyLives,
-                easyBombs,
-                EASY_HINTS
-            );
-        }
-        else if (diff == 1)
-        {
-            cfg.SetConfigServerRpc(
-                medMazeW, medMazeH,
-                medHearts, medBombs, medKeys,
-                medNormalDoors, medPuzzleDoors,
-                1, seed,
-                medLives,
-                0,
-                MED_HINTS
-            );
+            lobbySkinUI.OpenSkinMenu();
+            DLog("StartGameWithDifficultyAndSeed() -> lobbySkinUI.OpenSkinMenu()");
         }
         else
         {
-            cfg.SetConfigServerRpc(
-                hardMazeW, hardMazeH,
-                hardHearts, hardBombs, hardKeys,
-                hardNormalDoors, hardPuzzleDoors,
-                2, seed,
-                hardLives,
-                0,
-                HARD_HINTS
-            );
+            DLog("StartGameWithDifficultyAndSeed() -> lobbySkinUI is NULL (won't open locally)");
         }
 
-        // same flow (skins menu) – no manual scene boot
-        hostButtonsPanel?.SetActive(false);
-        cfg.SetSkinSelectOpenServerRpc(true);
-
-        if (lobbySkinUI != null)
-            lobbySkinUI.OpenSkinMenu();
+        DumpState("StartGameWithDifficultyAndSeed:AFTER");
     }
 
     private void StartGameWithDifficulty(int diff)
     {
+        DumpState($"StartGameWithDifficulty:BEFORE diff={diff}");
+
         var nm = NetworkManager.Singleton;
-        if (nm == null || !nm.IsServer) return;
+        if (nm == null || !nm.IsServer)
+        {
+            DLog("StartGameWithDifficulty() ABORT: nm null or not server");
+            DumpState("StartGameWithDifficulty:ABORT_NOT_SERVER");
+            return;
+        }
+
+        if (!nm.IsListening)
+        {
+            DLog("StartGameWithDifficulty() ABORT: nm not listening (DISCONNECTED?)");
+            DumpState("StartGameWithDifficulty:ABORT_NOT_LISTENING");
+            return;
+        }
 
         if (nm.ConnectedClientsList.Count < 2)
         {
-            Debug.LogWarning("No clients connected yet!");
+            DLog("StartGameWithDifficulty() ABORT: less than 2 clients (other player missing?)");
+            DumpState("StartGameWithDifficulty:ABORT_CLIENTS<2");
             return;
         }
 
         var cfg = GameConfigNet.Instance;
         if (cfg == null)
         {
-            Debug.LogError("GameConfigNet is missing in the Start/Menu scene (NetworkManager scene).");
+            DLog("StartGameWithDifficulty() ABORT: GameConfigNet.Instance is NULL");
+            DumpState("StartGameWithDifficulty:ABORT_CFG_NULL");
             return;
         }
 
         int seed = Random.Range(1, int.MaxValue);
+        DLog($"StartGameWithDifficulty() -> generated seed={seed}");
+
+        ApplyConfig(diff, seed);
+
+        hostButtonsPanel?.SetActive(false);
+
+        cfg.SetSkinSelectOpenServerRpc(true);
+        DLog("StartGameWithDifficulty() -> SetSkinSelectOpenServerRpc(true) sent");
+
+        if (lobbySkinUI != null)
+        {
+            lobbySkinUI.OpenSkinMenu();
+            DLog("StartGameWithDifficulty() -> lobbySkinUI.OpenSkinMenu()");
+        }
+        else
+        {
+            DLog("StartGameWithDifficulty() -> lobbySkinUI is NULL (won't open locally)");
+        }
+
+        DumpState("StartGameWithDifficulty:AFTER");
+    }
+
+    private void ApplyConfig(int diff, int seed)
+    {
+        var cfg = GameConfigNet.Instance;
+        if (cfg == null)
+        {
+            DLog("ApplyConfig() -> cfg NULL (should not happen here)");
+            return;
+        }
+
+        DLog($"ApplyConfig(diff={diff}, seed={seed}) BEGIN");
 
         if (diff == 0)
         {
@@ -226,14 +410,57 @@ public sealed class HostStartGame : MonoBehaviour
             );
         }
 
-        // áî÷åí ìäúçéì îùç÷ ëàï:
-        hostButtonsPanel?.SetActive(false);
+        DLog("ApplyConfig() -> SetConfigServerRpc SENT");
+    }
 
-        // ìôúåç úôøéè ñ÷éðéí ìëåìí (ãøê NetVar)
-        cfg.SetSkinSelectOpenServerRpc(true);
+    // -------------------- Debug helpers --------------------
+    private void DumpState(string tag)
+    {
+        if (!verboseLogs) return;
 
-        // åâí ìå÷ìéú ìäåñè (áãøê ëìì ééôúç ãøê ä-NetVar àáì æä îééãé åðçîã)
-        if (lobbySkinUI != null)
-            lobbySkinUI.OpenSkinMenu();
+        var nm = NetworkManager.Singleton;
+        var scene = SceneManager.GetActiveScene();
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"[HostStartGame][DUMP] tag={tag}");
+        sb.AppendLine($"  scene={scene.name} loaded={scene.isLoaded}");
+
+        sb.AppendLine($"  nm={(nm ? "OK" : "NULL")}");
+        if (nm != null)
+        {
+            sb.AppendLine($"  nm.IsListening={nm.IsListening} IsHost={nm.IsHost} IsServer={nm.IsServer} IsClient={nm.IsClient}");
+            sb.AppendLine($"  LocalClientId={nm.LocalClientId} ServerClientId={NetworkManager.ServerClientId}");
+            sb.AppendLine($"  ConnectedClientsList.Count={nm.ConnectedClientsList.Count}");
+
+            // list ids
+            sb.Append("  ConnectedClientIds=[");
+            for (int i = 0; i < nm.ConnectedClientsList.Count; i++)
+            {
+                sb.Append(nm.ConnectedClientsList[i].ClientId);
+                if (i < nm.ConnectedClientsList.Count - 1) sb.Append(", ");
+            }
+            sb.AppendLine("]");
+
+            sb.AppendLine($"sceneMgr={(nm.SceneManager != null ? "OK" : "NULL")}"
+);
+        }
+
+        var cfg = GameConfigNet.Instance;
+        sb.AppendLine($"  GameConfigNet.Instance={(cfg ? cfg.name : "NULL")} cfgIsSpawned={(cfg != null && cfg.IsSpawned)}");
+
+        sb.AppendLine($"  lobbyState={(lobbyState ? lobbyState.name : "NULL")} lobbyIsSpawned={(lobbyState != null && lobbyState.IsSpawned)}");
+        if (lobbyState != null && lobbyState.IsSpawned)
+            sb.AppendLine($"  lobbyState.SessionFull={lobbyState.SessionFull.Value}");
+
+        sb.AppendLine($"  lobbySkinUI={(lobbySkinUI ? lobbySkinUI.name : "NULL")}");
+        sb.AppendLine($"  hostButtonsPanel={(hostButtonsPanel ? hostButtonsPanel.name : "NULL")} active={(hostButtonsPanel ? hostButtonsPanel.activeSelf : false)}");
+
+        Debug.Log(sb.ToString());
+    }
+
+    private void DLog(string msg)
+    {
+        if (!verboseLogs) return;
+        Debug.Log($"[HostStartGame] {msg} (scene={SceneManager.GetActiveScene().name}, obj={name})");
     }
 }

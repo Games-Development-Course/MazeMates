@@ -168,6 +168,7 @@ GameObject:
   - component: {fileID: -7310201693615798424}
   - component: {fileID: 812666467661358761}
   - component: {fileID: -3749713177943513436}
+  - component: {fileID: 6894894911927113548}
   m_Layer: 14
   m_Name: NormalDoor
   m_TagString: Door
@@ -263,6 +264,18 @@ MonoBehaviour:
   volume: 0.824
   startAngleThreshold: 0.25
   pivot: {fileID: 0}
+--- !u!114 &6894894911927113548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7787760578137105844}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 841ade143a04e444d92528a648288df9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ForceDestroyWithScene
 --- !u!1 &8179707427145693495
 GameObject:
   m_ObjectHideFlags: 0

@@ -1681,8 +1681,11 @@ GameObject:
   - component: {fileID: 2597093558159200488}
   - component: {fileID: 2228604304566687000}
   - component: {fileID: 5237550246597210494}
+  - component: {fileID: 7483319741896441841}
+  - component: {fileID: 6446312494292154084}
+  - component: {fileID: 748101267709533942}
   m_Layer: 0
-  m_Name: NewTraveller
+  m_Name: PlayerPrefab
   m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1749,7 +1752,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2030793351
+  GlobalObjectIdHash: 926584982
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -2120,6 +2123,68 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   outsideLayer: NavigatorOutside
   insideLayer: NavigatorInside
+--- !u!114 &7483319741896441841
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2864662255250911286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 841ade143a04e444d92528a648288df9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+--- !u!114 &6446312494292154084
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2864662255250911286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95dc5558b214e5148b87bafc9dab4b78, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  ShowTopMostFoldoutHeaderGroup: 1
+  renderersToGlow:
+  - {fileID: 7721456548619043401}
+  - {fileID: 6420464990590328580}
+  - {fileID: 8122857790805509528}
+  - {fileID: 6795297133386988998}
+  - {fileID: 4831599008278713427}
+  - {fileID: 44216391529195609}
+  - {fileID: 8136443154998063360}
+  - {fileID: 4521576287097338491}
+  - {fileID: 4595102787086894771}
+  - {fileID: 967629943921861846}
+  - {fileID: 5811210155061829136}
+  - {fileID: 2860173443292400093}
+  - {fileID: 6727187267477894471}
+  - {fileID: 6727187267477894471}
+  - {fileID: 1745533810396725752}
+  - {fileID: 9006818098623356904}
+  - {fileID: 2476893784396653624}
+  - {fileID: 8504137601669127026}
+  travellerEmission: {r: 0, g: 1, b: 0, a: 1}
+  navigatorEmission: {r: 1, g: 0, b: 0, a: 1}
+  intensity: 0.75
+--- !u!114 &748101267709533942
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2864662255250911286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 526d4e74cdf3e1e40a6f30809a18ec6b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  ShowTopMostFoldoutHeaderGroup: 1
+  TransitionStateInfoList: []
+  m_Animator: {fileID: 7508032283558191264}
 --- !u!1 &3048801276893538600
 GameObject:
   m_ObjectHideFlags: 0

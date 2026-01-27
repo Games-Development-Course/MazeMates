@@ -70,8 +70,6 @@ public sealed class PuzzleDoor : IDoor
         puzzleOpenLocal = true;
         solvedLocal = false;
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
     }
 
     // Called when stepping off pad / cancel
@@ -302,8 +300,7 @@ public sealed class PuzzleDoor : IDoor
             if (gm.activePuzzleDoor == controller) gm.activePuzzleDoor = null;
         }
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+
     }
 
     private static TravellerHUD FindTravellerHUD()

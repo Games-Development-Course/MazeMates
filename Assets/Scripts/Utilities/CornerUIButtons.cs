@@ -534,6 +534,8 @@ public class CornerUIButtons : MonoBehaviour
 
     private void OpenPause()
     {
+        if (IsPauseLocked()) return;
+
         ResolveAllRefs(force: false);
 
         if (!IsInGameScene()) return;
@@ -552,11 +554,22 @@ public class CornerUIButtons : MonoBehaviour
         if (pauseWindow) pauseWindow.SetActive(false);
     }
 
-    private void OnPauseReplayClicked() => AskLocalConfirm(PauseConsensus.PauseAction.ReplayLevel);
-    private void OnPauseLevelsClicked() => AskLocalConfirm(PauseConsensus.PauseAction.GoToLevels);
+    private void OnPauseReplayClicked()
+    {
+        if (IsPauseLocked()) return;
 
+        AskLocalConfirm(PauseConsensus.PauseAction.ReplayLevel);
+    }
+    private void OnPauseLevelsClicked()
+    {
+        if (IsPauseLocked()) return;
+
+        AskLocalConfirm(PauseConsensus.PauseAction.GoToLevels);
+    }
     private void AskLocalConfirm(PauseConsensus.PauseAction action)
     {
+        if (IsPauseLocked()) return;
+
         _waitingPeerDecision = false;
         if (_closeConfirmCo != null) { StopCoroutine(_closeConfirmCo); _closeConfirmCo = null; }
         if (confirmYesButton) confirmYesButton.interactable = true;
@@ -594,6 +607,7 @@ public class CornerUIButtons : MonoBehaviour
 
     private void OnConfirmNo()
     {
+        if (IsPauseLocked()) return;
         _waitingPeerDecision = false;
         SetConfirmButtonsInteractable(true);
 
@@ -607,23 +621,26 @@ public class CornerUIButtons : MonoBehaviour
     }
 
     // ✅ שינוי: לא סוגרים - כותבים "מחכה..." ונועלים כפתורים
-  private void OnConfirmYes()
-{
-    if (_waitingPeerDecision) return;
+    private void OnConfirmYes()
+    {
+        if (_waitingPeerDecision) return;
 
-    _waitingPeerDecision = true;
+        _waitingPeerDecision = true;
 
-    if (confirmText)
-        confirmText.text = "מחכה לאישור מהשחקן השני...";
+        if (pauseWindow) pauseWindow.SetActive(false); // ✅ נועל את הזרימה
 
-    if (confirmYesButton) confirmYesButton.interactable = false;
-    if (confirmNoButton) confirmNoButton.interactable = false;
+        if (confirmText)
+            confirmText.text = "מחכה לאישור מהשחקן השני...";
 
-    if (PauseConsensus.Instance != null)
-        PauseConsensus.Instance.RequestAction(_pendingLocalAction);
-    else
-        Debug.LogError("[PauseUI] PauseConsensus.Instance is NULL.");
-}
+        if (confirmYesButton) confirmYesButton.interactable = false;
+        if (confirmNoButton) confirmNoButton.interactable = false;
+
+        if (PauseConsensus.Instance != null)
+            PauseConsensus.Instance.RequestAction(_pendingLocalAction);
+        else
+            Debug.LogError("[PauseUI] PauseConsensus.Instance is NULL.");
+    }
+
     public void OnLocalRequestDenied(PauseConsensus.PauseAction action)
     {
         if (confirmWindow == null) return;
@@ -644,6 +661,8 @@ public class CornerUIButtons : MonoBehaviour
     private IEnumerator CloseConfirmAfterSeconds(float seconds)
     {
         yield return new WaitForSeconds(seconds);
+        _waitingPeerDecision = false;
+
 
         if (confirmWindow) confirmWindow.SetActive(false);
 
@@ -657,6 +676,8 @@ public class CornerUIButtons : MonoBehaviour
     // נקרא ע"י PauseConsensus אצל השחקן השני
     public void ShowPeerRequest(PauseConsensus.PauseAction action)
     {
+        if (IsPauseLocked()) return;
+
         _pendingLocalAction = action;
 
         if (peerRequestText)
@@ -732,6 +753,7 @@ public class CornerUIButtons : MonoBehaviour
         if (confirmNoButton) confirmNoButton.interactable = on;
     }
 
+    private bool IsPauseLocked() => _waitingPeerDecision;
 
 
 
