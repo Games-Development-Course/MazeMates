@@ -129,7 +129,7 @@ public sealed class GameConfigNet : NetworkBehaviour
 
         Difficulty.Value = 0;
         Lives.Value = 3;
-        BombRemovals.Value = 0;
+        BombRemovals.Value = 1;
         Hints.Value = 1;
     }
 
