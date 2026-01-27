@@ -76,6 +76,9 @@ public class CornerUIButtons : MonoBehaviour
     [SerializeField] private TMP_Text toastText;
     [SerializeField] private float toastSeconds = 2.5f;
 
+   [Header("Win Screen")]
+    [SerializeField] private GameObject WinWindow;     // PopupWindows/WinWindow (או השם אצלך)
+    [SerializeField] private Button ReturnToLevels;   // WinWindow/PlayAgain (או השם אצלך)
     private PauseConsensus.PauseAction _pendingLocalAction;
     private Coroutine _toastCo;
 
@@ -256,6 +259,17 @@ public class CornerUIButtons : MonoBehaviour
                 if (force || peerNoButton == null) peerNoButton = FindButton(peerRequestWindow.transform, "No");
                 if (force || peerRequestText == null) peerRequestText = FindTMPByContains(peerRequestWindow.transform, "Text");
             }
+            if (force || WinWindow == null)
+                WinWindow = FindChildGO(_popupRoot, "WinWindow"); // שנה אם השם אחר
+
+            if (WinWindow != null)
+            {
+                if (force || ReturnToLevels == null)
+                    ReturnToLevels = FindButton(WinWindow.transform, "ReturnToLevels"); // שנה אם השם אחר
+            }
+
+
+
         }
 
         // RoomCodeScreen (לפי ההיררכיה שלך הוא תחת ה-HUD, לא תחת PopupWindows)
@@ -843,4 +857,63 @@ public class CornerUIButtons : MonoBehaviour
         }
         return sb.ToString();
     }
+    public void ToggleWinScreen()
+    {
+        ResolveAllRefs(force: false);
+
+        if (WinWindow == null)
+        {
+            Debug.LogError($"[CornerUIButtons] ToggleWinScreen: winWindow is NULL. popupRoot={(_popupRoot ? GetFullPath(_popupRoot) : "NULL")}");
+            return;
+        }
+
+        bool next = !WinWindow.activeSelf;
+        WinWindow.SetActive(next);
+
+        if (next)
+            ForceUIInteractive(WinWindow);
+        Debug.Log($"[CornerUIButtons][ToggleWinScreen] winWindow={GetFullPath(WinWindow.transform)} next={next}");
+    }
+    // === Win Screen API (instance) ===
+    public void SetWinScreen(bool open)
+    {
+        ResolveAllRefs(force: false);
+
+        if (WinWindow == null)
+        {
+            Debug.LogError($"[CornerUIButtons] SetWinScreen: winWindow is NULL on {GetFullPath(transform)}");
+            return;
+        }
+
+        WinWindow.SetActive(open);
+
+        if (open)
+            ForceUIInteractive(WinWindow);
+    }
+    // === Broadcast to BOTH HUDs (Traveller + Navigator) ===
+    public static void ResolveAllRefsForBothPlayers(bool force)
+    {
+    #if UNITY_6000_0_OR_NEWER
+        var uis = FindObjectsByType<CornerUIButtons>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+    #else
+        var uis = Object.FindObjectsOfType<CornerUIButtons>(true);
+    #endif
+        foreach (var ui in uis)
+            if (ui != null)
+                ui.ResolveAllRefs(force);
+    }
+
+    public static void SetWinScreenForBothPlayers(bool open)
+    {
+    #if UNITY_6000_0_OR_NEWER
+        var uis = FindObjectsByType<CornerUIButtons>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+    #else
+        var uis = Object.FindObjectsOfType<CornerUIButtons>(true);
+    #endif
+        foreach (var ui in uis)
+            if (ui != null)
+                ui.SetWinScreen(open);
+    }
+
+
 }

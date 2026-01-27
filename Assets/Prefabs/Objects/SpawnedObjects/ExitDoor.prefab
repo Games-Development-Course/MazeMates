@@ -1372,6 +1372,7 @@ GameObject:
   - component: {fileID: -4360342995708607037}
   - component: {fileID: 6797480827756528641}
   - component: {fileID: 5580334502023404487}
+  - component: {fileID: -6350795833086410763}
   m_Layer: 14
   m_Name: ExitDoor
   m_TagString: Door
@@ -1520,3 +1521,18 @@ MonoBehaviour:
   pivot: {fileID: 8891580112988688947}
   allowReplay: 1
   stillFramesToRearm: 45
+--- !u!114 &-6350795833086410763
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8559443613435696601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b816b799b7d74c0f97f95beca5f8085, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WinScreenTrigger
+  cornerUI: {fileID: 0}
+  onlyOnce: 1
+  winButton: {fileID: 0}
