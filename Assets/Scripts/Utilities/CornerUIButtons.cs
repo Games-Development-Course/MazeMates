@@ -816,7 +816,20 @@ public class CornerUIButtons : MonoBehaviour
             cg.blocksRaycasts = true;
         }
     }
+    [Header("Navigation")]
+    [SerializeField] private string levelsSceneName = "LevelsScene"; // שנה לשם הסצנה שלך
 
+    public void Replay()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    public void GoToLevels()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(levelsSceneName);
+    }
     // ============================================================
     // Helpers
     // ============================================================

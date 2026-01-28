@@ -2,6 +2,13 @@
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+public enum FlowState : byte
+{
+    DifficultySelect,
+    Skins,
+    ReadyToStart,
+    InGame
+}
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NetworkObject))]

@@ -52,6 +52,8 @@ public sealed class PlayerSpawnManager : MonoBehaviour
     private ulong _travellerClientId = ulong.MaxValue;
     private ulong _navigatorClientId = ulong.MaxValue;
 
+    private Coroutine _pushIdsCo;
+
     private void Awake()
     {
         var root = transform.root.gameObject;
@@ -92,6 +94,8 @@ public sealed class PlayerSpawnManager : MonoBehaviour
 
         if (nm.SceneManager != null)
             nm.SceneManager.OnLoadEventCompleted -= OnNetcodeLoadEventCompleted;
+
+        if (_pushIdsCo != null) { StopCoroutine(_pushIdsCo); _pushIdsCo = null; }
     }
 
     private void OnServerStarted()
@@ -192,20 +196,16 @@ public sealed class PlayerSpawnManager : MonoBehaviour
 
         ids.Sort();
 
-        // If traveller not assigned or disconnected -> assign smallest id
         if (_travellerClientId == ulong.MaxValue || !nm.ConnectedClients.ContainsKey(_travellerClientId))
             _travellerClientId = ids[0];
 
-        // Navigator is the first id that isn't traveller
         _navigatorClientId = ids.FirstOrDefault(id => id != _travellerClientId);
         if (_navigatorClientId == 0 && _travellerClientId == 0)
         {
-            // If only traveller exists, FirstOrDefault returns 0 -> treat as "none"
             if (ids.Count < 2)
                 _navigatorClientId = ulong.MaxValue;
         }
 
-        // Fallback safety: if something weird happens, keep old behavior
         if (_travellerClientId == ulong.MaxValue)
             _travellerClientId = NetworkManager.ServerClientId;
     }
@@ -213,7 +213,6 @@ public sealed class PlayerSpawnManager : MonoBehaviour
     // -------------------------------------------------
     // Spawn resolution
     // -------------------------------------------------
-
     private void ResolvePlayerStartPoints(string sceneName)
     {
         travellerSpawn = null;
@@ -282,30 +281,6 @@ public sealed class PlayerSpawnManager : MonoBehaviour
     // -------------------------------------------------
     // Spawn / Teleport
     // -------------------------------------------------
-    private void RegisterPlayersInGameManager(ulong travellerId, ulong? navigatorId)
-    {
-
-        var nm = NetworkManager.Singleton;
-        if (nm == null || !nm.IsServer) return;
-
-        var gm = GameManager.Instance;
-        if (gm == null) return;
-
-        if (nm.ConnectedClients.TryGetValue(travellerId, out var tClient) && tClient.PlayerObject != null)
-            gm.traveller = tClient.PlayerObject.gameObject;
-
-        if (navigatorId.HasValue &&
-            nm.ConnectedClients.TryGetValue(navigatorId.Value, out var nClient) &&
-            nClient.PlayerObject != null)
-        {
-            gm.navigator = nClient.PlayerObject.gameObject;
-        }
-
-        var tPos = gm.traveller ? gm.traveller.transform.position : Vector3.zero;
-        var nPos = gm.navigator ? gm.navigator.transform.position : Vector3.zero;
-        Debug.Log($"[SPAWN] RegisterPlayersInGameManager | traveller={(gm.traveller ? gm.traveller.name : "NULL")} pos={tPos} | navigator={(gm.navigator ? gm.navigator.name : "NULL")} pos={nPos}");
-    }
-
     private void SpawnOrMoveAllPlayers()
     {
         var nm = NetworkManager.Singleton;
@@ -325,7 +300,8 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         if (hasNavigator)
             EnsurePlayer(navigatorId, navigatorPrefab, navigatorSpawn, false);
 
-        RegisterPlayersInGameManager(travellerId, hasNavigator ? navigatorId : (ulong?)null);
+        // ✅ Push unique NetIds into GameManager for ID-based resolution/locking
+        PushPlayerNetIdsToGameManager(travellerId, hasNavigator ? (ulong?)navigatorId : null);
     }
 
     private void EnsureOnlyThisClient(ulong clientId)
@@ -343,6 +319,10 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         var spawn = isTraveller ? travellerSpawn : navigatorSpawn;
 
         EnsurePlayer(clientId, prefab, spawn, isTraveller);
+
+        // ✅ After ensuring this client, refresh IDs too (safe)
+        bool hasNavigator = _navigatorClientId != ulong.MaxValue && nm.ConnectedClientsIds.Contains(_navigatorClientId);
+        PushPlayerNetIdsToGameManager(_travellerClientId, hasNavigator ? (ulong?)_navigatorClientId : null);
     }
 
     private void EnsurePlayer(
@@ -389,7 +369,6 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         }
 
         ApplyRoleIfPresent(netObj, isTraveller);
-
         netObj.SpawnAsPlayerObject(clientId, destroyWithScene);
     }
 
@@ -432,13 +411,10 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         if (obj == null) return;
 
         var nt = obj.GetComponent<NetworkTransform>();
-        if (nt != null)
+        if (nt != null && nt.CanCommitToTransform)
         {
-            if (nt.CanCommitToTransform)
-            {
-                nt.Teleport(pos, rot, obj.transform.localScale);
-                return;
-            }
+            nt.Teleport(pos, rot, obj.transform.localScale);
+            return;
         }
 
         obj.transform.SetPositionAndRotation(pos, rot);
@@ -466,5 +442,54 @@ public sealed class PlayerSpawnManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    // -------------------------------------------------
+    // ✅ Push NetIds to GameManager (ID-based resolve)
+    // -------------------------------------------------
+    private void PushPlayerNetIdsToGameManager(ulong travellerClientId, ulong? navigatorClientId)
+    {
+        var nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer) return;
+
+        if (_pushIdsCo != null) { StopCoroutine(_pushIdsCo); _pushIdsCo = null; }
+        _pushIdsCo = StartCoroutine(PushIdsWhenReady(travellerClientId, navigatorClientId));
+    }
+
+    private IEnumerator PushIdsWhenReady(ulong travellerClientId, ulong? navigatorClientId)
+    {
+        // Wait a few frames for GameManager to exist + be spawned in the gameplay scene
+        for (int i = 0; i < 120; i++)
+        {
+            var gm = GameManager.Instance;
+            if (gm != null && gm.IsSpawned && gm.IsServer)
+            {
+                var nm = NetworkManager.Singleton;
+                if (nm == null) yield break;
+
+                if (!nm.ConnectedClients.TryGetValue(travellerClientId, out var tClient) || tClient.PlayerObject == null)
+                    yield break;
+
+                ulong travellerNetObjId = tClient.PlayerObject.NetworkObjectId;
+
+                ulong navigatorNetObjId = 0;
+                if (navigatorClientId.HasValue &&
+                    nm.ConnectedClients.TryGetValue(navigatorClientId.Value, out var nClient) &&
+                    nClient.PlayerObject != null)
+                {
+                    navigatorNetObjId = nClient.PlayerObject.NetworkObjectId;
+                }
+
+                if (navigatorNetObjId != 0)
+                    gm.SetPlayersNetIdsServer(travellerNetObjId, navigatorNetObjId);
+
+                _pushIdsCo = null;
+                yield break;
+            }
+
+            yield return null;
+        }
+
+        _pushIdsCo = null;
     }
 }

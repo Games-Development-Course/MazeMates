@@ -9,7 +9,7 @@ public class HUDManager : MonoBehaviour
     public TravellerHUD Traveller;
     public NavigatorHUD Navigator;
 
-    public float defaultMessageDuration = 2f;
+    public float defaultMessageDuration = 3f;
     public float HideDuration = 0.6f;
     [SerializeField] private Color forcedMessageColor = Color.white;
 
