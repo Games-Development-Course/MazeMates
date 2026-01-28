@@ -43,7 +43,8 @@ public class PauseConsensus : NetworkBehaviour
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
     }
-
+    public void RequestGoToLevels() => RequestAction(PauseAction.GoToLevels);
+    public void RequestReplay() => RequestAction(PauseAction.ReplayLevel);
     public override void OnDestroy()
     {
         base.OnDestroy();
@@ -100,7 +101,6 @@ public class PauseConsensus : NetworkBehaviour
             Send = new ClientRpcSendParams { TargetClientIds = new[] { other } }
         });
     }
-
     public void RespondToPeerRequest(bool accept)
     {
         RespondServerRpc(accept);

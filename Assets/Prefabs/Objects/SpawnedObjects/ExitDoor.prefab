@@ -1515,8 +1515,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c81acbca62a445dabc8a07ff436a60, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorOpenSfx
-  openClip: {fileID: 8300000, guid: 8048068539a86ff4d811ba71aceb3558, type: 3}
-  volume: 0.506
+  openClip: {fileID: 8300000, guid: f7025fbc99e0b5140a5d860aa1af95f6, type: 3}
+  volume: 0.161
   startAngleThreshold: 0.25
   pivot: {fileID: 8891580112988688947}
   allowReplay: 1
@@ -1533,6 +1533,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b816b799b7d74c0f97f95beca5f8085, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WinScreenTrigger
-  cornerUI: {fileID: 0}
-  onlyOnce: 1
-  winButton: {fileID: 0}
+  ShowTopMostFoldoutHeaderGroup: 1

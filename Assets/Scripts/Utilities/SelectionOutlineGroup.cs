@@ -6,6 +6,9 @@ public class SelectionOutlineGroup : MonoBehaviour
     [Header("Assign the 4 Outlines here (order = buttons order)")]
     [SerializeField] private Outline[] outlines;
 
+    [Header("Optional: the selection buttons (to disable interaction after start)")]
+    [SerializeField] private Button[] selectionButtons;
+
     [Header("Outline distance")]
     [SerializeField] private Vector2 normalDistance = new Vector2(4f, 4f);
     [SerializeField] private Vector2 selectedDistance = new Vector2(9f, 9f);
@@ -23,16 +26,15 @@ public class SelectionOutlineGroup : MonoBehaviour
 
     public void SelectIndex(int index)
     {
-        if (_locked) return;   
+        if (_locked) return;
         ApplySelection(index);
     }
 
     private void ApplySelection(int index)
     {
         if (outlines == null || outlines.Length == 0)
-        {
             return;
-        }
+
         if (index < -1) index = -1;
         if (index >= outlines.Length) index = outlines.Length - 1;
 
@@ -47,25 +49,46 @@ public class SelectionOutlineGroup : MonoBehaviour
         }
     }
 
-    // Optional helper if you ever want to clear selection from code
     public void ClearSelection()
     {
         if (_locked) return;
         ApplySelection(-1);
     }
 
-    // ✅ חבר את זה לכפתור "נעל בחירה"
-    public void LockSelection()
+    /// <summary>
+    /// ✅ חבר את זה ל-OnClick של כפתור "Start/התחל".
+    /// נועל את הבחירה על מה שנבחר כרגע.
+    /// </summary>
+    public void OnStartPressed()
     {
         _locked = true;
+
+        // Optional: also disable the selection buttons so it feels "locked"
+        if (selectionButtons != null && selectionButtons.Length > 0)
+        {
+            for (int i = 0; i < selectionButtons.Length; i++)
+            {
+                if (selectionButtons[i] != null)
+                    selectionButtons[i].interactable = false;
+            }
+        }
     }
 
-    // (אופציונלי) אם תרצה כפתור "פתח נעילה"
+    // (אופציונלי) אם תרצה לפתוח נעילה מקוד/דיבאג
     public void UnlockSelection()
     {
         _locked = false;
+
+        if (selectionButtons != null && selectionButtons.Length > 0)
+        {
+            for (int i = 0; i < selectionButtons.Length; i++)
+            {
+                if (selectionButtons[i] != null)
+                    selectionButtons[i].interactable = true;
+            }
+        }
     }
 
-    // (אופציונלי) כדי לדעת בקוד אם נעול
     public bool IsLocked => _locked;
+    public int SelectedIndex => _selectedIndex;
 }

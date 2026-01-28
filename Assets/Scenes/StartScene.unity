@@ -1053,7 +1053,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 296df81a8de231441948b0efefcd41de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HostStartGame
-  tutorialSceneName: GameScene
+  tutorialSceneName: TutorialScene
   gameSceneName: GameScene
   tutorialLoadsGameScene: 1
   hostButtonsPanel: {fileID: 746529167}
@@ -2312,6 +2312,11 @@ MonoBehaviour:
   peerNoButton: {fileID: 0}
   toastText: {fileID: 0}
   toastSeconds: 2.5
+  WinWindow: {fileID: 0}
+  ReturnToLevels: {fileID: 0}
+  loseWindow: {fileID: 0}
+  loseReplayButton: {fileID: 0}
+  loseLevelsButton: {fileID: 0}
 --- !u!1 &445705553
 GameObject:
   m_ObjectHideFlags: 0
@@ -5464,7 +5469,7 @@ MonoBehaviour:
         m_CallState: 2
       - m_Target: {fileID: 1778278499}
         m_TargetAssemblyTypeName: SelectionOutlineGroup, Assembly-CSharp
-        m_MethodName: LockSelection
+        m_MethodName: OnStartPressed
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -9997,6 +10002,7 @@ MonoBehaviour:
   - {fileID: 1854413554}
   - {fileID: 835892460}
   - {fileID: 642895622}
+  selectionButtons: []
   normalDistance: {x: 2, y: -2}
   selectedDistance: {x: 7, y: -7}
   defaultSelectedIndex: 0

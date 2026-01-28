@@ -132,7 +132,6 @@ public class PickupObject : NetworkBehaviour
         var gm = GameManager.Instance;
         var hud = HUDManager.Instance;
 
-        bool gameOver = false;
         string finalMessage = customMessage;
 
         // bomb spotlight off (server) before despawn
@@ -143,6 +142,8 @@ public class PickupObject : NetworkBehaviour
                 bt.ForceOff_Server();
         }
 
+        bool shouldRespawn = pickedByTraveller;
+
         switch (type)
         {
             case PickupType.Heart:
@@ -152,10 +153,10 @@ public class PickupObject : NetworkBehaviour
                 break;
 
             case PickupType.Key:
-                // ✅ IMPORTANT: keys are networked -> add on server (authoritative)
+                // keys are networked -> add on server (authoritative)
                 if (gm != null) gm.AddKeys(1);
                 if (string.IsNullOrWhiteSpace(finalMessage))
-                    finalMessage = gm.AllKeysCollected()
+                    finalMessage = gm != null && gm.AllKeysCollected()
                         ? "יש לכם את כל המפתחות! לכו ליציאה."
                         : "אספת מפתח!";
                 break;
@@ -174,34 +175,29 @@ public class PickupObject : NetworkBehaviour
 
                 bool inTutorial = IsInTutorialContextOnServer();
 
-                if (gm != null) gm.lives--;
-
-                bool shouldRespawn = pickedByTraveller;
-
-                if (gm != null && gm.lives <= 0)
+                if (gm != null)
                 {
                     if (inTutorial)
                     {
-                        gm.lives = 1; // prevent death in tutorial
-                        if (shouldRespawn && TryGetLevelTravellerStart(out var pos, out var rot))
-                            TryBombResetTeleportTo(playerNo, pos, rot);
+                        // prevent death in tutorial
+                        gm.lives = Mathf.Max(1, gm.lives - 1);
+                        HUDManager.Instance?.UpdateHUD();
                     }
                     else
                     {
-                        gameOver = true;
-                        ShowLoseClientRpc();
+                        // ✅ IMPORTANT: Let GameManager handle game-over + ClientRpc from a stable object
+                        gm.DamageNavigatorLivesServerRpc(1);
                     }
                 }
-                else
-                {
-                    if (shouldRespawn && TryGetLevelTravellerStart(out var pos2, out var rot2))
-                        TryBombResetTeleportTo(playerNo, pos2, rot2);
-                }
+
+                // Respawn traveller if needed (only traveller gets teleported)
+                if (shouldRespawn && TryGetLevelTravellerStart(out var pos, out var rot))
+                    TryBombResetTeleportTo(playerNo, pos, rot);
+
                 break;
         }
 
-        // ✅ Mirror ONLY non-networked fields to clients.
-        // Keys are already synced via NetworkVariable in GameManager.
+        // Mirror ONLY non-networked fields to clients (keys handled by NetworkVariable in GM)
         if (gm != null)
         {
             ApplyPickupClientRpc(
@@ -210,8 +206,7 @@ public class PickupObject : NetworkBehaviour
                 messageColor,
                 messageDuration,
                 gm.lives,
-                gm.lifebuoys,
-                gameOver
+                gm.lifebuoys
             );
         }
 
@@ -319,19 +314,16 @@ public class PickupObject : NetworkBehaviour
         Color color,
         float duration,
         int lives,
-        int lifebuoys,
-        bool gameOver
+        int lifebuoys
     )
     {
         var hud = HUDManager.Instance;
         var gm = GameManager.Instance;
         if (hud == null || gm == null) return;
 
-        // ✅ Only mirror non-networked fields.
+        // Mirror non-networked fields
         gm.lives = lives;
         gm.lifebuoys = lifebuoys;
-
-        // ✅ DO NOT set gm.keys here (keys is NetworkVariable now)
 
         if (!string.IsNullOrEmpty(msg))
         {
@@ -343,9 +335,6 @@ public class PickupObject : NetworkBehaviour
             hud.FlashTravellerLife();
 
         hud.UpdateHUDs();
-
-        if (gameOver)
-            gm.EndLevel();
     }
 
     // ============================================================
@@ -382,10 +371,5 @@ public class PickupObject : NetworkBehaviour
 
         Debug.LogWarning("[PickupObject] No PlayerStartPoint(Role.Traveller) found in this scene.");
         return false;
-    }
-    [ClientRpc]
-    private void ShowLoseClientRpc()
-    {
-        CornerUIButtons.SetLoseScreenForBothPlayers(true);
     }
 }
